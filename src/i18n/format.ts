@@ -67,22 +67,26 @@ function superscript(exponent: number): string {
 export function formatSignificant(value: number, significant: number, language: Language): string {
   if (!Number.isFinite(value)) return '—';
   if (value === 0) return '0';
-  const magnitude = Math.floor(Math.log10(Math.abs(value)));
+  // toExponential rounds first, so a mantissa that rounds up to ten is carried into the
+  // exponent (9.996 × 10⁶ to three figures is 1.00 × 10⁷, never 10.00 × 10⁶)
+  const [mantissa, exponent] = value.toExponential(Math.max(0, significant - 1)).split('e');
+  const magnitude = Number(exponent);
   if (magnitude < -3 || magnitude >= 6) {
-    const mantissa = value / 10 ** magnitude;
-    return `${formatFixed(mantissa, Math.max(0, significant - 1), language)} × 10${superscript(magnitude)}`;
+    return `${formatFixed(Number(mantissa), Math.max(0, significant - 1), language)} × 10${superscript(magnitude)}`;
   }
   const digits = Math.max(0, significant - 1 - magnitude);
   return formatFixed(value, digits, language, magnitude >= 4);
 }
 
 /**
- * β with as many decimals as it takes to keep the last significant "nine" visible:
- * 0.5 → 0.5000, 0.99 → 0.9900, 0.99999 → 0.99999.
+ * β with as many decimals as it takes to keep two significant figures of the gap 1 − β:
+ * 0.5 → 0.5000, 0.99 → 0.9900, 0.9999 → 0.99990, 0.99995 → 0.999950, 0.99999 → 0.999990.
  */
 export function formatBeta(beta: number, language: Language): string {
   const gap = 1 - beta;
-  const digits = gap >= 1e-3 || beta === 0 ? 4 : Math.min(7, Math.ceil(-Math.log10(gap)) + 1);
+  // 1 − 0.9999 is a rounding error below 10⁻⁴ in binary; the margin keeps such values in their own decade
+  const nines = Math.ceil(-Math.log10(gap) - 1e-9);
+  const digits = gap >= 1e-3 || beta === 0 ? 4 : Math.min(7, nines + 1);
   return formatFixed(beta, digits, language);
 }
 

@@ -196,13 +196,34 @@ describe('formatSignificant', () => {
   });
 
   it('carries into the next decade when the last figure rounds up', () => {
-    // 9.996 to three figures is ten, not 9.99. Only the value is asserted: how many
-    // figures the carried string shows is deliberately left open.
+    // 9.996 to three figures is ten, not 9.99
     for (const language of LANGUAGES) {
       expect(readBack(formatSignificant(9.996, 3, language), language)).toBe(10);
       expect(readBack(formatSignificant(99.96, 3, language), language)).toBe(100);
       expect(readBack(formatSignificant(0.0009996, 3, language), language)).toBe(0.001);
       expect(readBack(formatSignificant(9.996e6, 3, language), language)).toBe(1e7);
+    }
+    // and the carried number keeps its count of figures and a mantissa below ten
+    expect(formatSignificant(9.996, 3, 'en')).toBe('10.0');
+    expect(formatSignificant(99.96, 3, 'en')).toBe('100');
+    expect(formatSignificant(0.0009996, 3, 'en')).toBe('0.00100');
+    expect(formatSignificant(9.996e6, 3, 'en')).toBe('1.00 × 10⁷');
+    expect(formatSignificant(9.996e6, 3, 'tr')).toBe('1,00 × 10⁷');
+    expect(formatSignificant(9.99996e22, 4, 'en')).toBe('1.000 × 10²³');
+    // the case the dossier prints: 1 − β at the top of the range, to two figures
+    expect(formatSignificant(9.999999999954e-6, 2, 'en')).toBe('1.0 × 10⁻⁵');
+  });
+
+  it('never writes a mantissa of ten', () => {
+    for (let exponent = -30; exponent <= 30; exponent++) {
+      for (const mantissa of [9.4, 9.94, 9.95, 9.994, 9.995, 9.9994, 9.9995, 9.99999999]) {
+        for (const figures of [1, 2, 3, 4, 5]) {
+          for (const language of LANGUAGES) {
+            const text = formatSignificant(mantissa * 10 ** exponent, figures, language);
+            expect(/(^|[^\d.,])10([.,]0*)? × 10/.test(text), text).toBe(false);
+          }
+        }
+      }
     }
   });
 });
@@ -228,6 +249,20 @@ describe('formatBeta', () => {
         expect(text.startsWith('0'), text).toBe(true);
       }
     }
+  });
+
+  it('shows one decimal more than the leading nines, also where 1 − β is a rounding error off a power of ten', () => {
+    // 1 − 0.9999 and 1 − 0.99999 fall just below 10⁻⁴ and 10⁻⁵ in binary, 1 − 0.999 just above 10⁻³
+    expect(formatBeta(0.99, 'en')).toBe('0.9900');
+    expect(formatBeta(0.999, 'en')).toBe('0.9990');
+    expect(formatBeta(0.9999, 'en')).toBe('0.99990');
+    expect(formatBeta(BETA_MAX, 'en')).toBe('0.999990');
+    expect(formatBeta(BETA_MAX, 'tr')).toBe('0,999990');
+    // a marked velocity reads like the velocities just below it; one more decimal appears as soon as
+    // the gap drops below the power of ten, so that 1 − β always keeps two significant figures
+    expect(formatBeta(0.99989, 'en')).toBe('0.99989');
+    expect(formatBeta(0.99991, 'en')).toBe('0.999910');
+    expect(formatBeta(0.999985, 'en')).toBe('0.999985');
   });
 
   it('never reads as 1 and resolves 1 − β to within 5 % over the whole simulated range', () => {

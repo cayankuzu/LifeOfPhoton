@@ -637,7 +637,6 @@ describe('subdivideAdaptive: cracks', () => {
       // unevenly refined, or there would be nothing to go wrong
       expect(soup.count / 3).toBeGreaterThan(1000);
       expectWatertight(soup);
-      console.info(name, JSON.stringify(seams(soup)));
     });
   }
 
@@ -696,7 +695,6 @@ describe('subdivideAdaptive: safety limits', () => {
       expect(soup.count / 3).toBeLessThanOrEqual(maxTriangles + 3);
       // what there is, is still the whole surface
       expectSameSurface(input, soup);
-      console.info('budget', maxTriangles, soup.count / 3);
     }
     // a budget that is not needed changes nothing
     const roomy = subdivided(input, { ...RULE, maxTriangles: 2 * (unlimited.count / 3) });
@@ -721,7 +719,6 @@ describe('subdivideAdaptive: safety limits', () => {
     expect(worstEdgeRatio(byPasses, impossible)).toBeGreaterThan(1);
     const byBudget = subdivided(pierced, { ...impossible, maxPasses: 1000, maxTriangles: 2000 });
     expect(byBudget.count / 3).toBeLessThanOrEqual(2003);
-    console.info('impossible', byPasses.count / 3, worstEdgeRatio(byPasses, impossible), byBudget.count / 3);
   });
 
   it('accepts an empty soup', () => {
@@ -761,7 +758,8 @@ describe('weld', () => {
     expect(mesh.indices.length).toBe(soup.count);
     expect(mesh.vertices.length).toBe(mesh.vertexCount * STRIDE);
     expect(firstDifference(expand(mesh, STRIDE), soup.data)).toBe(-1);
-    console.info('weld street', soup.count, mesh.vertexCount, soup.count / mesh.vertexCount);
+    // welding cuts the vertex-shader work by the factor the doc comment of weld() promises
+    expect(soup.count / mesh.vertexCount).toBeGreaterThan(5);
   });
 
   it('merges vertices that agree in every attribute, and no others', () => {
@@ -812,7 +810,6 @@ describe('weld', () => {
     for (let i = 0; i < welded.length; i++) worst = Math.max(worst, Math.abs(welded[i] - soup.data[i]));
     // vertices are merged only if every attribute rounds to the same multiple of the quantum
     expect(worst).toBeLessThan(1e-4);
-    console.info('scattered', mesh.vertexCount, worst);
   });
 
   it('is idempotent', () => {
