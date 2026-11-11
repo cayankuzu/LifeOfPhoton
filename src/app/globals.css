@@ -2,38 +2,206 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens — an instrument panel, not a poster.
+ *
+ * One neutral ramp on matte obsidian and exactly three signal colours, each bound
+ * to one physical quantity everywhere it appears:
+ *   amber   velocity β
+ *   cryo    Lorentz factor γ and everything derived from it
+ *   violet  proper time τ
+ */
 :root {
   color-scheme: dark;
+
+  --obsidian: #05070a;
+  --panel: #0a0d12;
+  --panel-raised: #10141b;
+  --well: #070a0e;
+
+  --hairline: rgb(255 255 255 / 0.09);
+  --hairline-strong: rgb(255 255 255 / 0.17);
+
+  --ink: #e9ebef;
+  --ink-2: #aab2be;
+  --ink-3: #7d8795;
+
+  --amber: #f59e0b;
+  --amber-dim: #b9770a;
+  --cryo: #38bdf8;
+  --violet: #a78bfa;
+  --alarm: #f87171;
+
+  --radius: 6px;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 html,
 body {
   margin: 0;
-  padding: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #040711;
-  color: #f8fafc;
-  user-select: none;
+  overscroll-behavior: none;
+  background: var(--obsidian);
+  color: var(--ink);
+  font-family:
+    var(--font-sans),
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Subtle custom scrollbars */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+/* Numerals never change width while they count. */
+.tabular {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings:
+    'tnum' 1,
+    'zero' 1;
 }
 
-::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.4);
+/*
+ * Instrument label. Deliberately NOT upper-cased by CSS: labels carry physical
+ * symbols, and text-transform would turn γ into Γ and τ into Τ.
+ */
+.label {
+  font-family: var(--font-mono), ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.35);
-  border-radius: 9999px;
+.scene-surface {
+  cursor: grab;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(56, 189, 248, 0.65);
+.scene-surface[data-dragging='true'] {
+  cursor: grabbing;
+}
+
+/* One visible, consistent focus treatment for every control. */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+::selection {
+  background: rgb(245 158 11 / 0.3);
+  color: #fff;
+}
+
+/* Scrollbars inside panels */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.16);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb:hover {
+  background: rgb(255 255 255 / 0.3);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* Speed control: a native range input, restyled. */
+.throttle {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  background: transparent;
+  cursor: ew-resize;
+}
+
+.throttle::-webkit-slider-runnable-track {
+  height: 2px;
+  background: transparent;
+}
+
+.throttle::-moz-range-track {
+  height: 2px;
+  background: transparent;
+}
+
+.throttle::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 3px;
+  height: 22px;
+  margin-top: -10px;
+  border: 0;
+  border-radius: 1px;
+  background: var(--amber);
+  box-shadow: 0 0 0 4px rgb(245 158 11 / 0.14);
+}
+
+.throttle::-moz-range-thumb {
+  width: 3px;
+  height: 22px;
+  border: 0;
+  border-radius: 1px;
+  background: var(--amber);
+  box-shadow: 0 0 0 4px rgb(245 158 11 / 0.14);
+}
+
+.throttle:focus-visible {
+  outline: none;
+}
+
+.throttle:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 2px var(--obsidian),
+    0 0 0 4px var(--amber);
+}
+
+.throttle:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 2px var(--obsidian),
+    0 0 0 4px var(--amber);
+}
+
+/* KaTeX inherits the ink colour and sits a little smaller than the running text. */
+.katex {
+  font-size: 1.04em;
+}
+
+.katex-display {
+  margin: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

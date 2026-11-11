@@ -1,32 +1,47 @@
 {
   "name": "life-of-a-photon",
   "version": "1.0.0",
+  "description": "First-person visualisation of special relativity: aberration, Doppler shift and beaming seen while travelling along a night-time avenue at up to 0.99999 c.",
   "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.3",
     "@react-three/fiber": "^8.17.10",
     "katex": "^0.16.11",
     "lucide-react": "^0.454.0",
-    "next": "14.2.15",
+    "next": "14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.169.0"
   },
   "devDependencies": {
     "@types/katex": "^0.16.7",
-    "@types/node": "^20.17.0",
+    "@types/node": "^22.20.5",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.169.0",
     "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.35",
     "postcss": "^8.4.47",
+    "prettier": "^3.9.10",
+    "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^3.4.14",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^5.1.0"
   }
 }

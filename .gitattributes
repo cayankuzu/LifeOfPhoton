@@ -1,0 +1,7 @@
+# Text files are stored and checked out with LF line endings on every platform,
+# so that the formatter and the linter agree everywhere.
+* text=auto eol=lf
+
+*.glb binary
+*.png binary
+*.ico binary

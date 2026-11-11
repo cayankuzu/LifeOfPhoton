@@ -1,0 +1,134 @@
+/**
+ * Uniforms shared by every material of the scene, and the GPU copy of the
+ * spectral atlas. All scene constants are taken from src/physics/scenario.ts.
+ */
+
+import * as THREE from 'three';
+import { REFERENCE_LUMINANCE_CD_M2, SCENARIO } from '@/physics/scenario';
+import {
+  type SpectralAtlas,
+  ATLAS_ROW,
+  LINE_MAX_NM,
+  LINE_MIN_NM,
+  LN_DOPPLER_MAX,
+  LN_DOPPLER_MIN,
+  LN_TEMPERATURE_MAX,
+  LN_TEMPERATURE_MIN,
+  sampleAtlas,
+  temperatureCoordinate,
+} from '@/physics/spectralAtlas';
+import { CHUNKS_BEHIND, CHUNK_COUNT, CHUNK_LENGTH, ROAD_SURFACE_Y } from './geometry/layout';
+import { LUMINAIRE_FACE_LUMINANCE } from './geometry/lighting';
+
+/** Height of the observer's eye in world coordinates, m. */
+export const OBSERVER_Y = ROAD_SURFACE_Y + SCENARIO.camera.eyeHeight;
+
+/** Exposure at rest: places a white surface under the reference street lighting just below display white. */
+export const BASE_LN_EXPOSURE = Math.log(1.45);
+
+/** Distance behind the observer at which the rearmost block centre sits, m. */
+export const MODEL_BEHIND = CHUNKS_BEHIND * CHUNK_LENGTH + CHUNK_LENGTH / 2;
+export const MODEL_LENGTH = CHUNK_COUNT * CHUNK_LENGTH;
+
+/**
+ * The model is a finite sample of an endless avenue. It dissolves (by ordered
+ * dithering, in rest-frame distance along the avenue) before either end comes into
+ * view: between the two distances of each pair, m.
+ */
+const MODEL_AHEAD = MODEL_LENGTH - MODEL_BEHIND - CHUNK_LENGTH;
+export const FADE_AHEAD_START = MODEL_AHEAD - 55;
+export const FADE_AHEAD_END = MODEL_AHEAD - 6;
+export const FADE_BEHIND_START = MODEL_BEHIND - CHUNK_LENGTH - 26;
+export const FADE_BEHIND_END = MODEL_BEHIND - CHUNK_LENGTH - 4;
+
+/**
+ * Uploads the atlas as a half-float RGBA texture. Half floats are filterable in
+ * core WebGL 2 (32-bit floats need an extension that many mobile GPUs lack) and
+ * their 11-bit mantissa is ample for unit-luminance colours and log-luminances.
+ */
+export function createAtlasTexture(atlas: SpectralAtlas): THREE.DataTexture {
+  const half = new Uint16Array(atlas.data.length);
+  for (let i = 0; i < half.length; i++) half[i] = THREE.DataUtils.toHalfFloat(atlas.data[i]);
+  const texture = new THREE.DataTexture(half, atlas.width, atlas.rows, THREE.RGBAFormat, THREE.HalfFloatType);
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.generateMipmaps = false;
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+export type SceneUniforms = Record<string, THREE.IUniform>;
+
+/** Unit vector towards the Moon: azimuth measured from the direction of travel (−z) towards +x. */
+export function moonDirection(): THREE.Vector3 {
+  const azimuth = THREE.MathUtils.degToRad(SCENARIO.moon.azimuthDeg);
+  const elevation = THREE.MathUtils.degToRad(SCENARIO.moon.elevationDeg);
+  return new THREE.Vector3(
+    Math.sin(azimuth) * Math.cos(elevation),
+    Math.sin(elevation),
+    -Math.cos(azimuth) * Math.cos(elevation)
+  );
+}
+
+export function createSceneUniforms(atlas: SpectralAtlas, texture: THREE.DataTexture): SceneUniforms {
+  const blackbodyLn = (temperatureK: number): number =>
+    sampleAtlas(atlas, ATLAS_ROW.blackbody, temperatureCoordinate(temperatureK))[3];
+  const units = (luminanceCdM2: number): number => Math.log(luminanceCdM2 / REFERENCE_LUMINANCE_CD_M2);
+
+  const { moon, interior, environment, street, signals } = SCENARIO;
+
+  return {
+    // --- boost (updated every frame)
+    uOnePlusBeta: { value: 1 },
+    uOneMinusBeta: { value: 1 },
+    uGamma: { value: 1 },
+    uOptical: { value: 1 },
+    uThermal: { value: 1 },
+    uLnExposure: { value: BASE_LN_EXPOSURE },
+    // --- atlas
+    uAtlas: { value: texture },
+    uAtlasAxis: {
+      value: new THREE.Vector4(
+        LN_DOPPLER_MIN,
+        1 / (LN_DOPPLER_MAX - LN_DOPPLER_MIN),
+        LN_TEMPERATURE_MIN,
+        1 / (LN_TEMPERATURE_MAX - LN_TEMPERATURE_MIN)
+      ),
+    },
+    uLineAxis: { value: new THREE.Vector2(LINE_MIN_NM, 1 / (LINE_MAX_NM - LINE_MIN_NM)) },
+    // --- observer
+    uObserver: { value: new THREE.Vector3(0, OBSERVER_Y, 0) },
+    uEyeHeight: { value: OBSERVER_Y },
+    uOdometer: { value: 0 },
+    uGrid: { value: 0 },
+    uFadeAhead: { value: new THREE.Vector2(FADE_AHEAD_START, FADE_AHEAD_END) },
+    uFadeBehind: { value: new THREE.Vector2(FADE_BEHIND_START, FADE_BEHIND_END) },
+    uCoverage: { value: 0 },
+    // --- moonlight
+    uMoonDirection: { value: moonDirection() },
+    uMoonIrradiance: { value: moon.illuminanceLux / street.illuminanceLux },
+    uSkyFill: { value: 0.22 },
+    uMoonRadius: { value: THREE.MathUtils.degToRad(moon.angularRadiusDeg) },
+    uLnMoonT: { value: Math.log(moon.colourTemperatureK) },
+    uLnMoonDisc: { value: units(moon.luminanceCdM2) - blackbodyLn(moon.colourTemperatureK) },
+    // --- thermal emission
+    uLnAmbientT: { value: Math.log(environment.temperatureK) },
+    uLnEmissivity: { value: Math.log(environment.surfaceEmissivity) },
+    uLnSkyEmissivity: { value: Math.log(environment.skyEmissivity) },
+    // --- emitters
+    uLnWindowT: { value: Math.log(interior.colourTemperatureK) },
+    uLnWindow: { value: units(interior.windowLuminanceCdM2) - blackbodyLn(interior.colourTemperatureK) },
+    // the luminaire's face sends out exactly the light that the baked street lighting receives
+    uLnLuminaire: { value: Math.log(LUMINAIRE_FACE_LUMINANCE) },
+    uLnSignal: { value: units(signals.luminanceCdM2) },
+    uSignalNm: { value: new THREE.Vector3(signals.redNm, signals.amberNm, signals.greenNm) },
+    // --- night sky: light pollution at the zenith and the extra near the horizon, reference units
+    uSkyGlow: { value: new THREE.Vector2(0.0016, 0.02) },
+    // --- stars (updated every frame)
+    uPointSize: { value: 3 },
+    uLnStarNorm: { value: 0 },
+  };
+}
