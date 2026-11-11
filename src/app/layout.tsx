@@ -33,7 +33,15 @@ export const metadata: Metadata = {
     description,
     url: '/',
     siteName: 'Life of a Photon',
-    images: [{ url: '/opengraph-image.png', width: 1600, height: 900, alt: 'Life of a Photon' }],
+    images: [
+      {
+        url: '/opengraph-image.jpg',
+        width: 1600,
+        height: 900,
+        type: 'image/jpeg',
+        alt: 'Life of a Photon: 0,866 c hızında (γ = 2) bir gece caddesi; binalar öne doğru eğilmiş, sokak ışığı Doppler halkasına dönmüş, ileride ortamın ısıl ışıması parlıyor.',
+      },
+    ],
     locale: 'tr_TR',
     alternateLocale: ['en_US'],
     type: 'website',
@@ -42,7 +50,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title,
     description,
-    images: ['/opengraph-image.png'],
+    images: ['/opengraph-image.jpg'],
   },
 };
 

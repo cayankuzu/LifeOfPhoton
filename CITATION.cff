@@ -6,6 +6,7 @@ abstract: A first-person, physically based visualisation of what an observer wit
 authors:
   - name: cayankuzu
 repository-code: https://github.com/cayankuzu/LifeOfPhoton
+license: MIT
 version: 1.0.0
 date-released: 2026-11-11
 keywords:

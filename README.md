@@ -2,6 +2,8 @@
 
 # Life of a Photon
 
+![0,866 c hızında (γ = 2) bir gece caddesi · A night avenue at 0.866 c (γ = 2)](public/opengraph-image.jpg)
+
 <a name="tr"></a>
 
 ## Türkçe
@@ -332,18 +334,16 @@ Işık sapıncı, Doppler çarpanı ve ışınım parlaklığının dönüşüm�
 
 ### 10. Varlıklar ve lisanslar
 
-- **3B modeller.** `public/models` klasöründeki dosyalar UnityGLTF ile dışa aktarılmış glTF ikili dosyalarıdır (her dosyada kayıtlı üretici bilgisi budur); palet dokuları `public/models/Textures` klasöründedir. Dosya ve doku adları (`building-a`, `skyscraper-a`, `light-curved`, `colormap-commercial`, `colormap-roads`, `colormap-suburban` ve benzerleri), Kenney’nin (kenney.nl) CC0 1.0 ile yayımladığı kent model takımlarıyla örtüşür. Ancak depoda bu modellere ait bir lisans dosyası yoktur; kökenlerinin proje sahibi tarafından doğrulanması gerekir.
+- **3B modeller.** `public/models` klasöründeki dosyalar, Kenney’nin (kenney.nl) Creative Commons Zero (CC0 1.0) ile yayımladığı model takımlarından gelir: _City Kit (Commercial)_, _City Kit (Suburban)_, _City Kit (Roads)_ ve aynı yazarın taşıt, ağaç ve kent mobilyası takımları. Köken, dosyaların içinde kayıtlı nesne adlarından (örneğin `building-skyscraper-a`, `detail-awning-wide`, `sign-highway-detailed`), dışa aktarıcıdan (UnityGLTF) ve palet dokularından (`public/models/Textures`) belirlenmiştir; dosyalar depoya eklenirken yeniden adlandırılmış, içerikleri değiştirilmemiştir. Ayrıntılar `NOTICE.md` dosyasındadır.
 - **Yazı tipleri.** Inter (arayüz metni), JetBrains Mono (ölçer sayıları ve etiketleri) ve Source Serif 4 (analizdeki uzun metin); `next/font` üzerinden yüklenir, SIL Open Font License 1.1.
 - **Kütüphaneler.** Bağımlılıklar: Next.js, React, three.js (React Three Fiber ve drei ile), KaTeX ve lucide-react; geliştirme bağımlılıkları arasında Tailwind CSS, TypeScript, Vitest, ESLint ve Prettier vardır (bkz. `package.json`). Paket üstverilerine göre doğrudan bağımlılıkların tümü MIT lisanslıdır; lucide-react (ISC) ve TypeScript (Apache-2.0) bunun dışındadır.
-- **Projenin kendisi.** Projenin henüz bir lisansı yoktur: depoda lisans dosyası bulunmaz. Proje sahibinin bir lisans seçmesi gerekir; o zamana kadar kodun hangi koşullarla kullanılabileceği tanımsızdır.
+- **Projenin kendisi.** Kaynak kodu, analiz metni ve belgeler MIT Lisansı ile yayımlanır (`LICENSE`). Üçüncü taraflara ait varlıklar kendi koşullarını korur (`NOTICE.md`).
 
 ### 11. Bilinen eksikler ve sonraki adımlar
 
-- **Sosyal önizleme görseli.** `public/opengraph-image.png` ve `public/preview.png` hâlâ önceki arayüzü gösterir; yeniden üretilmeleri gerekir.
 - **Uygulama çatısı.** Next.js 14 bakım aşamasındadır; desteklenen bir ana sürüme geçiş yapılacak işler arasındadır.
-- **Başarım.** Farklı aygıtlarda kare hızı ölçümleri yapılmamıştır. Görüntüleyici kare hızı düştüğünde çözünürlüğünü azaltır, ancak bu davranış ölçülerek belgelenmemiştir.
+- **Başarım.** Yalnızca tek bir makinede ölçülmüştür: tümleşik grafik işlemcili bir bilgisayarda, 1600 × 900 piksellik bir görünümde (4× çoklu örnekleme, yaklaşık yarım milyon üçgen) durgun hâlden 0,866 c hızına kadar ekranın 60 Hz’lik yenileme hızı korunur. Daha yüksek hızlar ve başka aygıtlar ölçülmemiştir. Görüntüleyici kare hızı düştüğünde çözünürlüğünü azaltır; bu davranışın kendisi ölçülerek belgelenmemiştir.
 - **Ay ışığının renk sıcaklığı.** 4100 K değeri için belirsizliğiyle birlikte birincil bir kaynak bulunamamıştır.
-- **Lisanslar.** 3B modellerin kökeni ve lisansı doğrulanmalı, proje için bir lisans seçilmelidir (bkz. 10. bölüm).
 
 ### 12. Seçilmiş kaynaklar
 
@@ -700,18 +700,16 @@ The aberration, the Doppler factor and the transformation of radiance are exact.
 
 ### 10. Assets and licences
 
-- **3D models.** The files in `public/models` are glTF binaries exported with UnityGLTF (the generator recorded in each file); their palette textures are in `public/models/Textures`. File and texture names (`building-a`, `skyscraper-a`, `light-curved`, `colormap-commercial`, `colormap-roads`, `colormap-suburban` and the like) match the city kits published by Kenney (kenney.nl) under CC0 1.0. The repository, however, carries no licence file for these models; their origin is to be confirmed by the owner.
+- **3D models.** The files in `public/models` come from asset kits published by Kenney (kenney.nl) under Creative Commons Zero (CC0 1.0): _City Kit (Commercial)_, _City Kit (Suburban)_, _City Kit (Roads)_ and further kits by the same author for the vehicles, the trees and the street furniture. Their origin was established from the object names stored inside the files (for example `building-skyscraper-a`, `detail-awning-wide`, `sign-highway-detailed`), from the exporter (UnityGLTF) and from the palette textures (`public/models/Textures`); the files were renamed when they were added to the repository and their contents are unchanged. Details are in `NOTICE.md`.
 - **Fonts.** Inter (interface text), JetBrains Mono (instrument numerals and labels) and Source Serif 4 (long-form reading in the dossier); loaded through `next/font`, SIL Open Font License 1.1.
 - **Libraries.** Dependencies: Next.js, React, three.js (with React Three Fiber and drei), KaTeX and lucide-react; the development dependencies include Tailwind CSS, TypeScript, Vitest, ESLint and Prettier (see `package.json`). According to their package metadata all direct dependencies are MIT-licensed, with the exception of lucide-react (ISC) and TypeScript (Apache-2.0).
-- **The project itself.** The project has no licence yet: the repository contains no licence file. The owner needs to choose one; until then the terms under which the code may be used are undefined.
+- **The project itself.** The source code, the text of the dossier and the documentation are released under the MIT License (`LICENSE`). Third-party assets keep their own terms (`NOTICE.md`).
 
 ### 11. Known follow-ups
 
-- **Social preview image.** `public/opengraph-image.png` and `public/preview.png` still show the previous interface and need to be produced again.
 - **Application framework.** Next.js 14 is in maintenance; moving to a supported major version is a follow-up.
-- **Performance.** Frame-rate measurements on a range of devices have not been made. The renderer lowers its resolution when the frame rate drops, but this behaviour has not been measured and documented.
+- **Performance.** Measured on one machine only: on a computer with an integrated graphics processor, in a view of 1600 × 900 pixels (4× multisampling, about half a million triangles), the display’s refresh rate of 60 Hz is held from rest up to 0.866 c. Higher speeds and other devices have not been measured. The renderer lowers its resolution when the frame rate drops; that behaviour itself has not been measured and documented.
 - **Colour temperature of moonlight.** No primary source with an uncertainty was found for the value of 4100 K.
-- **Licences.** The origin and licence of the 3D models are to be confirmed, and a licence is to be chosen for the project (see Section 10).
 
 ### 12. Selected references
 

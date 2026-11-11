@@ -2,6 +2,7 @@
   "name": "life-of-a-photon",
   "version": "1.0.0",
   "description": "First-person visualisation of special relativity: aberration, Doppler shift and beaming seen while travelling along a night-time avenue at up to 0.99999 c.",
+  "license": "MIT",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
