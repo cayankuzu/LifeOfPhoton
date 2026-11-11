@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '@/i18n/messages';
 import { BETA_MAX } from '@/physics/kinematics';
+import { SCENARIO } from '@/physics/scenario';
 import { DEFAULT_SETTINGS, LENSES, type Language, getSettings, look, updateSettings } from '@/state/simulation';
 import { SHEET_COVERS_QUERY } from '@/ui/DossierFrame';
 import { DOSSIER } from '../content';
@@ -304,6 +305,82 @@ describe('the two languages', () => {
         }
       });
     });
+  });
+});
+
+describe('claims that rest on other tests', () => {
+  // The numbers below are quoted in the text and set in the test files that check them; read as text, as
+  // gpu.test.ts itself reads Simulation.tsx, so that a changed tolerance cannot leave the dossier behind.
+  const source = (relative: string): string => readFileSync(fileURLToPath(new URL(relative, import.meta.url)), 'utf8');
+  const constant = (text: string, name: string): string => {
+    const match = new RegExp(`const ${name} = ([^;]+);`).exec(text);
+    if (!match) throw new Error(`no constant ${name}`);
+    return match[1].trim();
+  };
+  const verification = (language: Language): string => {
+    const section = localize(DOSSIER, language).sections.find((s) => s.id === 'verification')!;
+    const paragraph = section.blocks.find((block) => block.type === 'paragraph');
+    return paragraph && paragraph.type === 'paragraph' ? paragraph.text : '';
+  };
+
+  it('Section 9 states the tolerances and ranges of the GPU tests', () => {
+    const gpu = source('../../scene/__tests__/gpu.test.ts');
+    const side = Number(constant(gpu, 'N'));
+    expect(constant(gpu, 'ARITHMETIC')).toBe('1e-4');
+    expect(constant(gpu, 'SUBTEXEL')).toBe('1 / 256');
+    expect(constant(gpu, 'BOOST_TOLERANCE')).toBe('1e-6');
+    expect(constant(gpu, 'STAR_TOLERANCE')).toBe('1e-4');
+    expect(gpu).toContain('Math.log(0.002) + (i / 300) * (Math.log(500) - Math.log(0.002))');
+    expect(gpu).toContain('[0, 0.5, 0.9, 0.99, 0.999, 0.9999, 0.99999]');
+    expect(gpu).toContain('expect(worst, worstAt).toBeLessThanOrEqual(1)');
+    // the Moon: pixels from a sixth of the radius to three times it, flux within 8 %
+    expect(gpu).toContain('for (const radiusPx of [0.3, 0.6, 1, 1.5, 2, 2.5, 3, 4, 6])');
+    expect(constant(gpu, 'MOON_FLUX')).toBe('0.08');
+    expect(gpu).toContain('expect(stray).toBe(0)');
+    const en = verification('en');
+    for (const claim of [
+      `in 8 bits for ${side * side} radiances`,
+      'Doppler factors from 0.002 to 500',
+      '$10^{-4}$ of the value',
+      'a 256th of a texel',
+      'up to $\\beta = 0.99999$',
+      '$10^{-6}$ of the distance',
+      'within $10^{-4}$ beyond the same filter allowance',
+      'from a sixth of the disc’s radius to three times it',
+      'its flux is kept to within 8 %',
+      '90° away from the disc it adds no light at all',
+    ])
+      expect(en).toContain(claim);
+    const tr = verification('tr');
+    for (const claim of [
+      `${side * side} ışınımda`,
+      '0,002 ile 500 arasındaki',
+      '$10^{-4}$ katı',
+      '256’da biri',
+      '$10^{-6}$ katı',
+      'yarıçapının altıda birinden üç katına kadar',
+      'akı %8 içinde korunur',
+    ])
+      expect(tr).toContain(claim);
+  });
+
+  it('Table 4 quotes the catalogue count that the star tests pin', () => {
+    const stars = source('../../scene/geometry/__tests__/stars.test.ts');
+    const { limitingMagnitude } = SCENARIO.stars;
+    const pinned = new RegExp(`\\[${String(limitingMagnitude).replace('.', '\\.')}, (\\d+)\\]`).exec(stars);
+    expect(pinned).not.toBeNull();
+    // the share of a hemisphere more than atan(0.07), about 4°, above the horizon, as a whole percentage
+    const share = Math.round(100 * (1 - Math.sin(Math.atan(0.07))));
+    const row = (language: Language, start: string): string =>
+      texts(localize(DOSSIER, language)).find((entry) => entry.text.startsWith(start))?.text ?? '';
+    const tr = row('tr', 'istatistiksel olarak üretilmiş gökyüzü');
+    const en = row('en', 'statistically generated sky');
+    expect(tr).toContain(`${String(limitingMagnitude).replace('.', ',')} kadire kadar ${pinned![1]} kayıt`);
+    expect(tr).toContain(`%${share}’ü`);
+    expect(en).toContain(`${pinned![1]} entries down to magnitude ${limitingMagnitude}`);
+    expect(en).toContain(`${share} % of those`);
+    expect(tr).toContain('[@hoffleitwarren1991]');
+    expect(en).toContain('[@hoffleitwarren1991]');
   });
 });
 

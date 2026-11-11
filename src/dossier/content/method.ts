@@ -210,8 +210,8 @@ const ASSUMPTION_ROWS: ReadonlyArray<readonly Text[]> = [
       `${stars.count} black bodies; magnitude ≤ ${num(stars.limitingMagnitude, 1).en}; flux × ${stars.visibilityGain}`
     ),
     L(
-      'istatistiksel olarak üretilmiş gökyüzü: yıldız sayısı ve kadir dağılımı, gerçek gökyüzünde ufkun 4° üstünde o kadire kadar görülenler gibidir; akı, yıldızlar görünebilsin diye artırılmıştır (10. bölüm)',
-      'statistically generated sky: the number of stars and their distribution in magnitude are those of the real sky down to that magnitude, more than 4° above the horizon; the flux is raised so that the stars show at all (Section 10)'
+      'istatistiksel olarak üretilmiş gökyüzü: yıldız sayısı, kadir dağılımı ve tayf sınıflarının payları Parlak Yıldız Kataloğu’ndan alınmıştır [@hoffleitwarren1991]; katalog bütün gökte 5,8 kadire kadar 4103 kayıt listeler; bunların yarısı ufkun üstünde, onların da %93’ü 4° yüksekliğin üzerindedir; katalog çoklu yıldızların bazı bileşenlerini ayrı kayıtlar olarak verir ve yaklaşık 6,5 kadire kadar olan yıldızları kapsar; konumlar gök küresine düzgün dağıtılmıştır, yıldızların Samanyolu’na doğru yığılması hesaba katılmamıştır; akı, yıldızlar görünebilsin diye artırılmıştır (10. bölüm)',
+      'statistically generated sky: the number of stars, their distribution in magnitude and the shares of the spectral classes are taken from the Bright Star Catalogue [@hoffleitwarren1991], which lists 4103 entries down to magnitude 5.8 over the whole sky; half of them are above the horizon, and 93 % of those more than 4° above it; the catalogue gives some components of multiple stars as separate entries and covers the stars to about magnitude 6.5; positions are uniform on the sky, and the crowding of stars towards the Milky Way is not modelled; the flux is raised so that the stars show at all (Section 10)'
     ),
   ],
   [

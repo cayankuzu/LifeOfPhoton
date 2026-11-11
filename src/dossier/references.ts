@@ -247,6 +247,17 @@ export const REFERENCES: readonly Reference[] = [
     checked: 'secondary',
   },
   {
+    key: 'hoffleitwarren1991',
+    authors: 'Hoffleit, D.; Warren, W. H., Jr.',
+    year: '1991',
+    title: 'The Bright Star Catalogue, 5th Revised Edition (Preliminary Version)',
+    venue: 'Astronomical Data Center, NSSDC/ADC; VizieR catalogue V/50, CDS, Strasbourg (bibcode 1991bsc..book.....H)',
+    url: 'https://cdsarc.cds.unistra.fr/viz-bin/cat/V/50',
+    // the catalogue itself was read: the counts by magnitude and spectral class quoted in the dossier were made
+    // over all 9110 entries of table V/50/catalog on 2026-11-11 (src/scene/geometry/__tests__/stars.test.ts)
+    checked: 'primary',
+  },
+  {
     key: 'hornof2025',
     authors: 'Hornof, D.; Helm, V.; de Dios Rodriguez, E.; Juffmann, T.; Haslinger, P.; Schattschneider, P.',
     year: '2025',
