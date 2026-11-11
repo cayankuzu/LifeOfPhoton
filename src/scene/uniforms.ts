@@ -4,7 +4,7 @@
  */
 
 import * as THREE from 'three';
-import { REFERENCE_LUMINANCE_CD_M2, SCENARIO } from '@/physics/scenario';
+import { MOON_DISC_LUMINANCE_CD_M2, REFERENCE_LUMINANCE_CD_M2, SCENARIO } from '@/physics/scenario';
 import {
   type SpectralAtlas,
   ATLAS_ROW,
@@ -113,7 +113,7 @@ export function createSceneUniforms(atlas: SpectralAtlas, texture: THREE.DataTex
     uSkyFill: { value: 0.22 },
     uMoonRadius: { value: THREE.MathUtils.degToRad(moon.angularRadiusDeg) },
     uLnMoonT: { value: Math.log(moon.colourTemperatureK) },
-    uLnMoonDisc: { value: units(moon.luminanceCdM2) - blackbodyLn(moon.colourTemperatureK) },
+    uLnMoonDisc: { value: units(MOON_DISC_LUMINANCE_CD_M2) - blackbodyLn(moon.colourTemperatureK) },
     // --- thermal emission
     uLnAmbientT: { value: Math.log(environment.temperatureK) },
     uLnEmissivity: { value: Math.log(environment.surfaceEmissivity) },

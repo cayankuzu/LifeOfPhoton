@@ -77,9 +77,15 @@ export const LN_DOPPLER_MAX = LN_DOPPLER_MIN + ATLAS_WIDTH * DOPPLER_TEXEL;
 export const LN_TEMPERATURE_MIN = Math.log(60);
 export const LN_TEMPERATURE_MAX = Math.log(2.4e7);
 
-/** Range of the wavelength axis of the line row, nm. */
-export const LINE_MIN_NM = 340;
-export const LINE_MAX_NM = 820;
+/**
+ * Range of the wavelength axis of the line row, nm. Lookups beyond it are clamped to
+ * its ends, so both ends must lie in complete darkness: further from the limits of
+ * the observer (380 and 780 nm) than the six standard deviations at which the line
+ * profile is cut off, or a line shifted far out of the visible band would return
+ * with the faint luminance of the last texel, multiplied by D⁴.
+ */
+export const LINE_MIN_NM = 320;
+export const LINE_MAX_NM = 840;
 
 /** Floor of the log-luminance channel; e^−70 is zero for every purpose here. */
 export const LN_LUMINANCE_FLOOR = -70;

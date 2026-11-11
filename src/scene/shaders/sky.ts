@@ -9,7 +9,7 @@
  * the ray. This is exact per pixel: no tessellation is involved.
  */
 
-import { ATLAS_SAMPLING, BOOST_MATH, COMMON_UNIFORMS, DISPLAY_TRANSFORM } from './chunks';
+import { ATLAS_SAMPLING, BOOST_MATH, COMMON_UNIFORMS, DISPLAY_TRANSFORM, SKY_RADIANCE } from './chunks';
 
 export const skyVertexShader = /* glsl */ `
   uniform vec3 uObserver;
@@ -30,18 +30,16 @@ export const skyFragmentShader = /* glsl */ `
   uniform float uLnMoonDisc;       // ln of (disc luminance / luminance of a black body at that temperature)
   uniform float uMoonIrradiance;
   uniform float uSkyFill;
-  uniform float uLnAmbientT;
   uniform float uLnEmissivity;
-  uniform float uLnSkyEmissivity;
   uniform float uEyeHeight;
   uniform float uOdometer;
   uniform float uGrid;
-  uniform vec2 uSkyGlow;           // LED sky glow: (zenith level, extra level at the horizon), reference units
 
   varying vec3 vDirection;
 
   ${BOOST_MATH}
   ${ATLAS_SAMPLING}
+  ${SKY_RADIANCE}
   ${DISPLAY_TRANSFORM}
 
   void main() {
@@ -64,12 +62,8 @@ export const skyFragmentShader = /* glsl */ `
     float thermal = uThermal * uOptical;
 
     if (d.y > 0.0) {
-      float slope = d.y / max(length(d.xz), 1e-5);          // tan(elevation)
-      // night sky: the glow of the city's own band-limited LEDs, strongest near the horizon.
-      // Air scatters short wavelengths more strongly, which is what the blue-weighted factor stands for.
-      radiance += reflectedLed(vec3(0.42, 0.62, 1.0), lnD) * (uSkyGlow.x + uSkyGlow.y * exp(-slope * 6.0));
-      // the atmosphere's own thermal emission
-      radiance += thermal * blackbody(uLnAmbientT + lnD, uLnSkyEmissivity);
+      // night sky: the glow of the city's LEDs and the atmosphere's own thermal emission
+      radiance += skyRadiance(d.y / max(length(d.xz), 1e-5), lnD);
       // the Moon: a uniform disc, anti-aliased over one pixel footprint
       float sine = length(cross(d, uMoonDirection));
       float angle = dot(d, uMoonDirection) > 0.0 ? asin(clamp(sine, 0.0, 1.0)) : 3.14159265;

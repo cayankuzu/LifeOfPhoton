@@ -1,14 +1,18 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { type Triple, chromaticity, compressToGamut, correlatedColourTemperature, relativeLuminance } from '../colorimetry';
 import { NOMINAL_SOLAR_TEMPERATURE_K, SOLAR_DILUTION_AT_1AU } from '../constants';
+import { BETA_MAX, headOnDopplerFactor } from '../kinematics';
 import { blackbodyLuminance, planckianChromaticity, solveLogBisection, tristimulus, visibleGainOfBlackbody } from '../radiometry';
-import { REFERENCE_LUMINANCE_CD_M2, SCENARIO } from '../scenario';
+import { MOON_DISC_LUMINANCE_CD_M2, REFERENCE_LUMINANCE_CD_M2, SCENARIO } from '../scenario';
 import { ledSpectrum, reflectanceBasis } from '../spectra';
 import {
   type SpectralAtlas,
   ATLAS_ROW,
   ATLAS_ROWS,
   ATLAS_WIDTH,
+  LINE_MAX_NM,
+  LINE_MIN_NM,
+  LN_LUMINANCE_FLOOR,
   REST_TEXEL,
   blackbodyLuminanceUnits,
   blackbodyRadiance,
@@ -220,6 +224,36 @@ describe('line emitters', () => {
   it('disappear once shifted out of the visible band', () => {
     expect(relativeLuminance(lineRadiance(atlas, SCENARIO.signals.redNm, 2))).toBeLessThan(1e-6);
     expect(relativeLuminance(lineRadiance(atlas, SCENARIO.signals.greenNm, 0.55))).toBeLessThan(1e-6);
+  });
+
+  it('stay gone however large the shift: the D⁴ of the radiance cannot bring them back', () => {
+    // Beyond the tabulated range the lookup is clamped to the end of the row. If that
+    // end held even a faint luminance, D⁴ would turn it into a bright light at the
+    // top of the range (D⁴ = 4 × 10¹⁰), so the row has to end in exact darkness.
+    const { redNm, amberNm, greenNm } = SCENARIO.signals;
+    for (const nm of [redNm, amberNm, greenNm]) {
+      for (const doppler of [3, 20, 100, headOnDopplerFactor(0.9999), headOnDopplerFactor(BETA_MAX)]) {
+        expect(lineRadiance(atlas, nm, doppler)).toEqual([0, 0, 0]);
+        expect(lineRadiance(atlas, nm, 1 / doppler)).toEqual([0, 0, 0]);
+      }
+    }
+    // the two ends of the row lie further from the observer's limits than the cut-off of the line profile
+    const reach = 6 * SCENARIO.signals.lineSigmaNm;
+    expect(LINE_MIN_NM).toBeLessThan(380 - reach);
+    expect(LINE_MAX_NM).toBeGreaterThan(780 + reach);
+    expect(sampleAtlas(atlas, ATLAS_ROW.line, 0)).toEqual([0, 0, 0, LN_LUMINANCE_FLOOR]);
+    expect(sampleAtlas(atlas, ATLAS_ROW.line, 1)).toEqual([0, 0, 0, LN_LUMINANCE_FLOOR]);
+  });
+});
+
+describe('the Moon', () => {
+  it('the disc that is drawn delivers the moonlight that lights the scene', () => {
+    // E = L · π sin²R for a uniform disc of angular radius R facing the surface
+    const radius = (SCENARIO.moon.angularRadiusDeg * Math.PI) / 180;
+    expect(MOON_DISC_LUMINANCE_CD_M2 * Math.PI * Math.sin(radius) ** 2).toBeCloseTo(SCENARIO.moon.illuminanceLux, 12);
+    // a few thousand cd/m², as quoted for the full Moon high in the sky
+    expect(MOON_DISC_LUMINANCE_CD_M2).toBeGreaterThan(2000);
+    expect(MOON_DISC_LUMINANCE_CD_M2).toBeLessThan(5000);
   });
 });
 

@@ -47,8 +47,6 @@ export const SCENARIO = {
      * 58, 1.31): 0.05–0.2 lx for most full Moons at mid-latitudes, ≈ 0.3 lx at most.
      */
     illuminanceLux: 0.2,
-    /** Luminance of the lunar disc, cd/m². */
-    luminanceCdM2: 2500,
     /** Mean angular radius of the lunar disc, degrees (mean diameter 31.1′). */
     angularRadiusDeg: 0.259,
     /** Position in the sky: azimuth measured from the direction of travel, and elevation, degrees. */
@@ -138,6 +136,15 @@ export const SCENARIO = {
 
 /** Luminance of a perfect white diffuser under the reference street illuminance, cd/m² — the renderer's unit of radiance. */
 export const REFERENCE_LUMINANCE_CD_M2 = SCENARIO.street.illuminanceLux / Math.PI;
+
+/**
+ * Luminance of the lunar disc, cd/m². Not an assumption of its own: a uniform disc of
+ * angular radius R that delivers the illuminance E on a surface facing it has the
+ * luminance E / (π sin²R) — about 3100 cd/m² for the values above, at the upper end
+ * of what is quoted for a high full Moon.
+ */
+export const MOON_DISC_LUMINANCE_CD_M2 =
+  SCENARIO.moon.illuminanceLux / (Math.PI * Math.sin((SCENARIO.moon.angularRadiusDeg * Math.PI) / 180) ** 2);
 
 /** Ratio between real time and displayed time. */
 export function slowMotionFactor(speedOfLight: number): number {

@@ -8,6 +8,8 @@
 
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
+import type { Triple } from '@/physics/colorimetry';
+import { toDisplay } from '@/physics/display';
 import { REFERENCE_LUMINANCE_CD_M2, SCENARIO } from '@/physics/scenario';
 import { ATLAS_ROWS, ATLAS_WIDTH, sharedAtlas } from '@/physics/spectralAtlas';
 import { EMITTER } from '../emitters';
@@ -230,5 +232,41 @@ describe('scene uniforms', () => {
     expect(FADE_AHEAD_END).toBeLessThan(MODEL_LENGTH - MODEL_BEHIND);
     expect((uniforms.uFadeAhead.value as THREE.Vector2).toArray()).toEqual([FADE_AHEAD_START, FADE_AHEAD_END]);
     expect((uniforms.uFadeBehind.value as THREE.Vector2).toArray()).toEqual([FADE_BEHIND_START, FADE_BEHIND_END]);
+  });
+});
+
+describe('stars over the sky', () => {
+  it('the star shader writes the increment a star makes over the sky, not the star by itself', () => {
+    const code = withoutComments(starFragmentShader);
+    expect(code.includes('toDisplay(vSky + vRadiance * falloff) - toDisplay(vSky)')).toBe(true);
+    // and the sky behind the star is the very function the sky shader draws
+    expect(withoutComments(starVertexShader).includes('vSky = skyRadiance(')).toBe(true);
+    expect(withoutComments(skyFragmentShader).includes('radiance += skyRadiance(')).toBe(true);
+  });
+
+  it('a star lost in the glow of the sky adds nothing; over a dark sky it shows in full', () => {
+    // The display transform compresses highlights, so display values do not add. The
+    // reference implementation of the transform shows what the shader's difference does.
+    const increment = (sky: Triple, star: Triple): number[] => {
+      const lit = toDisplay([sky[0] + star[0], sky[1] + star[1], sky[2] + star[2]]);
+      const dark = toDisplay(sky);
+      return lit.map((value, channel) => value - dark[channel]);
+    };
+    const star: Triple = [0.9, 0.9, 0.9];
+    const luma = ([r, g, b]: number[]): number => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    // tone-mapped by itself, the star would be added at more than half of full scale
+    expect(Math.min(...toDisplay(star))).toBeGreaterThan(0.5);
+    // a thermal sky a thousand times brighter in every channel: the star leaves no trace
+    for (const channel of increment([2000, 1400, 900], star)) expect(Math.abs(channel)).toBeLessThan(1 / 255);
+    // the surroundings at D ≈ 5 (44 reference units, orange): the star changes the display
+    // luminance by under one per cent and tints the weak blue channel a little, nothing more
+    const overGlow = increment([60, 42, 3], star);
+    expect(Math.abs(luma(overGlow))).toBeLessThan(0.01);
+    expect(Math.max(...overGlow.map(Math.abs))).toBeLessThan(0.1);
+    // over a black sky the increment is the star itself
+    const alone = toDisplay(star);
+    increment([0, 0, 0], star).forEach((value, channel) => expect(value).toBeCloseTo(alone[channel], 12));
+    // and it is never negative in luminance: a star cannot darken the sky
+    expect(luma(increment([2, 1.5, 0.4], [0.2, 0.3, 0.9]))).toBeGreaterThan(0);
   });
 });

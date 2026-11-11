@@ -95,6 +95,27 @@ export const ATLAS_SAMPLING = /* glsl */ `
 `;
 
 /**
+ * Radiance of the night sky. It depends on the rest-frame direction only through
+ * its elevation: the glow of the city's own band-limited LEDs, strongest near the
+ * horizon (air scatters short wavelengths more strongly, which is what the
+ * blue-weighted factor stands for), and the atmosphere's thermal emission. The sky
+ * shader draws it; the star shader needs it too, because a star has to be added
+ * to the sky in radiance, not on top of it on the display.
+ * Requires ATLAS_SAMPLING and the uniforms declared here.
+ */
+export const SKY_RADIANCE = /* glsl */ `
+  uniform vec2 uSkyGlow;           // LED sky glow: (zenith level, extra level at the horizon), reference units
+  uniform float uLnAmbientT;       // ln of the ambient temperature
+  uniform float uLnSkyEmissivity;  // ln of the long-wave emissivity of the clear night sky
+
+  // slope = tan(elevation) of the rest-frame direction, lnD = ln of the Doppler factor of the ray
+  vec3 skyRadiance(float slope, float lnD) {
+    vec3 glow = reflectedLed(vec3(0.42, 0.62, 1.0), lnD) * (uSkyGlow.x + uSkyGlow.y * exp(-slope * 6.0));
+    return glow + uThermal * uOptical * blackbody(uLnAmbientT + lnD, uLnSkyEmissivity);
+  }
+`;
+
+/**
  * Scene-referred linear camera RGB -> display; the GLSL counterpart of
  * src/physics/display.ts. In this order:
  *   1. gamut: negative lobes are removed by the smallest luminance-preserving desaturation,
