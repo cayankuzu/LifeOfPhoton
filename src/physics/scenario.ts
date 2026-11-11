@@ -1,5 +1,6 @@
 /**
- * The modelled scene: every assumption that is NOT a law of physics lives here.
+ * The modelled scene: every assumption about its light field that is NOT a law of
+ * physics lives here.
  *
  * The relativistic transformation itself (optics.ts) is exact. What it is applied
  * to — the light field of a night-time city — has to be modelled, and a model is
@@ -49,6 +50,11 @@ export const SCENARIO = {
     illuminanceLux: 0.2,
     /** Mean angular radius of the lunar disc, degrees (mean diameter 31.1′). */
     angularRadiusDeg: 0.259,
+    /**
+     * Moonlight scattered by the sky reaches every surface, whatever way it faces:
+     * this share of the direct illuminance is added as a diffuse term.
+     */
+    skyFillFraction: 0.22,
     /** Position in the sky: azimuth measured from the direction of travel, and elevation, degrees. */
     azimuthDeg: 5,
     elevationDeg: 27,
@@ -90,6 +96,8 @@ export const SCENARIO = {
     windowLuminanceCdM2: 4,
     /** Fraction of windows that are lit. */
     litFraction: 0.42,
+    /** Lit rooms are not equally bright: the luminance above is scaled by a factor between these limits. */
+    levelRange: [0.45, 1.95],
   },
 
   /** LED traffic signals: quasi-monochromatic emitters. */
@@ -130,8 +138,37 @@ export const SCENARIO = {
     visibilityGain: 60,
   },
 
-  /** Diffuse, band-limited light scattered back from the city onto unlit surfaces, as a fraction of the street illuminance. */
+  /**
+   * The night sky over a lit city: the glow of the city's own lighting, scattered by
+   * the air. It has the spectrum of the street LEDs, weighted towards the blue because
+   * air scatters short wavelengths more strongly.
+   */
+  sky: {
+    /** Glow at the zenith, in units of the reference luminance. */
+    glowZenith: 0.0016,
+    /** Additional glow at the horizon, and its e-folding in the tangent of the elevation. */
+    glowHorizon: 0.02,
+    glowFalloff: 6,
+    /** Spectral weighting of the glow, as the reflectance of a bluish scatterer. */
+    glowTint: [0.42, 0.62, 1.0],
+  },
+
+  /** The ground beyond the models of the avenue: a dark, diffusely reflecting plane. */
+  ground: {
+    albedo: [0.075, 0.08, 0.09],
+    /** Street light that spills onto it next to the avenue, as a fraction of the reference illuminance, and the distance over which it fades, m. */
+    ledFill: 0.06,
+    ledFillRangeM: 260,
+  },
+
+  /**
+   * Diffuse, band-limited light scattered back from the city onto unlit surfaces, as a
+   * fraction of the street illuminance: a stand-in for inter-reflection. It decreases
+   * with height towards the share `ambientLedAloft` of its value at street level.
+   */
   ambientLedFraction: 0.02,
+  ambientLedAloft: 0.55,
+  ambientLedScaleHeightM: 14,
 } as const;
 
 /** Luminance of a perfect white diffuser under the reference street illuminance, cd/m² — the renderer's unit of radiance. */

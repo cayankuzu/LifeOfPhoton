@@ -352,7 +352,8 @@ function placeModel(model: PreparedModel, placement: Placement, seed: number): F
     if (paneIndex >= 0 && hash2(paneIndex, seed) < litFraction) {
       code = EMITTER.window;
       // rooms differ in brightness by about a factor of four
-      level = 0.45 + 1.5 * hash2(paneIndex + 9173, seed) ** 2;
+      const [dimmest, brightest] = SCENARIO.interior.levelRange;
+      level = dimmest + (brightest - dimmest) * hash2(paneIndex + 9173, seed) ** 2;
     }
     for (let corner = 0; corner < 3; corner++) {
       const from = first + corner * STRIDE;

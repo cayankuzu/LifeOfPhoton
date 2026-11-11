@@ -9,9 +9,16 @@
  */
 
 import { HIGHLIGHT_SLOPE } from '@/physics/display';
+import { SCENARIO } from '@/physics/scenario';
 import { ATLAS_ROW, ATLAS_ROWS } from '@/physics/spectralAtlas';
 
 const row = (index: number): string => ((index + 0.5) / ATLAS_ROWS).toFixed(6);
+
+/** A number as a GLSL float literal. */
+export const glslFloat = (value: number): string => (Number.isInteger(value) ? value.toFixed(1) : String(value));
+
+/** Three numbers as a GLSL vec3 literal. */
+export const glslVec3 = (values: readonly number[]): string => `vec3(${values.map(glslFloat).join(', ')})`;
 
 /** Uniform declarations common to all materials. */
 export const COMMON_UNIFORMS = /* glsl */ `
@@ -110,7 +117,7 @@ export const SKY_RADIANCE = /* glsl */ `
 
   // slope = tan(elevation) of the rest-frame direction, lnD = ln of the Doppler factor of the ray
   vec3 skyRadiance(float slope, float lnD) {
-    vec3 glow = reflectedLed(vec3(0.42, 0.62, 1.0), lnD) * (uSkyGlow.x + uSkyGlow.y * exp(-slope * 6.0));
+    vec3 glow = reflectedLed(${glslVec3(SCENARIO.sky.glowTint)}, lnD) * (uSkyGlow.x + uSkyGlow.y * exp(-slope * ${glslFloat(SCENARIO.sky.glowFalloff)}));
     return glow + uThermal * uOptical * blackbody(uLnAmbientT + lnD, uLnSkyEmissivity);
   }
 `;

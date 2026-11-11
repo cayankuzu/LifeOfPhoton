@@ -9,7 +9,10 @@
  * the ray. This is exact per pixel: no tessellation is involved.
  */
 
-import { ATLAS_SAMPLING, BOOST_MATH, COMMON_UNIFORMS, DISPLAY_TRANSFORM, SKY_RADIANCE } from './chunks';
+import { SCENARIO } from '@/physics/scenario';
+import { ATLAS_SAMPLING, BOOST_MATH, COMMON_UNIFORMS, DISPLAY_TRANSFORM, SKY_RADIANCE, glslFloat, glslVec3 } from './chunks';
+
+const { ground } = SCENARIO;
 
 export const skyVertexShader = /* glsl */ `
   uniform vec3 uObserver;
@@ -64,20 +67,27 @@ export const skyFragmentShader = /* glsl */ `
     if (d.y > 0.0) {
       // night sky: the glow of the city's LEDs and the atmosphere's own thermal emission
       radiance += skyRadiance(d.y / max(length(d.xz), 1e-5), lnD);
-      // the Moon: a uniform disc, anti-aliased over one pixel footprint
+      // the Moon: a uniform disc, anti-aliased over one pixel footprint while it is resolved
       float sine = length(cross(d, uMoonDirection));
       float angle = dot(d, uMoonDirection) > 0.0 ? asin(clamp(sine, 0.0, 1.0)) : 3.14159265;
       float footprint = max(fwidth(angle), 1e-7);
-      float disc = 1.0 - smoothstep(uMoonRadius - footprint, uMoonRadius + footprint, angle);
+      float resolved = 1.0 - smoothstep(uMoonRadius - footprint, uMoonRadius + footprint, angle);
+      // Aberration shrinks the disc: at the top of the range it is a hundredth of a pixel across. Below
+      // about a pixel it is a point source, and an edge filter would draw it far too bright: its light
+      // L·Ω is then spread over the footprint of the pixel instead, which conserves the flux.
+      float ratio = uMoonRadius / footprint;
+      float spread = max(footprint, uMoonRadius);
+      float unresolved = min(ratio * ratio, 1.0) * exp(-(angle * angle) / (spread * spread));
+      float disc = mix(unresolved, resolved, smoothstep(0.75, 2.0, ratio));
       radiance += disc * blackbody(uLnMoonT + lnD, uLnMoonDisc);
     } else {
       // the ground beyond the avenue: a dark plane, moonlit from above
       float range = uEyeHeight / max(-d.y, 1e-4);
       vec2 ground = d.xz * range;
-      vec3 soil = vec3(0.075, 0.08, 0.09);
-      float falloff = exp(-length(ground) / 260.0);
+      vec3 soil = ${glslVec3(ground.albedo)};
+      float falloff = exp(-length(ground) / ${glslFloat(ground.ledFillRangeM)});
       radiance += reflectedMoon(soil, lnD) * uMoonIrradiance * (uMoonDirection.y + uSkyFill);
-      radiance += reflectedLed(soil, lnD) * 0.06 * falloff;
+      radiance += reflectedLed(soil, lnD) * ${glslFloat(ground.ledFill)} * falloff;
       radiance += thermal * blackbody(uLnAmbientT + lnD, uLnEmissivity);
 
       if (uGrid > 0.5) {

@@ -11,7 +11,7 @@ import { LUMINAIRE_FACE_LUMINANCE, LUMINAIRE_INTENSITY, carriagewayIlluminance }
 import { L, type SourceSection, type Text } from '../types';
 import { num, r, sig } from './helpers';
 
-const { moon, street, interior, signals, environment, stars, camera } = SCENARIO;
+const { moon, street, interior, signals, environment, stars, camera, sky, ground } = SCENARIO;
 
 /** The street lighting as the renderer bakes it, in the units a lighting engineer would quote. */
 const LIGHTING = {
@@ -30,10 +30,13 @@ const withUnit = (value: Text, unit: string): Text =>
 const ASSUMPTION_ROWS: ReadonlyArray<readonly Text[]> = [
   [
     L('Ay ışığı, aydınlık düzeyi', 'Moonlight, illuminance'),
-    withUnit(num(moon.illuminanceLux, 1), 'lx'),
     L(
-      'yüksek dolunay; çoğu dolunayda 0,05–0,2 lx, en çok yaklaşık 0,3 lx [@kyba2017]',
-      'a high full Moon; 0.05–0.2 lx for most full Moons, about 0.3 lx at most [@kyba2017]'
+      `${num(moon.illuminanceLux, 1).tr} lx; ayrıca gökten yaygın olarak %${Math.round(moon.skyFillFraction * 100)}’si`,
+      `${num(moon.illuminanceLux, 1).en} lx; in addition ${Math.round(moon.skyFillFraction * 100)} % of it diffusely from the sky`
+    ),
+    L(
+      'yüksek dolunay; çoğu dolunayda 0,05–0,2 lx, en çok yaklaşık 0,3 lx [@kyba2017]; yaygın pay varsayım',
+      'a high full Moon; 0.05–0.2 lx for most full Moons, about 0.3 lx at most [@kyba2017]; diffuse share assumed'
     ),
   ],
   [
@@ -63,8 +66,8 @@ const ASSUMPTION_ROWS: ReadonlyArray<readonly Text[]> = [
   [
     L('Aydınlık pencereler', 'Lit windows'),
     L(
-      `Planck, ${interior.colourTemperatureK} K; ${interior.windowLuminanceCdM2} cd m⁻²; %${Math.round(interior.litFraction * 100)}’si aydınlık`,
-      `Planck, ${interior.colourTemperatureK} K; ${interior.windowLuminanceCdM2} cd m⁻²; ${Math.round(interior.litFraction * 100)} % lit`
+      `Planck, ${interior.colourTemperatureK} K; ${interior.windowLuminanceCdM2} cd m⁻² (odadan odaya × ${num(interior.levelRange[0], 2).tr}–${num(interior.levelRange[1], 2).tr}); %${Math.round(interior.litFraction * 100)}’si aydınlık`,
+      `Planck, ${interior.colourTemperatureK} K; ${interior.windowLuminanceCdM2} cd m⁻² (× ${num(interior.levelRange[0], 2).en}–${num(interior.levelRange[1], 2).en} from room to room); ${Math.round(interior.litFraction * 100)} % lit`
     ),
     L(
       'CIE standart aydınlatıcısı A [@cie2018]; parıltı ve oran varsayım',
@@ -93,6 +96,22 @@ const ASSUMPTION_ROWS: ReadonlyArray<readonly Text[]> = [
     L('Açık gece göğünün yayınırlığı', 'Emissivity of the clear night sky'),
     num(environment.skyEmissivity, 2),
     L('288 K’de Swinbank bağıntısı [@swinbank1963]', 'Swinbank’s relation at 288 K [@swinbank1963]'),
+  ],
+  [
+    L('Gece göğünün ışıltısı', 'Glow of the night sky'),
+    L(
+      `LED tayfı, maviye ağırlıklı; başucunda başvuru parıltısının %${num(100 * sky.glowZenith, 2).tr}’sı, ufukta %${num(100 * (sky.glowZenith + sky.glowHorizon), 1).tr}’si`,
+      `LED spectrum, weighted towards the blue; ${num(100 * sky.glowZenith, 2).en} % of the reference luminance at the zenith, ${num(100 * (sky.glowZenith + sky.glowHorizon), 1).en} % at the horizon`
+    ),
+    L('aydınlatılmış bir kentin göğü; varsayım', 'the sky over a lit city; assumption'),
+  ],
+  [
+    L('Caddenin ötesindeki zemin', 'Ground beyond the avenue'),
+    L(
+      `yaygın yansıtan düzlem, albedo ≈ ${num(ground.albedo[1], 2).tr}; sokak ışığının %${Math.round(100 * ground.ledFill)}’sı, ${ground.ledFillRangeM} m’de sönerek`,
+      `diffusely reflecting plane, albedo ≈ ${num(ground.albedo[1], 2).en}; ${Math.round(100 * ground.ledFill)} % of the street light, fading over ${ground.ledFillRangeM} m`
+    ),
+    L('varsayım', 'assumption'),
   ],
   [
     L('Yıldızlar', 'Stars'),

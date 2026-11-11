@@ -78,7 +78,7 @@ export function createSceneUniforms(atlas: SpectralAtlas, texture: THREE.DataTex
     sampleAtlas(atlas, ATLAS_ROW.blackbody, temperatureCoordinate(temperatureK))[3];
   const units = (luminanceCdM2: number): number => Math.log(luminanceCdM2 / REFERENCE_LUMINANCE_CD_M2);
 
-  const { moon, interior, environment, street, signals } = SCENARIO;
+  const { moon, interior, environment, street, signals, sky } = SCENARIO;
 
   return {
     // --- boost (updated every frame)
@@ -110,7 +110,7 @@ export function createSceneUniforms(atlas: SpectralAtlas, texture: THREE.DataTex
     // --- moonlight
     uMoonDirection: { value: moonDirection() },
     uMoonIrradiance: { value: moon.illuminanceLux / street.illuminanceLux },
-    uSkyFill: { value: 0.22 },
+    uSkyFill: { value: moon.skyFillFraction },
     uMoonRadius: { value: THREE.MathUtils.degToRad(moon.angularRadiusDeg) },
     uLnMoonT: { value: Math.log(moon.colourTemperatureK) },
     uLnMoonDisc: { value: units(MOON_DISC_LUMINANCE_CD_M2) - blackbodyLn(moon.colourTemperatureK) },
@@ -126,7 +126,7 @@ export function createSceneUniforms(atlas: SpectralAtlas, texture: THREE.DataTex
     uLnSignal: { value: units(signals.luminanceCdM2) },
     uSignalNm: { value: new THREE.Vector3(signals.redNm, signals.amberNm, signals.greenNm) },
     // --- night sky: light pollution at the zenith and the extra near the horizon, reference units
-    uSkyGlow: { value: new THREE.Vector2(0.0016, 0.02) },
+    uSkyGlow: { value: new THREE.Vector2(sky.glowZenith, sky.glowHorizon) },
     // --- stars (updated every frame)
     uPointSize: { value: 3 },
     uLnStarNorm: { value: 0 },

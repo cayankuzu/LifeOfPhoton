@@ -85,7 +85,8 @@ function directIrradiance(px: number, py: number, pz: number, nx: number, ny: nu
  * up. A stand-in for inter-reflection, as a fraction of the reference illuminance.
  */
 function ambientIrradiance(py: number): number {
-  return SCENARIO.ambientLedFraction * (0.55 + 0.45 * Math.exp(-Math.max(py, 0) / 14));
+  const { ambientLedFraction, ambientLedAloft, ambientLedScaleHeightM } = SCENARIO;
+  return ambientLedFraction * (ambientLedAloft + (1 - ambientLedAloft) * Math.exp(-Math.max(py, 0) / ambientLedScaleHeightM));
 }
 
 export interface IlluminanceStatistics {
