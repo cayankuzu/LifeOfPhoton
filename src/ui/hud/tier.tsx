@@ -35,7 +35,11 @@ export function useHudTier(): HudTier {
  * notifications are tied to rendering and are withheld while the page is in the
  * background, so window resizes and known layout changes are handled explicitly.
  */
-export function useElementWidth(target: RefObject<HTMLElement>, onChange: (width: number) => void, revision?: unknown): void {
+export function useElementWidth(
+  target: RefObject<HTMLElement | null>,
+  onChange: (width: number) => void,
+  revision?: unknown
+): void {
   useEffect(() => {
     const element = target.current;
     if (!element) return;
@@ -59,7 +63,7 @@ export function HudTierProvider({
   revision,
   children,
 }: {
-  readonly target: RefObject<HTMLElement>;
+  readonly target: RefObject<HTMLElement | null>;
   readonly revision?: unknown;
   readonly children: ReactNode;
 }) {

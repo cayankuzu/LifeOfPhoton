@@ -1,9 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type RefObject, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { decodeFragment, encodeFragment, isExperimentFragment } from '@/state/fragment';
-import { storedLanguage, storedSingleKeys } from '@/state/preferences';
+import { dismissCoach, isCoached, storedLanguage, storedSingleKeys, subscribeCoached } from '@/state/preferences';
 import {
   type Language,
   type Settings,
@@ -16,7 +16,7 @@ import {
   useSettings,
 } from '@/state/simulation';
 import { DossierBoundary, DossierLoading, SHEET_COVERS_QUERY } from './DossierFrame';
-import { useMessages } from './hooks';
+import { useMediaQuery, useMessages } from './hooks';
 import Guides from './hud/Guides';
 import InstrumentDock from './hud/InstrumentDock';
 import Loading from './hud/Loading';
@@ -29,33 +29,19 @@ import { runShortcut } from './shortcuts';
 const UrbanScene = dynamic(() => import('@/scene/UrbanScene'), { ssr: false });
 const Dossier = dynamic(() => import('@/dossier/Dossier'), { ssr: false, loading: () => <DossierLoading /> });
 
-/** A layout effect in the browser; on the server, where there is no layout, a plain effect (which React does not warn about). */
-const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
-
 /**
- * The `inert` attribute of an element a layer covers. React 18 has no `inert` property, but it
- * passes a string attribute through, on the server as well: the stage is out of reach in the
- * markup that arrives first, before the script that would otherwise set the attribute has loaded
- * (on a slow connection the start-up screen stands for seconds over controls that Tab still
- * reached). React writes and removes it while committing, so it is gone before any effect runs
- * that hands the focus back.
- */
-function inertWhile(covered: boolean): Record<string, string> {
-  return covered ? { inert: '' } : {};
-}
-
-/**
- * Keeps track of the focus around a layer: the element (made inert with `inertWhile`) is out of
- * the tab order and away from assistive technology while covered. When it is uncovered, the focus
+ * Keeps track of the focus around a layer: the element (given `inert` while covered; see the stage
+ * below) is out of the tab order and away from assistive technology. When it is uncovered, the focus
  * goes back to the control that was in use if it was lost on the way (a layer that arrives after
  * the element became inert cannot see where the focus came from).
  */
-function useCover(ref: RefObject<HTMLElement>, covered: boolean): void {
+function useCover(ref: RefObject<HTMLElement | null>, covered: boolean): void {
   const opener = useRef<HTMLElement | null>(null);
 
   // A layout effect runs in the same task as the commit that made the element inert, before the
-  // browser moves the focus out of it, so the control that had it can still be seen here.
-  useIsomorphicLayoutEffect(() => {
+  // browser moves the focus out of it, so the control that had it can still be seen here. (On the
+  // server it does not run; React 19 no longer warns about that.)
+  useLayoutEffect(() => {
     const element = ref.current;
     if (covered && element?.contains(document.activeElement)) opener.current = document.activeElement as HTMLElement;
   }, [ref, covered]);
@@ -67,8 +53,6 @@ function useCover(ref: RefObject<HTMLElement>, covered: boolean): void {
     if (back?.isConnected && (!document.activeElement || document.activeElement === document.body)) back.focus();
   }, [covered]);
 }
-
-const STORAGE_COACHED = 'life-of-a-photon.coached';
 
 /** Replaces the fragment of the address bar without adding a history entry. */
 function writeFragment(settings: Settings): void {
@@ -98,10 +82,13 @@ export default function App() {
   const { language, t } = useMessages();
   const dossierOpen = useSettings((state) => state.dossier !== null);
   const ready = useSceneReady();
-  const [coached, setCoached] = useState(true);
-  // read after mounting, so that the server's markup and the first render in the browser agree
-  const [touch, setTouch] = useState(false);
-  const [sheetCovers, setSheetCovers] = useState(false);
+  // Read from the browser once the page has hydrated; the server's markup and the first render in the
+  // browser take the values in the third argument, so that the two agree (useSyncExternalStore).
+  const coached = useSyncExternalStore(subscribeCoached, isCoached, () => true);
+  // a touch screen has no wheel to roll
+  const touch = useMediaQuery('(pointer: coarse)');
+  // the dossier takes the whole viewport (and makes the stage inert) below this width
+  const sheetCovers = useMediaQuery(SHEET_COVERS_QUERY);
   const hud = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const startup = useRef<HTMLDivElement>(null);
@@ -128,13 +115,6 @@ export default function App() {
       // on small screens the instruments start collapsed so that the view stays open
       ...(window.innerWidth < 900 || window.innerHeight < 700 ? { dock: false } : {}),
     });
-    try {
-      setCoached(window.localStorage.getItem(STORAGE_COACHED) === '1');
-    } catch {
-      setCoached(false);
-    }
-    // a touch screen has no wheel to roll
-    setTouch(window.matchMedia('(pointer: coarse)').matches);
     if (process.env.NODE_ENV !== 'production') {
       (window as unknown as Record<string, unknown>).__photon = { getSettings, updateSettings, telemetry, look };
     }
@@ -162,37 +142,18 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.lang = language;
-    // the tab, the history entry and the first thing a screen reader says follow the language too
-    document.title = t.app.title;
-  }, [language, t]);
-
-  // --- the stage is inert while a layer covers it
-  useEffect(() => {
-    const query = window.matchMedia(SHEET_COVERS_QUERY);
-    const sync = (): void => setSheetCovers(query.matches);
-    sync();
-    query.addEventListener('change', sync);
-    return () => query.removeEventListener('change', sync);
-  }, []);
+  }, [language]);
 
   // --- the first deliberate input dismisses the coach line for good
   useEffect(() => {
     if (coached) return;
-    const dismiss = (): void => {
-      setCoached(true);
-      try {
-        window.localStorage.setItem(STORAGE_COACHED, '1');
-      } catch {
-        // ignore
-      }
-    };
-    window.addEventListener('wheel', dismiss, { once: true, passive: true });
-    window.addEventListener('pointerdown', dismiss, { once: true });
-    window.addEventListener('keydown', dismiss, { once: true });
+    window.addEventListener('wheel', dismissCoach, { once: true, passive: true });
+    window.addEventListener('pointerdown', dismissCoach, { once: true });
+    window.addEventListener('keydown', dismissCoach, { once: true });
     return () => {
-      window.removeEventListener('wheel', dismiss);
-      window.removeEventListener('pointerdown', dismiss);
-      window.removeEventListener('keydown', dismiss);
+      window.removeEventListener('wheel', dismissCoach);
+      window.removeEventListener('pointerdown', dismissCoach);
+      window.removeEventListener('keydown', dismissCoach);
     };
   }, [coached]);
 
@@ -217,6 +178,10 @@ export default function App() {
 
   return (
     <main className="relative h-dvh w-screen overflow-hidden">
+      {/* The tab, the history entry and the first thing a screen reader says follow the language. React places the
+          element in <head>, on the server as well. It is the only <title> of the page (layout.tsx sets none): Next.js 16
+          hydrates its metadata after this component's effects and would write its own title back over one set here. */}
+      <title>{t.app.title}</title>
       {!covered && (
         <a
           href="#controls"
@@ -234,9 +199,13 @@ export default function App() {
       <h1 className="sr-only">{t.app.name}</h1>
 
       {/* The stage: scene, guide layer and instruments share one box, which makes room for the dossier on wide screens. */}
+      {/* `inert` is rendered on the server too (React 19 knows the attribute and writes inert=""): the stage is out of
+          reach in the markup that arrives first, before any script has loaded (on a slow connection the start-up
+          screen stands for seconds over controls that Tab would otherwise reach). React sets and removes it while
+          committing, so it is gone before any effect runs that hands the focus back. */}
       <div
         ref={stage}
-        {...inertWhile(covered)}
+        inert={covered}
         className={`absolute inset-y-0 left-0 ${dossierOpen ? 'right-0 lg:right-[min(46rem,52vw)]' : 'right-0'}`}
       >
         <UrbanScene />
@@ -265,7 +234,7 @@ export default function App() {
         <Dossier modal={sheetCovers} />
       </DossierBoundary>
       {/* the box only carries `inert` while a full-screen dossier opened from the failure screen covers it */}
-      <div ref={startup} {...inertWhile(sheetCoversAll)}>
+      <div ref={startup} inert={sheetCoversAll}>
         <Loading />
       </div>
     </main>

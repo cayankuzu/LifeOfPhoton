@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { MESSAGES } from '@/i18n/messages';
 import App from '../App';
 
 describe('the page as the server sends it', () => {
@@ -22,5 +23,11 @@ describe('the page as the server sends it', () => {
 
   it('offers no way to skip to controls that cannot be reached', () => {
     expect(html).not.toContain('href="#controls"');
+  });
+
+  it('carries the title of the page, in the language it is served in', () => {
+    // the only <title> (layout.tsx sets none), so that it follows the language of the visit (App.tsx)
+    expect(html.match(/<title>/g)).toHaveLength(1);
+    expect(html).toContain(`<title>${MESSAGES.tr.app.title}</title>`);
   });
 });

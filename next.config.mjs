@@ -21,9 +21,12 @@ const modelCacheHeaders = [{ key: 'Cache-Control', value: 'public, max-age=86400
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  // three 0.169 is an ES module written in ES2018 syntax, which Next.js 14 bundles as it is, so this is probably
-  // redundant by now. It stays until a production build without it has been checked.
-  transpilePackages: ['three'],
+  // `next dev` otherwise writes an AGENTS.md into the repository whenever it detects a coding agent;
+  // the repository keeps its documentation in README.md.
+  agentRules: false,
+  // No `transpilePackages`: three 0.169 is published as ES modules in ES2018 syntax, which every browser Next.js 16
+  // supports runs as it is. Checked with two production builds of 16.4.6 (Turbopack): with `transpilePackages: ['three']`
+  // the client JavaScript differed only in that three's own `typeof window` guard was folded away (21 bytes).
   async headers() {
     const rules = [{ source: '/:path*', headers: securityHeaders }];
     // In development a model replaced on disk has to show up on the next reload, so only production caches them

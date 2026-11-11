@@ -9,12 +9,16 @@
  * The same holds for the single-character shortcuts: a reader who switches them off
  * (speech input types them by the dozen) must not find them on again at the next visit.
  * Neither preference is part of a shared link.
+ *
+ * The coach line ("roll the wheel to accelerate") is shown until the first deliberate input
+ * and then never again.
  */
 
 import { type Language, updateSettings } from './simulation';
 
 const STORAGE_LANGUAGE = 'life-of-a-photon.language';
 const STORAGE_SINGLE_KEYS = 'life-of-a-photon.single-keys';
+const STORAGE_COACHED = 'life-of-a-photon.coached';
 
 /** Reads a stored value; storage may be unavailable (private mode, blocked site data). */
 function read(key: string): string | null {
@@ -56,4 +60,29 @@ export function storedSingleKeys(): boolean | null {
 export function chooseSingleKeys(on: boolean): void {
   updateSettings({ singleKeys: on });
   write(STORAGE_SINGLE_KEYS, on ? 'on' : 'off');
+}
+
+/** Dismissed in this visit: the coach line stays away even where the browser cannot store that. */
+let coachedThisVisit = false;
+const coachedListeners = new Set<() => void>();
+
+/** Whether the coach line has been dismissed, in this visit or an earlier one (read with useSyncExternalStore). */
+export function isCoached(): boolean {
+  return coachedThisVisit || read(STORAGE_COACHED) === '1';
+}
+
+/** Calls `listener` when the coach line is dismissed; returns the function that stops it. */
+export function subscribeCoached(listener: () => void): () => void {
+  coachedListeners.add(listener);
+  return () => {
+    coachedListeners.delete(listener);
+  };
+}
+
+/** Dismisses the coach line for good. */
+export function dismissCoach(): void {
+  if (coachedThisVisit) return;
+  coachedThisVisit = true;
+  write(STORAGE_COACHED, '1');
+  coachedListeners.forEach((listener) => listener());
 }

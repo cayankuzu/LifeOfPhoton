@@ -11,14 +11,17 @@ const mono = JetBrains_Mono({ subsets: ['latin', 'latin-ext'], variable: '--font
 /* Long-form reading in the dossier. */
 const serif = Source_Serif_4({ subsets: ['latin', 'latin-ext'], variable: '--font-serif', display: 'swap' });
 
-/* The page is served in Turkish; once the language of the visit is known, App.tsx sets the title in that language. */
+/*
+ * The page is served in Turkish. The document title is not part of the metadata: App.tsx renders it, in Turkish on the
+ * server and in the language of the visit once that is known. (Next.js hydrates its metadata after the page's effects
+ * and would put a title given here back over the visit's.) The social cards below keep the Turkish title.
+ */
 const title = MESSAGES.tr.app.title;
 const description =
   'Einstein’ın 16 yaşındaki düşünce deneyi, hakemli literatüre dayanan gerçek zamanlı bir simülasyon olarak: durgun hâlden 0,99999 c’ye, ışık sapıncı, Doppler kayması ve ışınım parlaklığının dönüşümü CIE 1931 gözlemcisi ve Planck yasasıyla hesaplanır.';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://life-of-photon.vercel.app'),
-  title,
   description,
   applicationName: 'Life of a Photon',
   keywords: [

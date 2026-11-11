@@ -12,7 +12,13 @@ import { useHudTier } from './tier';
  * Shortcut sheet, anchored under its button. A non-modal dialog: it takes the focus
  * when it opens and gives it back to its button when it closes from the inside.
  */
-function HelpSheet({ onClose, trigger }: { readonly onClose: () => void; readonly trigger: RefObject<HTMLButtonElement> }) {
+function HelpSheet({
+  onClose,
+  trigger,
+}: {
+  readonly onClose: () => void;
+  readonly trigger: RefObject<HTMLButtonElement | null>;
+}) {
   const { t } = useMessages();
   const singleKeys = useSettings((state) => state.singleKeys);
   const sheet = useRef<HTMLDivElement | null>(null);

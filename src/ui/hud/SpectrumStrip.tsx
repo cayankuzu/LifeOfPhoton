@@ -7,7 +7,7 @@
  * light does not change colour so much as leave the narrow band the eye can see.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import { CANDELA_WAVELENGTH_NM } from '@/physics/constants';
 import { VISIBLE_MAX_NM, VISIBLE_MIN_NM, spectralSwatch } from '@/physics/bands';
 import { headOnDopplerFactor } from '@/physics/kinematics';
@@ -31,25 +31,40 @@ const DECADES: ReadonlyArray<{ nm: number; label: string }> = [
   { nm: 1e6, label: '1 mm' },
 ];
 
+interface Slice {
+  readonly index: number;
+  readonly from: number;
+  readonly to: number;
+  readonly colour: string;
+}
+
+/** The visible band in 40 slices of its own colours; computed once, on first use in the browser. */
+let slices: Slice[] | null = null;
+function visibleBand(): Slice[] {
+  if (slices) return slices;
+  slices = [];
+  const count = 40;
+  for (let i = 0; i < count; i++) {
+    const from = VISIBLE_MIN_NM * (VISIBLE_MAX_NM / VISIBLE_MIN_NM) ** (i / count);
+    const to = VISIBLE_MIN_NM * (VISIBLE_MAX_NM / VISIBLE_MIN_NM) ** ((i + 1) / count);
+    const colour = spectralSwatch(Math.sqrt(from * to));
+    if (colour) slices.push({ index: i, from, to, colour });
+  }
+  return slices;
+}
+const NO_SLICES: Slice[] = [];
+/** The band never changes, so there is nothing to subscribe to. */
+const unchanging = (): (() => void) => () => {};
+
 export default function SpectrumStrip() {
   const { t } = useMessages();
   const aheadRef = useRef<SVGGElement>(null);
   const behindRef = useRef<SVGGElement>(null);
 
-  // The visible band, drawn in its own colours. Computed after mounting: the colours come
-  // out of floating-point colorimetry and need not match a server render bit for bit.
-  const [visible, setVisible] = useState<Array<{ index: number; from: number; to: number; colour: string }>>([]);
-  useEffect(() => {
-    const slices: Array<{ index: number; from: number; to: number; colour: string }> = [];
-    const count = 40;
-    for (let i = 0; i < count; i++) {
-      const from = VISIBLE_MIN_NM * (VISIBLE_MAX_NM / VISIBLE_MIN_NM) ** (i / count);
-      const to = VISIBLE_MIN_NM * (VISIBLE_MAX_NM / VISIBLE_MIN_NM) ** ((i + 1) / count);
-      const colour = spectralSwatch(Math.sqrt(from * to));
-      if (colour) slices.push({ index: i, from, to, colour });
-    }
-    setVisible(slices);
-  }, []);
+  // The visible band, drawn in its own colours, only in the browser: the colours come out of
+  // floating-point colorimetry and need not match a server render bit for bit. The server and
+  // the first render in the browser (hydration) draw no band; React then renders it.
+  const visible = useSyncExternalStore(unchanging, visibleBand, () => NO_SLICES);
 
   useFrame(() => {
     const d0 = headOnDopplerFactor(telemetry.beta);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { MESSAGES, type Messages } from '@/i18n/messages';
 import { type Language, onFrame, useSettings } from '@/state/simulation';
 
@@ -8,6 +8,27 @@ import { type Language, onFrame, useSettings } from '@/state/simulation';
 export function useMessages(): { language: Language; t: Messages } {
   const language = useSettings((state) => state.language);
   return { language, t: MESSAGES[language] };
+}
+
+/**
+ * Whether a media query matches, kept current as the answer changes. The server has no screen to ask:
+ * it renders with `false`, and so does the first render in the browser (hydration), so that the two
+ * agree; React then renders again with the browser's answer.
+ */
+export function useMediaQuery(query: string): boolean {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const list = window.matchMedia(query);
+      list.addEventListener('change', onChange);
+      return () => list.removeEventListener('change', onChange);
+    },
+    [query]
+  );
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(query).matches,
+    () => false
+  );
 }
 
 /**

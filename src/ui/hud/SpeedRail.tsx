@@ -38,7 +38,7 @@ function Readout({
   readonly label: string;
   readonly unit?: string;
   readonly tone: string;
-  readonly valueRef: RefObject<HTMLSpanElement>;
+  readonly valueRef: RefObject<HTMLSpanElement | null>;
   readonly large?: boolean;
 }) {
   return (

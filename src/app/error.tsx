@@ -19,6 +19,8 @@ export default function AppError({ error, reset }: { readonly error: Error & { d
 
   return (
     <main className="flex h-dvh w-screen items-center justify-center bg-obsidian">
+      {/* the page's <title> is rendered by App.tsx, which this screen replaces */}
+      <title>{t.app.title}</title>
       <div role="alert" className="w-[min(22rem,calc(100vw-3rem))]">
         <h1 className="sr-only">{t.app.name}</h1>
         <p aria-hidden="true" className="font-mono text-[12px] font-semibold tracking-[0.2em] text-ink">

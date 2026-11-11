@@ -44,17 +44,16 @@ function supportsWebGL2(): boolean {
 
 export default function UrbanScene() {
   const surface = useRef<HTMLDivElement | null>(null);
-  const [supported, setSupported] = useState<boolean | null>(null);
+  // This component is only ever rendered in the browser (App.tsx loads it with `ssr: false`), so the
+  // first render can ask the browser directly.
+  const [supported] = useState(supportsWebGL2);
   // The resolution the scene is drawn at is state of this component and reaches the canvas as
   // a prop: a value set behind the canvas's back is lost the next time the canvas renders.
-  const [pixelRatio, setPixelRatio] = useState(1);
-  useEffect(() => setPixelRatio(preferredPixelRatio(window.devicePixelRatio)), []);
+  const [pixelRatio, setPixelRatio] = useState(() => preferredPixelRatio(window.devicePixelRatio));
 
   useEffect(() => {
-    const ok = supportsWebGL2();
-    setSupported(ok);
-    if (!ok) setLoadPhase('error', 0, 'webgl2');
-  }, []);
+    if (!supported) setLoadPhase('error', 0, 'webgl2');
+  }, [supported]);
 
   // Pointer: drag to look around, wheel to boost, double click to face forward again.
   useEffect(() => {

@@ -202,6 +202,9 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
     return { texture, uniforms, city, sky, starMaterial, skyGeometry, starGeometry, starTarget, starScene };
   }, [atlas, gl]);
 
+  // In development the scene runs under StrictMode (react-three-fiber 9 takes it from React DOM), which runs this
+  // cleanup once right after mounting while the same resources stay in use. That is safe: dispose() frees only the
+  // GPU copies, and three.js creates them again when the objects are next drawn (textures and the target included).
   useEffect(
     () => () => {
       resources.texture.dispose();
@@ -246,9 +249,11 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
   // The ends of the model dissolve by sample coverage where the framebuffer is multisampled.
   useEffect(() => {
     const context = gl.getContext();
+    // eslint-disable-next-line react-hooks/immutability -- a uniform is the shaders' input and is written in place by design
     resources.uniforms.uCoverage.value = Number(context.getParameter(context.SAMPLES)) > 0 ? 1 : 0;
   }, [gl, resources]);
 
+  /* eslint-disable react-hooks/immutability -- the frame loop writes uniforms, camera and renderer state in place, as three.js is driven */
   useFrame((_, rawDelta) => {
     const dt = Math.min(rawDelta, 0.05);
     const settings = getSettings();
@@ -385,6 +390,7 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
 
     notifyFrame();
   });
+  /* eslint-enable react-hooks/immutability */
 
   return (
     <group>

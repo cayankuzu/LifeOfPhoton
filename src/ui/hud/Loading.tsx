@@ -17,12 +17,17 @@ export default function Loading() {
   const dossierOpen = useSettings((state) => state.dossier !== null);
   const [gone, setGone] = useState(false);
 
+  // The screen comes back if the scene leaves the ready phase (a failure after start-up). The state
+  // follows the phase while rendering, as React recommends, rather than in an effect one commit late.
+  const [phaseSeen, setPhaseSeen] = useState(phase);
+  if (phase !== phaseSeen) {
+    setPhaseSeen(phase);
+    if (phase !== 'ready') setGone(false);
+  }
+
   // keep the screen mounted for the length of its fade-out, then remove it
   useEffect(() => {
-    if (phase !== 'ready') {
-      setGone(false);
-      return;
-    }
+    if (phase !== 'ready') return;
     const timer = window.setTimeout(() => setGone(true), 700);
     return () => window.clearTimeout(timer);
   }, [phase]);
