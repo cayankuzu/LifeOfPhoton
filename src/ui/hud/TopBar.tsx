@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, Crosshair, Keyboard, Pause, Play, Telescope, Thermometer } from 'lucide-react';
+import { chooseLanguage } from '@/state/preferences';
 import { LENSES, type Language, type ViewMode, updateSettings, useSettings } from '@/state/simulation';
 import { useMessages } from '../hooks';
 import { Button, Divider, IconButton, Kbd, Panel, Segmented, Toggle } from '../primitives';
@@ -134,7 +135,7 @@ export default function TopBar() {
           <Keyboard className="h-3.5 w-3.5" aria-hidden="true" />
         </IconButton>
         <Button
-          onClick={() => updateSettings({ language: otherLanguage })}
+          onClick={() => chooseLanguage(otherLanguage)}
           aria-label={`${t.controls.language}: ${t.controls.languageName[otherLanguage]}`}
           hint={t.controls.languageName[otherLanguage]}
           lang={otherLanguage}

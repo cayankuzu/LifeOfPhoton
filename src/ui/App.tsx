@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { BETA_MAX, boostBy } from '@/physics/kinematics';
 import { decodeFragment, encodeFragment, isExperimentFragment } from '@/state/fragment';
+import { storedLanguage } from '@/state/preferences';
 import {
   LENSES,
   type Language,
@@ -34,7 +35,6 @@ const Dossier = dynamic(() => import('@/dossier/Dossier'), { ssr: false });
 const PRESETS = [0, 0.5, Math.sqrt(3) / 2, 0.99, 0.9999, BETA_MAX] as const;
 
 const LOOK_STEP = (15 * Math.PI) / 180;
-const STORAGE_LANGUAGE = 'life-of-a-photon.language';
 const STORAGE_COACHED = 'life-of-a-photon.coached';
 
 /** Replaces the fragment of the address bar without adding a history entry. */
@@ -44,15 +44,9 @@ function writeFragment(settings: Settings): void {
   window.history.replaceState(null, '', url);
 }
 
+/** The language of this visit: the link's, else the reader's earlier choice, else the browser's. */
 function initialLanguage(fromUrl: Language | undefined): Language {
-  if (fromUrl) return fromUrl;
-  try {
-    const stored = window.localStorage.getItem(STORAGE_LANGUAGE);
-    if (stored === 'tr' || stored === 'en') return stored;
-  } catch {
-    // storage may be unavailable (private mode); fall through to the browser language
-  }
-  return navigator.language.toLowerCase().startsWith('tr') ? 'tr' : 'en';
+  return fromUrl ?? storedLanguage() ?? (navigator.language.toLowerCase().startsWith('tr') ? 'tr' : 'en');
 }
 
 /** Keys a focused slider uses itself. */
@@ -99,7 +93,7 @@ export default function App() {
     }
   }, []);
 
-  // --- keep the URL, the document language and the stored language in step with the settings
+  // --- keep the URL and the document language in step with the settings
   useEffect(() => {
     let timer = 0;
     const sync = (): void => {
@@ -121,11 +115,6 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.lang = language;
-    try {
-      window.localStorage.setItem(STORAGE_LANGUAGE, language);
-    } catch {
-      // not being able to remember the language is harmless
-    }
   }, [language]);
 
   // --- the first deliberate input dismisses the coach line for good

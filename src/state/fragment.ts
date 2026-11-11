@@ -10,8 +10,10 @@
  *   l   language, "tr" or "en"
  *
  * The fragment lists only what differs from the defaults, so a key that is absent
- * means the default — except for the language, which is a preference of the reader
- * rather than part of the experiment and is therefore only ever set explicitly.
+ * means the default — except for the language, which is always written (a link
+ * opens in the language of the one who shared it) and never reset: it is a
+ * preference of the reader rather than part of the experiment, and a link changes
+ * it for the visit only (see preferences.ts).
  */
 
 import { clampBeta } from '@/physics/kinematics';

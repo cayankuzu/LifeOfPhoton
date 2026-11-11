@@ -124,7 +124,7 @@ Aşağıdaki dört nokta, analizin “Düşünce deneyi” ve “Yedi yanılgı�
 
 ### 4. Sahne modeli ve varsayımları
 
-Modelin sabitleri tek bir dosyada, `src/physics/scenario.ts` içinde toplanmıştır. Analizdeki varsayım çizelgesi de aynı dosyadan üretilir; dolayısıyla belge, görüntüleyicinin kullandığı değerlerden ayrılamaz. Uzunluklar durgun uzunluklardır.
+Sahnenin ışık alanına ilişkin varsayımlar tek bir dosyada, `src/physics/scenario.ts` içinde toplanmıştır. Analizdeki varsayım çizelgesi de aynı dosyadan üretilir; dolayısıyla belge, görüntüleyicinin kullandığı değerlerden ayrılamaz. Yıldız alanının istatistikleri `src/scene/geometry/stars.ts`, pozlama ölçerinin örnek sahnesi ise `src/physics/exposure.ts` içindedir. Uzunluklar durgun uzunluklardır.
 
 | Nicelik                             | Değer                                                                    | Kaynak ya da dayanak                                                                                       |
 | ----------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
@@ -144,7 +144,7 @@ Modelin sabitleri tek bir dosyada, `src/physics/scenario.ts` içinde toplanmış
 
 Bu çizelgede adı geçip bu bölümün sonundaki seçilmiş kaynaklar arasında yer almayan kaynakların künyesi analizin kaynakçasındadır (`src/dossier/references.ts`).
 
-**Kesin olan ve modellenen.** Işık sapıncı, Doppler çarpanı ve ışınım parlaklığının dönüşümü özel göreliliğin kesin sonuçlarıdır; durgun çerçevesinde değişmeyen bir sahne, boşluk ve anlık pozlama yapan ideal bir iğne deliği kamerası için görüntü de kesindir. Dönüşümün uygulandığı şey, yani gece vakti bir kentin ışık alanı ise bir modeldir. Cadde bütünüyle `public/models` klasöründeki gerçek 3B model dosyalarından (GLB) kurulur ve modeller oldukları gibi kullanılır; bir modelin yerine geçen hiçbir şey kodla modellenmez. Işık kaynakları da modellerin kendi yüzleridir: pencere camları bina paletindeki cam rengiyle bulunur ve bir bölümü aydınlatılır; sokak armatürünün ışık veren yüzü, lamba modelinin palet rengiyle bulunan kendi ışık yüzüdür. Kodla eklenen tek geometri, her trafik ışığındaki üç küçük sinyal merceğidir: modelde mercek yoktur, Doppler kaymasını göstermek için ise kırmızı, sarı ve yeşil, neredeyse tek renkli ışıklar gerekir. Bu yüz düzgün yayan (Lambert) bir yüzey olarak alınmıştır; parıltısı bağımsız bir varsayım değildir: taşıt yolunun ortalama yatay aydınlık düzeyi başvuru değerine (20 lx) eşit olacak biçimde, modeldeki ışık veren yüzün alanından çıkar (`src/scene/geometry/lighting.ts`). Gökyüzü, Ay ve caddenin ötesindeki zemin düzlemi model değil, bakış yönünün fonksiyonlarıdır. Gölge düşürülmez, ışık yüzeyler arasında yeniden yansıtılmaz; bunlar relativistik dönüşümün değil, aydınlatmanın yalınlaştırmalarıdır: durgun çerçevede hangi ışık alanı verilirse verilsin, ona uygulanan dönüşüm kesin olandır.
+**Kesin olan ve modellenen.** Işık sapıncı, Doppler çarpanı ve ışınım parlaklığının dönüşümü özel göreliliğin kesin sonuçlarıdır; durgun çerçevesinde değişmeyen bir sahne, boşluk ve anlık pozlama yapan ideal bir iğne deliği kamerası için görüntü de kesindir. Dönüşümün uygulandığı şey, yani gece vakti bir kentin ışık alanı ise bir modeldir. Cadde bütünüyle `public/models` klasöründeki gerçek 3B model dosyalarından (GLB) kurulur ve modeller oldukları gibi kullanılır; bir modelin yerine geçen hiçbir şey kodla modellenmez. Işık kaynakları da modellerin kendi yüzleridir: pencere camları bina paletindeki cam rengiyle bulunur ve bir bölümü aydınlatılır; sokak armatürünün ışık veren yüzü, lamba modelinin palet rengiyle bulunan kendi ışık yüzüdür. Bu yüz düzgün yayan (Lambert) bir yüzey olarak alınmıştır; parıltısı bağımsız bir varsayım değildir: taşıt yolunun ortalama yatay aydınlık düzeyi başvuru değerine (20 lx) eşit olacak biçimde, modeldeki ışık veren yüzün alanından çıkar (`src/scene/geometry/lighting.ts`). Kodla eklenen tek geometri, her trafik ışığındaki üç küçük sinyal merceğidir: modelde mercek yoktur, Doppler kaymasını göstermek için ise kırmızı, sarı ve yeşil, neredeyse tek renkli ışıklar gerekir. Gökyüzü, Ay ve caddenin ötesindeki zemin düzlemi model değil, bakış yönünün fonksiyonlarıdır. Gölge düşürülmez, ışık yüzeyler arasında yeniden yansıtılmaz; bunlar relativistik dönüşümün değil, aydınlatmanın yalınlaştırmalarıdır: durgun çerçevede hangi ışık alanı verilirse verilsin, ona uygulanan dönüşüm kesin olandır.
 
 ### 5. Görüntünün hesaplanması
 
@@ -243,7 +243,7 @@ kadar ayrılır. Geometri bu nedenle, hiçbir kenar gözlemcinin yoluna olan uza
 
 #### Gereksinimler
 
-- Node.js 22.13 ya da daha yenisi (`package.json` içindeki `engines` alanı; testleri çalıştıran vitest bunu gerektirir) ve npm; sürekli tümleştirme iş akışı Node.js 22 kullanır.
+- Node.js 22 (22.12 ya da sonrası), 24 ya da 26 ve sonrası (`package.json` içindeki `engines` alanı; testleri çalıştıran vitest bu sürüm hatlarını destekler) ve npm; sürekli tümleştirme iş akışı Node.js 22 kullanır.
 - WebGL 2 destekleyen güncel bir tarayıcı; destek yoksa uygulama sahne yerine bir açıklama gösterir.
 
 #### Komutlar
@@ -253,18 +253,18 @@ npm install
 npm run dev
 ```
 
-| Komut                  | İşlev                                                     |
-| ---------------------- | --------------------------------------------------------- |
-| `npm run dev`          | Geliştirme sunucusu.                                      |
-| `npm run build`        | Üretim derlemesi.                                         |
-| `npm start`            | Üretim derlemesini sunar.                                 |
-| `npm run lint`         | ESLint denetimi.                                          |
-| `npm run typecheck`    | TypeScript tür denetimi.                                  |
-| `npm test`             | Test takımını bir kez çalıştırır.                         |
-| `npm run test:watch`   | Testleri izleme kipinde çalıştırır.                       |
-| `npm run format`       | Kaynakları Prettier ile biçimlendirir.                    |
-| `npm run format:check` | Biçimi denetler.                                          |
-| `npm run check`        | Tür denetimi, lint, testler ve üretim derlemesi, sırayla. |
+| Komut                  | İşlev                                                                     |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `npm run dev`          | Geliştirme sunucusu.                                                      |
+| `npm run build`        | Üretim derlemesi.                                                         |
+| `npm start`            | Üretim derlemesini sunar.                                                 |
+| `npm run lint`         | ESLint denetimi.                                                          |
+| `npm run typecheck`    | TypeScript tür denetimi.                                                  |
+| `npm test`             | Test takımını bir kez çalıştırır.                                         |
+| `npm run test:watch`   | Testleri izleme kipinde çalıştırır.                                       |
+| `npm run format`       | Kaynakları Prettier ile biçimlendirir.                                    |
+| `npm run format:check` | Biçimi denetler.                                                          |
+| `npm run check`        | Biçim denetimi, tür denetimi, lint, testler ve üretim derlemesi, sırayla. |
 
 Sürekli tümleştirme iş akışı (`.github/workflows/ci.yml`) aynı denetimleri çalıştırır.
 
@@ -299,7 +299,7 @@ Kısayollar, odak bir metin alanındayken ya da Ctrl, Alt veya Meta tuşu basıl
 
 #### Paylaşılabilir bağlantılar
 
-Deneyin durumu URL parçasında (`#` sonrası bölüm) tutulur; böylece her görünüm paylaşılabilir ve analizde tartışılan bir durum bir bağlantıyla yeniden üretilebilir (`src/state/fragment.ts`). Parça yalnızca varsayılandan farklı olanı listeler, her değişiklikten kısa süre sonra tarayıcı geçmişine kayıt eklemeden güncellenir; açık bir sekmeye yapıştırılan bağlantı izlenir.
+Deneyin durumu URL parçasında (`#` sonrası bölüm) tutulur; böylece her görünüm paylaşılabilir ve analizde tartışılan bir durum bir bağlantıyla yeniden üretilebilir (`src/state/fragment.ts`). Parça yalnızca varsayılandan farklı olanı ve dili listeler, her değişiklikten kısa süre sonra tarayıcı geçmişine kayıt eklemeden güncellenir; açık bir sekmeye yapıştırılan bağlantı izlenir.
 
 | Anahtar | Anlamı                         | Yoksa                                               |
 | ------- | ------------------------------ | --------------------------------------------------- |
@@ -490,7 +490,7 @@ The following four points summarise the sections “The thought experiment” an
 
 ### 4. The scene model and its assumptions
 
-The constants of the model are collected in one file, `src/physics/scenario.ts`. The table of assumptions in the dossier is generated from the same file, so the document cannot disagree with the values the renderer uses. Lengths are rest lengths.
+The assumptions about the light field of the scene are collected in one file, `src/physics/scenario.ts`. The table of assumptions in the dossier is generated from the same file, so the document cannot disagree with the values the renderer uses. The statistics of the star field are in `src/scene/geometry/stars.ts`, the generic scene of the exposure meter in `src/physics/exposure.ts`. Lengths are rest lengths.
 
 | Quantity                          | Value                                                           | Source or basis                                                                                                   |
 | --------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -510,7 +510,7 @@ The constants of the model are collected in one file, `src/physics/scenario.ts`.
 
 Sources named in this table that are not among the selected references at the end of this part are listed in full in the bibliography of the dossier (`src/dossier/references.ts`).
 
-**What is exact and what is modelled.** The aberration, the Doppler factor and the transformation of radiance are exact consequences of special relativity; for a scene that is static in its rest frame, in vacuum and for an ideal pinhole camera with an instantaneous exposure, so is the image. What the transformation is applied to, the light field of a night-time city, is a model. The avenue is assembled entirely from the real 3D model files (GLB) in `public/models`, and the models are used as they are; nothing is modelled procedurally in place of a model. The light sources, too, are the models’ own faces: window panes are found by the glass colour of the building palette, and a share of them is lit; the emitting face of a street luminaire is the lamp model’s own light face, found by its palette colour. The only geometry added by code is three small signal lenses on each traffic signal: the model has none, and red, amber and green quasi-monochromatic lights are needed to demonstrate the Doppler shift. That face is taken to be a uniform diffuse (Lambertian) emitter; its luminance is not an independent assumption: it follows from the requirement that the average horizontal illuminance of the carriageway equal the reference value (20 lx) and from the area of the model’s emitting face (`src/scene/geometry/lighting.ts`). The sky, the Moon and the ground plane beyond the avenue are not models but functions of the viewing direction. No shadows are cast and light is not inter-reflected; these are simplifications of the lighting, not of the relativistic transformation: whatever light field is supplied in the rest frame, the transformation applied to it is the exact one.
+**What is exact and what is modelled.** The aberration, the Doppler factor and the transformation of radiance are exact consequences of special relativity; for a scene that is static in its rest frame, in vacuum and for an ideal pinhole camera with an instantaneous exposure, so is the image. What the transformation is applied to, the light field of a night-time city, is a model. The avenue is assembled entirely from the real 3D model files (GLB) in `public/models`, and the models are used as they are; nothing is modelled procedurally in place of a model. The light sources, too, are the models’ own faces: window panes are found by the glass colour of the building palette, and a share of them is lit; the emitting face of a street luminaire is the lamp model’s own light face, found by its palette colour. This face is taken to be a uniform diffuse (Lambertian) emitter; its luminance is not an independent assumption: it follows from the requirement that the average horizontal illuminance of the carriageway equal the reference value (20 lx) and from the area of the model’s emitting face (`src/scene/geometry/lighting.ts`). The only geometry added by code is three small signal lenses on each traffic signal: the model has none, and red, amber and green quasi-monochromatic lights are needed to demonstrate the Doppler shift. The sky, the Moon and the ground plane beyond the avenue are not models but functions of the viewing direction. No shadows are cast and light is not inter-reflected; these are simplifications of the lighting, not of the relativistic transformation: whatever light field is supplied in the rest frame, the transformation applied to it is the exact one.
 
 ### 5. How it is rendered
 
@@ -609,7 +609,7 @@ The geometry is therefore subdivided until no edge exceeds 0.19 times its distan
 
 #### Requirements
 
-- Node.js 22.13 or later (the `engines` field of `package.json`; required by vitest, which runs the tests) and npm; the continuous-integration workflow uses Node.js 22.
+- Node.js 22 (22.12 or later), 24, or 26 and later (the `engines` field of `package.json`; vitest, which runs the tests, supports these release lines) and npm; the continuous-integration workflow uses Node.js 22.
 - A current browser with WebGL 2; without it the application shows an explanation instead of the scene.
 
 #### Commands
@@ -619,18 +619,18 @@ npm install
 npm run dev
 ```
 
-| Command                | Purpose                                                    |
-| ---------------------- | ---------------------------------------------------------- |
-| `npm run dev`          | Development server.                                        |
-| `npm run build`        | Production build.                                          |
-| `npm start`            | Serves the production build.                               |
-| `npm run lint`         | ESLint.                                                    |
-| `npm run typecheck`    | TypeScript type check.                                     |
-| `npm test`             | Runs the test suite once.                                  |
-| `npm run test:watch`   | Runs the tests in watch mode.                              |
-| `npm run format`       | Formats the sources with Prettier.                         |
-| `npm run format:check` | Checks the formatting.                                     |
-| `npm run check`        | Type check, lint, tests and production build, in sequence. |
+| Command                | Purpose                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| `npm run dev`          | Development server.                                                          |
+| `npm run build`        | Production build.                                                            |
+| `npm start`            | Serves the production build.                                                 |
+| `npm run lint`         | ESLint.                                                                      |
+| `npm run typecheck`    | TypeScript type check.                                                       |
+| `npm test`             | Runs the test suite once.                                                    |
+| `npm run test:watch`   | Runs the tests in watch mode.                                                |
+| `npm run format`       | Formats the sources with Prettier.                                           |
+| `npm run format:check` | Checks the formatting.                                                       |
+| `npm run check`        | Formatting check, type check, lint, tests and production build, in sequence. |
 
 The continuous-integration workflow (`.github/workflows/ci.yml`) runs the same checks.
 
@@ -665,7 +665,7 @@ The shortcuts are inactive while a text field has the focus or while Ctrl, Alt o
 
 #### Shareable links
 
-The state of the experiment is kept in the URL fragment (the part after `#`), so that any view can be shared and a state discussed in the dossier can be reproduced by following a link (`src/state/fragment.ts`). The fragment lists only what differs from the defaults and is rewritten shortly after every change without adding an entry to the browser history; a link pasted into an open tab is followed.
+The state of the experiment is kept in the URL fragment (the part after `#`), so that any view can be shared and a state discussed in the dossier can be reproduced by following a link (`src/state/fragment.ts`). The fragment lists only what differs from the defaults, plus the language, and is rewritten shortly after every change without adding an entry to the browser history; a link pasted into an open tab is followed.
 
 | Key | Meaning                      | When absent                                                        |
 | --- | ---------------------------- | ------------------------------------------------------------------ |
