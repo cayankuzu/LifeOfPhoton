@@ -5,6 +5,7 @@
  * document cannot disagree with the values the renderer actually uses.
  */
 
+import { relativeLuminance } from '@/physics/colorimetry';
 import { HIGHLIGHT_SLOPE } from '@/physics/display';
 import { EXPOSURE_MAX_EV, EXPOSURE_MIN_EV } from '@/physics/exposure';
 import { aberrate, dopplerFromRestAngle } from '@/physics/optics';
@@ -43,6 +44,15 @@ const pixelsOf = (angle: number, zoom: number): number =>
  */
 const percent = (fraction: number, digits = 0): Bilingual => num(100 * fraction, digits);
 
+/**
+ * Luminance of the sky glow at the zenith and at the horizon, in reference units. The shader draws
+ * the glow as LED light reflected by a bluish scatterer lit at the scenario's levels, so the
+ * luminance is those levels times the scatterer's luminance factor (at D = 1 the atlas returns
+ * every albedo as itself).
+ */
+const GLOW_ZENITH = sky.glowZenith * relativeLuminance(sky.glowTint);
+const GLOW_HORIZON = (sky.glowZenith + sky.glowHorizon) * relativeLuminance(sky.glowTint);
+
 /** The Moon at β = 0.99: where it is seen, and the temperature at which its own thermal emission appears. */
 const MOON_AT_099 = (() => {
   const restAngle = Math.acos(Math.cos((moon.elevationDeg * Math.PI) / 180) * Math.cos((moon.azimuthDeg * Math.PI) / 180));
@@ -77,12 +87,13 @@ const ASSUMPTION_ROWS: ReadonlyArray<readonly Text[]> = [
   [
     L('Ay ışığı, aydınlık düzeyi', 'Moonlight, illuminance'),
     L(
-      `${num(moon.illuminanceLux, 1).tr} lx; ayrıca bunun %${percent(moon.skyFillFraction).tr} kadarı gökten yaygın olarak (yukarı bakan bir yüzey bu yaygın payın tamamını, aşağı bakan bir yüzey %${percent(moon.skyFillFacingDown).tr} kadarını alır)`,
-      `${num(moon.illuminanceLux, 1).en} lx; in addition ${percent(moon.skyFillFraction).en} % of it diffusely from the sky (a surface facing up receives all of this diffuse share, one facing down ${percent(moon.skyFillFacingDown).en} % of it)`
+      `Ay’a dönük bir yüzeyde ${num(moon.illuminanceLux, 1).tr} lx; ayrıca bunun %${percent(moon.skyFillFraction).tr} kadarı gökten yaygın olarak (yukarı bakan bir yüzey bu yaygın payın tamamını, aşağı bakan bir yüzey %${percent(moon.skyFillFacingDown).tr} kadarını alır)`,
+      `${num(moon.illuminanceLux, 1).en} lx on a surface facing the Moon; in addition ${percent(moon.skyFillFraction).en} % of it diffusely from the sky (a surface facing up receives all of this diffuse share, one facing down ${percent(moon.skyFillFacingDown).en} % of it)`
     ),
+    // the value is that of a high Moon; the scene puts the Moon lower (next row) so that it is in view ahead
     L(
-      'gökyüzünde yüksekteki dolunay; çoğu dolunayda 0,05–0,2 lx, en çok yaklaşık 0,3 lx [@kyba2017]; yaygın pay varsayım',
-      'a full Moon high in the sky; 0.05–0.2 lx for most full Moons, about 0.3 lx at most [@kyba2017]; diffuse share assumed'
+      'gökyüzünde yüksekteki dolunayın değeri, aşağıdaki konumda da korunur; çoğu dolunayda 0,05–0,2 lx, en çok yaklaşık 0,3 lx [@kyba2017]; yaygın pay varsayım',
+      'the value for a full Moon high in the sky, kept at the lower position below; 0.05–0.2 lx for most full Moons, about 0.3 lx at most [@kyba2017]; diffuse share assumed'
     ),
   ],
   [
@@ -104,12 +115,12 @@ const ASSUMPTION_ROWS: ReadonlyArray<readonly Text[]> = [
   [
     L('Ay’ın ısıl ışıması', 'Thermal emission of the Moon'),
     L(
-      `kara cisim, ${moon.surfaceTemperatureK} K, bütün disk için; yayınırlık ${num(moon.surfaceEmissivity, 2).tr}`,
-      `black body at ${moon.surfaceTemperatureK} K over the whole disc; emissivity ${num(moon.surfaceEmissivity, 2).en}`
+      `gri cisim, ${moon.surfaceTemperatureK} K, bütün disk için; yayınırlık ${num(moon.surfaceEmissivity, 2).tr}`,
+      `grey body at ${moon.surfaceTemperatureK} K over the whole disc; emissivity ${num(moon.surfaceEmissivity, 2).en}`
     ),
     L(
-      'Diviner ölçümleri: ekvatorda öğle sıcaklığı en çok 387–397 K, kenara doğru düşer [@williams2017]; regolitin yayınırlığı Diviner verisine uydurulan ısıl modellerdeki gibi [@vasavada2012]; tek sıcaklık varsayım',
-      'Diviner measurements: equatorial noon maxima of 387–397 K, falling towards the limb [@williams2017]; emissivity of the regolith as in the thermal models fitted to the Diviner data [@vasavada2012]; a single temperature assumed'
+      'Diviner ölçümleri: ekvatorda gündüzün en yüksek sıcaklığı 387–397 K, kenara doğru düşer [@williams2017]; regolitin yayınırlığı, Diviner verisine uydurulan standart ısıl modeldeki gibi [@hayne2017]; tek sıcaklık varsayım',
+      'Diviner measurements: daytime maxima of 387–397 K at the equator, falling towards the limb [@williams2017]; emissivity of the regolith as in the standard thermal model fitted to the Diviner data [@hayne2017]; a single temperature assumed'
     ),
   ],
   [
@@ -179,16 +190,16 @@ const ASSUMPTION_ROWS: ReadonlyArray<readonly Text[]> = [
   [
     L('Gece göğünün ışıltısı', 'Glow of the night sky'),
     L(
-      `LED tayfı, maviye ağırlıklı; başucunda başvuru parıltısının %${percent(sky.glowZenith, 2).tr} kadarı, ufukta %${percent(sky.glowZenith + sky.glowHorizon, 1).tr} kadarı`,
-      `LED spectrum, weighted towards the blue; ${percent(sky.glowZenith, 2).en} % of the reference luminance at the zenith, ${percent(sky.glowZenith + sky.glowHorizon, 1).en} % at the horizon`
+      `LED tayfı, maviye ağırlıklı; parıltısı başucunda başvuru parıltısının %${percent(GLOW_ZENITH, 2).tr} kadarı, ufukta %${percent(GLOW_HORIZON, 1).tr} kadarı`,
+      `LED spectrum, weighted towards the blue; its luminance is ${percent(GLOW_ZENITH, 2).en} % of the reference luminance at the zenith, ${percent(GLOW_HORIZON, 1).en} % at the horizon`
     ),
     L('aydınlatılmış bir kentin göğü; varsayım', 'the sky over a lit city; assumption'),
   ],
   [
     L('Caddenin ötesindeki zemin', 'Ground beyond the avenue'),
     L(
-      `yaygın yansıtan düzlem, albedo ≈ ${num(ground.albedo[1], 2).tr}; sokak ışığının %${percent(ground.ledFill).tr} kadarı, ${ground.ledFillRangeM} m’de sönerek`,
-      `diffusely reflecting plane, albedo ≈ ${num(ground.albedo[1], 2).en}; ${percent(ground.ledFill).en} % of the street light, fading over ${ground.ledFillRangeM} m`
+      `yaygın yansıtan düzlem, albedo ≈ ${num(ground.albedo[1], 2).tr}; sokak aydınlık düzeyinin %${percent(ground.ledFill).tr} kadarı, uzaklıkla üstel olarak azalır (ölçek uzunluğu ${ground.ledFillRangeM} m)`,
+      `diffusely reflecting plane, albedo ≈ ${num(ground.albedo[1], 2).en}; ${percent(ground.ledFill).en} % of the street illuminance, falling off exponentially with distance (scale length ${ground.ledFillRangeM} m)`
     ),
     L('varsayım', 'assumption'),
   ],
@@ -198,7 +209,10 @@ const ASSUMPTION_ROWS: ReadonlyArray<readonly Text[]> = [
       `${stars.count} kara cisim; kadir ≤ ${num(stars.limitingMagnitude, 1).tr}; akı × ${stars.visibilityGain}`,
       `${stars.count} black bodies; magnitude ≤ ${num(stars.limitingMagnitude, 1).en}; flux × ${stars.visibilityGain}`
     ),
-    L('istatistiksel olarak üretilmiş gökyüzü', 'statistically generated sky'),
+    L(
+      'istatistiksel olarak üretilmiş gökyüzü: yıldız sayısı ve kadir dağılımı, gerçek gökyüzünde ufkun 4° üstünde o kadire kadar görülenler gibidir; akı, yıldızlar görünebilsin diye artırılmıştır (10. bölüm)',
+      'statistically generated sky: the number of stars and their distribution in magnitude are those of the real sky down to that magnitude, more than 4° above the horizon; the flux is raised so that the stars show at all (Section 10)'
+    ),
   ],
   [
     L('Göz yüksekliği; görüş alanı', 'Eye height; field of view'),
@@ -248,7 +262,7 @@ export const METHOD: readonly SourceSection[] = [
       {
         type: 'paragraph',
         text: L(
-          r`Gözlemciden durgun çerçevedeki yer değiştirmesi $\mathbf r$, uzaklığı $r$ ve hareket yönüyle açısı $\theta$ olan bir köşe noktası için ($\perp$ ve $\parallel$ hareket yönüne dik ve paralel bileşenleri gösterir) köşe programı`,
+          r`Gözlemciden durgun çerçevedeki yer değiştirmesi $\mathbf r$, uzaklığı $r$ ve hareket yönüyle yaptığı açı $\theta$ olan bir köşe noktası için ($\perp$ ve $\parallel$ hareket yönüne dik ve paralel bileşenleri gösterir) köşe programı`,
           r`For a vertex at rest-frame displacement $\mathbf r$ from the observer, at distance $r$ and angle $\theta$ from the direction of motion ($\perp$ and $\parallel$ denote the components perpendicular and parallel to the direction of motion), the vertex program forms`
         ),
       },
@@ -269,8 +283,8 @@ export const METHOD: readonly SourceSection[] = [
       {
         type: 'paragraph',
         text: L(
-          r`konumuna taşır. Bu, (3.1) denkleminin uzaklığı koruyan ($|\mathbf r'| = r$) bir yazımıdır; böylece derinlik arabelleği her ışın boyunca örtmeyi yine doğru belirler. $a$ ve $b$ pozitif çarpanların çarpımıdır, $D$ ise bunların toplamıdır; $a - b$ farkı yalnızca $a + b$’ye oranlanarak girer, bu yüzden yuvarlama hatası $r$ yanında küçük kalır. Bu önemlidir: ders kitabındaki $(\cos\theta+\beta)/(1+\beta\cos\theta)$ biçimi, grafik işlemcinin tek duyarlıklı aritmetiğinde, $\beta = 0{,}99999$’da geriye bakan yön yakınında anlamlı basamaklarını yitirir; orada $1 + \beta\cos\theta$ birbirine çok yakın iki sayının farkıdır. $1+\beta$, $1-\beta$ ve $\gamma$ işlemcide çift duyarlıkla hesaplanıp aktarılır; $1 \pm \cos\theta$ ise, çıkarmanın anlamlı basamak kaybına yol açacağı tarafta çıkarma yapılmadan $\mathbf r$’nin bileşenlerinden kurulur.`,
-          r`which is Eq. (3.1) in a form that keeps the distance, $|\mathbf r'| = r$, so that the depth buffer still decides occlusion along every ray. Both $a$ and $b$ are products of positive factors and $D$ is their sum; the difference $a - b$ enters only relative to $a + b$, so that its rounding error stays small compared with $r$. This matters: the textbook form $(\cos\theta+\beta)/(1+\beta\cos\theta)$, evaluated in the single precision of a graphics processor, loses its significant digits near the backward direction at $\beta = 0.99999$, where $1 + \beta\cos\theta$ is the difference of two nearly equal numbers. The quantities $1+\beta$, $1-\beta$ and $\gamma$ are computed in double precision on the processor and passed in; $1 \pm \cos\theta$ is formed from the components of $\mathbf r$ without a subtraction on the side where it would cancel.`
+          r`konumuna taşır. Bu, (3.1) denkleminin uzaklığı koruyan ($|\mathbf r'| = r$) bir yazımıdır; böylece derinlik arabelleği her ışın boyunca örtmeyi yine doğru belirler. $a$ ve $b$ pozitif çarpanların çarpımıdır, $D$ ise bunların toplamıyla orantılıdır; $a - b$ farkı yalnızca $a + b$’ye oranlanarak girer, bu yüzden yuvarlama hatası $r$ yanında küçük kalır. Bu önemlidir: ders kitabındaki $(\cos\theta+\beta)/(1+\beta\cos\theta)$ biçimi, grafik işlemcinin tek duyarlıklı aritmetiğinde, $\beta = 0{,}99999$’da geriye bakan yön yakınında anlamlı basamaklarını yitirir; orada $1 + \beta\cos\theta$ birbirine çok yakın iki sayının farkıdır. $1+\beta$, $1-\beta$ ve $\gamma$ işlemcide çift duyarlıkla hesaplanıp aktarılır; $1 \pm \cos\theta$ ise, çıkarmanın anlamlı basamak kaybına yol açacağı tarafta çıkarma yapılmadan $\mathbf r$’nin bileşenlerinden kurulur.`,
+          r`which is Eq. (3.1) in a form that keeps the distance, $|\mathbf r'| = r$, so that the depth buffer still decides occlusion along every ray. Both $a$ and $b$ are products of positive factors and $D$ is proportional to their sum; the difference $a - b$ enters only relative to $a + b$, so that its rounding error stays small compared with $r$. This matters: the textbook form $(\cos\theta+\beta)/(1+\beta\cos\theta)$, evaluated in the single precision of a graphics processor, loses its significant digits near the backward direction at $\beta = 0.99999$, where $1 + \beta\cos\theta$ is the difference of two nearly equal numbers. The quantities $1+\beta$, $1-\beta$ and $\gamma$ are computed in double precision on the processor and passed in; $1 \pm \cos\theta$ is formed from the components of $\mathbf r$ without a subtraction on the side where it would cancel.`
         ),
       },
       {
@@ -319,8 +333,8 @@ export const METHOD: readonly SourceSection[] = [
       {
         type: 'paragraph',
         text: L(
-          r`Işınım parlaklığını piksele çeviren dört adım vardır ve hiçbiri fizik değildir. Beyaz dengesi ${camera.whiteBalanceK} K’de sabittir (ekran beyazına Bradford uyarlaması); böylece kent durgun hâlde nötr görünür. Sonradan hiç yeniden ayarlanmaz, çünkü dengesini yenileyen bir kamera, göstermesi gereken kaymayı kendisi yok ederdi. Pozlama otomatiktir: durgun hâl ile aralığın üst ucu arasında görüş alanındaki parıltı on bir mertebeden fazla değişir; bunu hiçbir ekran gösteremez. Işıkölçer görüntünün kendisini okumaz. Genel bir cadde sahnesini — sokak ışığı ve ay ışığı alan tipik yüzeyleri ve, açıksa, ortamın ısıl ışımasını — aynı atlasla, görüş alanını kaplayan seyrek bir yön ızgarasında değerlendirir ve aydınlık yönlerde parıltının logaritmik ortalamasını alır; fotoğrafik ton yeniden üretimi işleci de böyle ölçer [@reinhard2002]. Durgun hâldekinden çok daha karanlık hâle gelen yönler ortalamaya daha az, en karanlıkları hiç katılmaz; böylece arkada kararan bir görüş pozlamayı yükseltmez ve kamera ancak görüşün küçük bir bölümü aydınlık kaldığında sınırına doğru açılır. Çok parlak yönler de sınırlanır, böylece tek bir parlak nokta ışıkölçeri kör edemez. Düzeltme durgun hâle göre ${signed(EXPOSURE_MIN_EV)} ile ${signed(EXPOSURE_MAX_EV)} EV arasında kalır ve ölçer panelinde pozlama değeri (EV) olarak bildirilir; yani uyarlama hiçbir zaman gizlenmez. _Ölçülen_ görünümde hiçbir şey kaymadığından pozlama durgun hâldeki değerinde kalır. Ortalamanın çok üzerindeki parıltıyı ve sınırın ötesindeki parlaklaşmayı üçüncü adım karşılar: beyaz düzeyinin üzerindeki parıltı, renksellik korunarak logaritmik olarak sıkıştırılır ($y \to 1 + ${texNum(HIGHLIGHT_SLOPE, 2).tr} \ln y$); böylece çok parlak ısıl ışık beyaza kırpılmak yerine sıcaklığının rengini korur. Son olarak kanal başına filmsel bir ton eğrisi uygulanır ve sonuç bir sRGB ekran için kodlanır [@iec61966]. Ekranın renk gamının dışında kalan renkler, sıkıştırmadan önce, parıltılarını koruyan en küçük miktarda doygunluktan arındırılır.`,
-          r`Four steps turn radiance into pixels, and none of them is physics. The white balance is fixed at ${camera.whiteBalanceK} K (a Bradford adaptation to the display white), so that the city is neutral at rest. It is never adapted afterwards, since a camera that re-balanced would cancel the very shift it is meant to show. The exposure is automatic: between rest and the top of the range the luminance in view spans more than eleven decades, which no display can show. The light meter does not read the image. It evaluates a generic street scene — typical street-lit and moonlit surfaces and, when it is switched on, the thermal emission of the surroundings — with the same atlas on a coarse grid of directions across the field of view, and takes the logarithmic average of the luminance over the lit directions, in the manner of the photographic tone-reproduction operator [@reinhard2002]. Directions that have grown much darker than at rest count for less in the average, and the darkest not at all, so that a view that has gone dark behind does not pull the exposure up; only when little of the view is still lit does the camera open up towards its limit. Very bright directions are capped as well, so that a single bright spot cannot blind the meter. The correction stays between ${signed(EXPOSURE_MIN_EV)} and ${signed(EXPOSURE_MAX_EV)} EV relative to rest and is reported on the instrument panel in exposure values (EV), so the adaptation is never hidden. In the _measured_ view, where nothing is shifted, the exposure keeps its value at rest. Luminance far above the average, and any brightening beyond the limit, is taken up by the third step: luminance above the white level is compressed logarithmically at constant chromaticity ($y \to 1 + ${texNum(HIGHLIGHT_SLOPE, 2).en} \ln y$), so that very bright thermal light keeps the colour of its temperature instead of clipping to white. Finally a filmic tone curve is applied per channel and the result is encoded for an sRGB display [@iec61966]. Colours outside the display gamut are desaturated before the compression, by the smallest amount that preserves their luminance.`
+          r`Işınım parlaklığını piksele çeviren dört adım vardır ve hiçbiri fizik değildir. Beyaz dengesi ${camera.whiteBalanceK} K’de sabittir (ekran beyazına Bradford uyarlaması); böylece kent durgun hâlde nötr görünür. Sonradan hiç yeniden ayarlanmaz, çünkü dengesini yenileyen bir kamera, göstermesi gereken kaymayı kendisi yok ederdi. Pozlama otomatiktir: durgun hâl ile aralığın üst ucu arasında görüş alanındaki parıltı on bir mertebeden fazla değişir; bunu hiçbir ekran gösteremez. Işıkölçer görüntünün kendisini okumaz. Genel bir cadde sahnesini — sokak ışığı ve ay ışığı alan tipik yüzeyleri ve, açıksa, ortamın ısıl ışımasını — aynı atlasla, görüş alanını kaplayan seyrek bir yön ızgarasında değerlendirir ve aydınlık yönlerde parıltının logaritmik ortalamasını alır; fotoğrafik ton yeniden üretimi işleci de böyle ölçer [@reinhard2002]. Durgun hâldekinden çok daha karanlık hâle gelen yönler ortalamaya daha az, en karanlıkları hiç katılmaz; böylece arkada kararan bir görüş pozlamayı yükseltmez ve kamera ancak görüşün küçük bir bölümü aydınlık kaldığında sınırına doğru açılır. Çok parlak yönler de sınırlanır, böylece tek bir parlak nokta ışıkölçeri kör edemez. Düzeltme durgun hâle göre ${signed(EXPOSURE_MIN_EV)} ile ${signed(EXPOSURE_MAX_EV)} EV arasında kalır ve ölçer panelinde pozlama değeri (EV) olarak bildirilir; yani uyarlama hiçbir zaman gizlenmez. _Ölçülen_ görünümde hiçbir şey kaymadığından pozlama durgun hâldeki değerinde kalır. Ortalamanın çok üzerindeki parıltıyı ve sınırın ötesindeki parlaklaşmayı üçüncü adım karşılar: beyaz düzeyinin üzerindeki parıltı, renksellik korunarak logaritmik olarak sıkıştırılır ($y \to 1 + ${texNum(HIGHLIGHT_SLOPE, 2).tr} \ln y$); böylece çok parlak ısıl ışık beyaza kırpılmak yerine sıcaklığının rengini korur. Son olarak filmsel bir ton eğrisi üç kanalın en büyüğüne uygulanır ve aynı çarpanla üç kanal birlikte ölçeklenir; böylece bu adımda da renksellik, yani renk tonu ile doygunluk korunur. Eğri her kanala ayrı ayrı uygulansaydı, güçlü kanal eğrinin omzuna ulaştığı her yerde zayıf kanalları bire doğru yükseltirdi ve yanan kırmızı bir trafik ışığı pembe-mor görünürdü. Bunun bedeli, doygun bir rengin ekranın o renkteki ana renginden daha parlak çizilememesidir (10. bölüm). Sonuç bir sRGB ekran için kodlanır [@iec61966]. Ekranın renk gamının dışında kalan renkler, sıkıştırmadan önce, parıltılarını koruyan en küçük miktarda doygunluktan arındırılır; bu, baskın dalga boylarını korur, algılanan renk tonlarını ise yalnızca yaklaşık olarak korur.`,
+          r`Four steps turn radiance into pixels, and none of them is physics. The white balance is fixed at ${camera.whiteBalanceK} K (a Bradford adaptation to the display white), so that the city is neutral at rest. It is never adapted afterwards, since a camera that re-balanced would cancel the very shift it is meant to show. The exposure is automatic: between rest and the top of the range the luminance in view spans more than eleven decades, which no display can show. The light meter does not read the image. It evaluates a generic street scene — typical street-lit and moonlit surfaces and, when it is switched on, the thermal emission of the surroundings — with the same atlas on a coarse grid of directions across the field of view, and takes the logarithmic average of the luminance over the lit directions, in the manner of the photographic tone-reproduction operator [@reinhard2002]. Directions that have grown much darker than at rest count for less in the average, and the darkest not at all, so that a view that has gone dark behind does not pull the exposure up; only when little of the view is still lit does the camera open up towards its limit. Very bright directions are capped as well, so that a single bright spot cannot blind the meter. The correction stays between ${signed(EXPOSURE_MIN_EV)} and ${signed(EXPOSURE_MAX_EV)} EV relative to rest and is reported on the instrument panel in exposure values (EV), so the adaptation is never hidden. In the _measured_ view, where nothing is shifted, the exposure keeps its value at rest. Luminance far above the average, and any brightening beyond the limit, is taken up by the third step: luminance above the white level is compressed logarithmically at constant chromaticity ($y \to 1 + ${texNum(HIGHLIGHT_SLOPE, 2).en} \ln y$), so that very bright thermal light keeps the colour of its temperature instead of clipping to white. Finally a filmic tone curve is evaluated on the largest of the three channels and all three are scaled by the same factor, so that this step too keeps the chromaticity, that is hue and saturation. Applied to each channel separately, the curve would lift the weak channels towards one wherever the strong one reaches its shoulder, and a lit red signal would come out pinkish purple. The price is that a saturated colour cannot be drawn brighter than the display primary of that colour (Section 10). The result is encoded for an sRGB display [@iec61966]. Colours outside the display gamut are desaturated before the compression, by the smallest amount that preserves their luminance; this keeps their dominant wavelength, but their perceived hue only approximately.`
         ),
       },
       { type: 'heading', text: L('Modellenen sahne', 'The modelled scene') },
@@ -395,8 +409,8 @@ export const METHOD: readonly SourceSection[] = [
       {
         type: 'paragraph',
         text: L(
-          r`$D_0 = 1{,}22$. Geometri neredeyse değişmemiştir — yan düzlem $78^\circ$’de görülür — ama bant sınırlı ışık değişmiştir: öndeki sokak aydınlatması hareket yönüne doğru önce yeşile, sonra camgöbeğine döner; karşıdaki kırmızı trafik ışığı göze 511 nm olarak ulaşır ve yeşil görünür; arkanızda ise aynı aydınlatma önce kehribara, sonra sarı-yeşile döner ve sönükleşir.`,
-          r`$D_0 = 1.22$. The geometry has barely changed — the transverse plane is seen at $78^\circ$ — but band-limited light has: towards the direction of motion the street lighting turns green and then cyan, a red signal ahead arrives at 511 nm and looks green, and behind you the same lighting turns amber, then yellow-green, and dims.`
+          r`$D_0 = 1{,}22$. Geometri neredeyse değişmemiştir — yan düzlem $78^\circ$’de görülür — ama bant sınırlı ışık değişmiştir: öndeki sokak aydınlatması hareket yönüne doğru önce yeşile, sonra camgöbeğine, tam karşıda da maviye döner; karşıdaki kırmızı trafik ışığı göze 511 nm olarak ulaşır ve yeşil görünür; arkanızda ise aynı aydınlatma önce soluk pembeye, sonra kehribara ve sarı-yeşile döner ve sönükleşir.`,
+          r`$D_0 = 1.22$. The geometry has barely changed — the transverse plane is seen at $78^\circ$ — but band-limited light has: towards the direction of motion the street lighting turns green, then cyan, and blue dead ahead; a red signal ahead arrives at 511 nm and looks green, and behind you the same lighting turns a pale pink, then amber and yellow-green, and dims.`
         ),
       },
       { type: 'try', label: L('β = 0,2', 'β = 0.2'), scenario: { beta: 0.2 } },

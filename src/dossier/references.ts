@@ -176,7 +176,9 @@ export const REFERENCES: readonly Reference[] = [
     authors: 'Einstein, A.',
     year: '1956',
     title: 'Autobiographische Skizze',
-    venue: 'In: Seelig, C. (ed.), Helle Zeit – Dunkle Zeit: In memoriam Albert Einstein. Europa Verlag, Zürich, pp. 9–17',
+    // the DOI identifies the eBook (Springer Book Archive) of Vieweg's 1986 reprint, not the Zürich original
+    venue:
+      'In: Seelig, C. (ed.), Helle Zeit – Dunkle Zeit: In memoriam Albert Einstein. Europa Verlag, Zürich; reprinted by Vieweg, Wiesbaden, 1986, pp. 9–17 (the DOI is that of the reprint)',
     doi: '10.1007/978-3-322-84225-1_2',
     checked: 'secondary',
     language: 'de',
@@ -222,6 +224,17 @@ export const REFERENCES: readonly Reference[] = [
     title: 'Around-the-World Atomic Clocks: Observed Relativistic Time Gains',
     venue: 'Science 177 (4044), 168–170 (predictions: ibid., 166–168)',
     doi: '10.1126/science.177.4044.168',
+    checked: 'primary',
+  },
+  {
+    key: 'hayne2017',
+    authors:
+      'Hayne, P. O.; Bandfield, J. L.; Siegler, M. A.; Vasavada, A. R.; Ghent, R. R.; Williams, J.-P.; Greenhagen, B. T.; Aharonson, O.; Elder, C. M.; Lucey, P. G.; Paige, D. A.',
+    year: '2017',
+    title: 'Global regolith thermophysical properties of the Moon from the Diviner Lunar Radiometer Experiment',
+    venue: 'Journal of Geophysical Research: Planets 122 (12), 2371–2400',
+    doi: '10.1002/2017JE005387',
+    // the emissivity 0.95 is in Table A1 of the accepted manuscript (arXiv:1711.00977)
     checked: 'primary',
   },
   {
@@ -399,7 +412,7 @@ export const REFERENCES: readonly Reference[] = [
     authors: 'von Mosengeil, K.',
     year: '1907',
     title: 'Theorie der stationären Strahlung in einem gleichförmig bewegten Hohlraum',
-    venue: 'Annalen der Physik 327 (5), 867–904',
+    venue: 'Annalen der Physik 22 (327, no. 5), 867–904',
     doi: '10.1002/andp.19073270504',
     checked: 'secondary',
     language: 'de',
@@ -627,15 +640,6 @@ export const REFERENCES: readonly Reference[] = [
     venue: 'Physical Review 116 (4), 1041–1045',
     doi: '10.1103/PhysRev.116.1041',
     checked: 'primary',
-  },
-  {
-    key: 'vasavada2012',
-    authors: 'Vasavada, A. R.; Bandfield, J. L.; Greenhagen, B. T.; Hayne, P. O.; Siegler, M. A.; Williams, J.-P.; Paige, D. A.',
-    year: '2012',
-    title: 'Lunar equatorial surface temperatures and regolith properties from the Diviner Lunar Radiometer Experiment',
-    venue: 'Journal of Geophysical Research: Planets 117, E00H18',
-    doi: '10.1029/2011JE003987',
-    checked: 'secondary',
   },
   {
     key: 'weiskopf1999',

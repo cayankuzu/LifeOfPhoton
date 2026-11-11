@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '@/i18n/messages';
 import { BETA_MAX } from '@/physics/kinematics';
 import { DEFAULT_SETTINGS, LENSES, type Language, getSettings, look, updateSettings } from '@/state/simulation';
+import { SHEET_COVERS_QUERY } from '@/ui/DossierFrame';
 import { DOSSIER } from '../content';
 import { SPEED_MARKERS, betaOfExcess, oneMinusBeta } from '../data/speedScale';
 import Dossier, { DossierDocument, applyScenario, numberFloats } from '../Dossier';
@@ -453,7 +454,8 @@ describe('"show in the scene" buttons', () => {
   const stubWindow = ({ reduceMotion = false, narrow = false } = {}): void => {
     vi.stubGlobal('window', {
       matchMedia: (query: string) => ({
-        matches: query.includes('prefers-reduced-motion') ? reduceMotion : query.includes('max-width') ? narrow : false,
+        // the sheet's own query, which App.tsx uses to make the scene inert: the two must agree
+        matches: query.includes('prefers-reduced-motion') ? reduceMotion : query === SHEET_COVERS_QUERY ? narrow : false,
       }),
     });
   };
@@ -521,6 +523,20 @@ describe('inline markup', () => {
     expect(html('see (_ibid._), p. 3')).toBe('see (<em>ibid.</em>), p. 3');
     expect(html('MAX_ANGLE and snake_case_name')).toBe('MAX_ANGLE and snake_case_name');
     expect(html('an escaped \\_x_')).toBe('an escaped \\_x_');
+  });
+
+  it('keeps the punctuation and the suffix that touch a formula on its line', () => {
+    // a formula is set in inline blocks, beside which a line may otherwise break, even after "("
+    const glued = (text: string): string => {
+      const match = /^<span class="whitespace-nowrap">([\s\S]*)<\/span>([\s\S]*)$/.exec(html(text));
+      expect(match, text).not.toBeNull();
+      return (match?.[1] ?? '').replace(/<span class="katex">[\s\S]*<\/span>(?=[^<]*$)/, 'MATH') + '|' + (match?.[2] ?? '');
+    };
+    expect(glued('($\\gamma = 2$), then')).toBe('(MATH),| then');
+    expect(glued('$D$’nin değeri')).toBe('MATH’nin| değeri');
+    expect(glued('$x$. Next')).toBe('MATH.| Next');
+    expect(glued('$x$ and')).toBe('MATH| and');
+    expect(html('see ($a$ and $b$)')).toMatch(/^see <span class="whitespace-nowrap">\(<span class="katex">/);
   });
 
   it('gives the other patterns precedence over an italic that starts in the same place', () => {

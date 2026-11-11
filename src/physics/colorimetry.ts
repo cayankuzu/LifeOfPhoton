@@ -157,7 +157,8 @@ export function correlatedColourTemperature(xy: readonly [number, number]): numb
  * Brings a linear RGB colour with negative components (outside the display gamut)
  * back into gamut by mixing it with the achromatic colour of equal luminance —
  * the smallest desaturation that removes the negative lobe while preserving
- * luminance and hue. Identical to the operation performed in the fragment shader.
+ * luminance and dominant wavelength (the perceived hue only approximately, see
+ * display.ts). Identical to the operation performed in the fragment shader.
  */
 export function compressToGamut(rgb: Triple): Triple {
   const y = relativeLuminance(rgb);

@@ -29,7 +29,9 @@ function HelpSheet({ onClose, trigger }: { readonly onClose: () => void; readonl
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return;
-      // the sheet is the top layer: the same stroke must not also close the dossier
+      // a full-screen dossier opened over the sheet is the top layer then, and the key is its
+      if (sheet.current?.closest('[inert]')) return;
+      // otherwise the sheet is the top layer: the same stroke must not also close the dossier
       event.preventDefault();
       onClose();
     };

@@ -200,6 +200,15 @@ describe.each(LANGUAGES)('dictionary (%s)', (language) => {
     expect(messages.help.rows[0][1]).toContain(step);
   });
 
+  it('lists the keys that keep working without the single-key shortcuts', () => {
+    // the note under the switch names them; the sheet must say what they do
+    const triggers = messages.help.rows.map(([trigger]) => trigger).join(' ');
+    for (const key of ['Home', 'Esc']) {
+      expect(messages.help.singleKeysNote).toContain(key);
+      expect(triggers).toContain(key);
+    }
+  });
+
   it('lists no shortcut and no gesture twice', () => {
     for (const table of [messages.help.rows, messages.help.pointer]) {
       const triggers = table.map(([trigger]) => trigger);

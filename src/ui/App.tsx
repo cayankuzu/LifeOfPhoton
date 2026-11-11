@@ -1,48 +1,73 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { BETA_MAX, boostBy } from '@/physics/kinematics';
+import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { decodeFragment, encodeFragment, isExperimentFragment } from '@/state/fragment';
 import { storedLanguage, storedSingleKeys } from '@/state/preferences';
 import {
-  LENSES,
   type Language,
   type Settings,
   getSettings,
   look,
-  lookAhead,
-  resetClocks,
   subscribeSettings,
   telemetry,
-  turnBy,
   updateSettings,
   useSceneReady,
   useSettings,
 } from '@/state/simulation';
-import { DossierBoundary, DossierLoading } from './DossierFrame';
+import { DossierBoundary, DossierLoading, SHEET_COVERS_QUERY } from './DossierFrame';
 import { useMessages } from './hooks';
 import Guides from './hud/Guides';
 import InstrumentDock from './hud/InstrumentDock';
 import Loading from './hud/Loading';
 import LookAhead from './hud/LookAhead';
-import SpeedRail, { KEY_RAPIDITY_STEP } from './hud/SpeedRail';
+import SpeedRail from './hud/SpeedRail';
 import TopBar from './hud/TopBar';
 import { HudTierProvider } from './hud/tier';
+import { runShortcut } from './shortcuts';
 
 const UrbanScene = dynamic(() => import('@/scene/UrbanScene'), { ssr: false });
 const Dossier = dynamic(() => import('@/dossier/Dossier'), { ssr: false, loading: () => <DossierLoading /> });
 
-/** Where the dossier sheet takes the whole viewport: below the `lg` breakpoint of Tailwind, at which it becomes a side sheet. */
-const SHEET_COVERS_QUERY = 'not all and (min-width: 1024px)';
-
 /** A layout effect in the browser; on the server, where there is no layout, a plain effect (which React does not warn about). */
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
-/** Velocities on the digit keys 0–5. */
-const PRESETS = [0, 0.5, Math.sqrt(3) / 2, 0.99, 0.9999, BETA_MAX] as const;
+/**
+ * The `inert` attribute of an element a layer covers. React 18 has no `inert` property, but it
+ * passes a string attribute through, on the server as well: the stage is out of reach in the
+ * markup that arrives first, before the script that would otherwise set the attribute has loaded
+ * (on a slow connection the start-up screen stands for seconds over controls that Tab still
+ * reached). React writes and removes it while committing, so it is gone before any effect runs
+ * that hands the focus back.
+ */
+function inertWhile(covered: boolean): Record<string, string> {
+  return covered ? { inert: '' } : {};
+}
 
-const LOOK_STEP = (15 * Math.PI) / 180;
+/**
+ * Keeps track of the focus around a layer: the element (made inert with `inertWhile`) is out of
+ * the tab order and away from assistive technology while covered. When it is uncovered, the focus
+ * goes back to the control that was in use if it was lost on the way (a layer that arrives after
+ * the element became inert cannot see where the focus came from).
+ */
+function useCover(ref: RefObject<HTMLElement>, covered: boolean): void {
+  const opener = useRef<HTMLElement | null>(null);
+
+  // A layout effect runs in the same task as the commit that made the element inert, before the
+  // browser moves the focus out of it, so the control that had it can still be seen here.
+  useIsomorphicLayoutEffect(() => {
+    const element = ref.current;
+    if (covered && element?.contains(document.activeElement)) opener.current = document.activeElement as HTMLElement;
+  }, [ref, covered]);
+
+  useEffect(() => {
+    if (covered) return;
+    const back = opener.current;
+    opener.current = null;
+    if (back?.isConnected && (!document.activeElement || document.activeElement === document.body)) back.focus();
+  }, [covered]);
+}
+
 const STORAGE_COACHED = 'life-of-a-photon.coached';
 
 /** Replaces the fragment of the address bar without adding a history entry. */
@@ -59,9 +84,6 @@ function initialLanguage(fromUrl: Language | undefined): Language {
 
 /** Keys a focused slider uses itself. */
 const SLIDER_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
-
-/** Keys that act for as long as they are held. Everything else is a switch and acts once per press. */
-const CONTINUOUS_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 's', 'a']);
 
 /** Whether the key belongs to the element that has the focus rather than to the simulation. */
 function belongsToFocus(event: KeyboardEvent): boolean {
@@ -82,11 +104,15 @@ export default function App() {
   const [sheetCovers, setSheetCovers] = useState(false);
   const hud = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
-  const opener = useRef<HTMLElement | null>(null);
+  const startup = useRef<HTMLDivElement>(null);
 
   // What a full-screen layer covers must be out of reach as well as out of sight: the start-up
-  // screen until the scene is ready, and the dossier where it takes the whole viewport.
-  const covered = !ready || (dossierOpen && sheetCovers);
+  // screen covers the stage until the scene is ready, and the dossier, where it takes the whole
+  // viewport, covers the stage and the failure screen it can be opened from.
+  const sheetCoversAll = dossierOpen && sheetCovers;
+  const covered = !ready || sheetCoversAll;
+  useCover(stage, covered);
+  useCover(startup, sheetCoversAll);
 
   // --- initial state: URL fragment, stored language, motion preference
   useEffect(() => {
@@ -149,28 +175,6 @@ export default function App() {
     return () => query.removeEventListener('change', sync);
   }, []);
 
-  // A layout effect, so that the stage is reachable again before the layer that is closing gives
-  // the focus back to the control that opened it (React has no `inert` property yet, hence the attribute).
-  useIsomorphicLayoutEffect(() => {
-    const element = stage.current;
-    if (!element) return;
-    if (covered) {
-      if (element.contains(document.activeElement)) opener.current = document.activeElement as HTMLElement;
-      element.setAttribute('inert', '');
-    } else {
-      element.removeAttribute('inert');
-    }
-  }, [covered]);
-
-  // If the focus was lost on the way (the layer arrived after the stage had become inert and so could
-  // not see where the focus came from), return it to the control that was in use.
-  useEffect(() => {
-    if (covered) return;
-    const back = opener.current;
-    opener.current = null;
-    if (back?.isConnected && (!document.activeElement || document.activeElement === document.body)) back.focus();
-  }, [covered]);
-
   // --- the first deliberate input dismisses the coach line for good
   useEffect(() => {
     if (coached) return;
@@ -197,77 +201,15 @@ export default function App() {
     const onKey = (event: KeyboardEvent): void => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
       if (belongsToFocus(event)) return;
-      const settings = getSettings();
-      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-
-      if (key === 'Escape') {
-        if (settings.dossier !== null) updateSettings({ dossier: null });
-        return;
-      }
-      // nothing behind the start-up screen is worked from the keyboard either
-      if (telemetry.phase !== 'ready') return;
-      // inside the dossier the keys belong to reading, not to flying
-      if (event.target instanceof HTMLElement && event.target.closest('[data-dossier]')) return;
-      // the reader can switch off every shortcut that is a single character (WCAG 2.1.4):
-      // speech input types them with every word; arrows, Home and Escape stay
-      if (key.length === 1 && !settings.singleKeys) return;
-
-      // holding a switch down must not flip it at the keyboard's repeat rate
-      if (event.repeat && !CONTINUOUS_KEYS.has(key)) return;
-
-      switch (key) {
-        case 'ArrowUp':
-        case 'w':
-          updateSettings({ beta: boostBy(settings.beta, KEY_RAPIDITY_STEP) });
-          break;
-        case 'ArrowDown':
-        case 's':
-          updateSettings({ beta: boostBy(settings.beta, -KEY_RAPIDITY_STEP) });
-          break;
-        case 'ArrowLeft':
-        case 'a':
-          turnBy(LOOK_STEP, 0);
-          break;
-        case 'ArrowRight':
-          turnBy(-LOOK_STEP, 0);
-          break;
-        case ' ':
-          // let Space activate a focused button instead
-          if (event.target instanceof HTMLElement && event.target.closest('button, a, [role="radio"]')) return;
-          updateSettings({ paused: !settings.paused });
-          break;
-        case 'm':
-          updateSettings({ view: settings.view === 'seen' ? 'measured' : 'seen' });
-          break;
-        case 't':
-          updateSettings({ thermal: !settings.thermal });
-          break;
-        case 'g':
-          updateSettings({ guides: !settings.guides });
-          break;
-        case 'l':
-          updateSettings({ lens: LENSES[(LENSES.indexOf(settings.lens) + 1) % LENSES.length] });
-          break;
-        case 'f':
-        case 'Home':
-          lookAhead();
-          break;
-        case 'r':
-          resetClocks();
-          break;
-        case 'd':
-          updateSettings({ dossier: settings.dossier === null ? 'abstract' : null });
-          break;
-        default: {
-          const digit = Number(key);
-          if (key.length === 1 && Number.isInteger(digit) && digit < PRESETS.length && key !== ' ') {
-            updateSettings({ beta: PRESETS[digit] });
-            break;
-          }
-          return;
-        }
-      }
-      event.preventDefault();
+      const target = event.target instanceof Element ? event.target : null;
+      const handled = runShortcut(event, getSettings(), {
+        // the stage is inert exactly while a layer covers it (start-up, failure, a full-screen dossier):
+        // keys pressed with the focus nowhere in particular must not work the scene behind it either
+        covered: telemetry.phase !== 'ready' || stage.current?.hasAttribute('inert') === true,
+        inDossier: target?.closest('[data-dossier]') != null,
+        onControl: target?.closest('button, a, [role="radio"]') != null,
+      });
+      if (handled) event.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -292,7 +234,11 @@ export default function App() {
       <h1 className="sr-only">{t.app.name}</h1>
 
       {/* The stage: scene, guide layer and instruments share one box, which makes room for the dossier on wide screens. */}
-      <div ref={stage} className={`absolute inset-y-0 left-0 ${dossierOpen ? 'right-0 lg:right-[min(46rem,52vw)]' : 'right-0'}`}>
+      <div
+        ref={stage}
+        {...inertWhile(covered)}
+        className={`absolute inset-y-0 left-0 ${dossierOpen ? 'right-0 lg:right-[min(46rem,52vw)]' : 'right-0'}`}
+      >
         <UrbanScene />
         <Guides />
 
@@ -318,7 +264,10 @@ export default function App() {
       <DossierBoundary open={dossierOpen}>
         <Dossier modal={sheetCovers} />
       </DossierBoundary>
-      <Loading />
+      {/* the box only carries `inert` while a full-screen dossier opened from the failure screen covers it */}
+      <div ref={startup} {...inertWhile(sheetCoversAll)}>
+        <Loading />
+      </div>
     </main>
   );
 }

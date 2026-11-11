@@ -49,9 +49,17 @@ const PATTERNS: ReadonlyArray<{
   readonly build: (match: RegExpExecArray, context: InlineContext) => (key: string) => ReactNode;
 }> = [
   {
-    regex: /\$([^$]+)\$/,
+    // KaTeX sets a formula in inline blocks, and a line may break on either side of an inline block,
+    // even after an opening parenthesis: "(" ended one line and "γ = 223.6)" began the next. The
+    // punctuation that touches a formula, and a Turkish suffix after an apostrophe ("$D$’nin"), are
+    // therefore kept on its line. They are punctuation and letters only, which need no escaping.
+    regex: /([([“‘«]*)\$([^$]+)\$((?:[’'][\p{L}]+)?[)\]”’».,;:!?]*)/u,
     build: (match) => (key) => (
-      <span key={key} className="whitespace-nowrap" dangerouslySetInnerHTML={{ __html: renderMath(match[1], false) }} />
+      <span
+        key={key}
+        className="whitespace-nowrap"
+        dangerouslySetInnerHTML={{ __html: match[1] + renderMath(match[2], false) + match[3] }}
+      />
     ),
   },
   {

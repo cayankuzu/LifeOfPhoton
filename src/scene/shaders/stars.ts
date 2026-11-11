@@ -29,9 +29,15 @@
  * EXT_color_buffer_float or EXT_color_buffer_half_float), the stars are drawn over
  * the sky instead (starFragmentShader): each evaluates the sky in its own direction
  * and writes the increment display(sky + star) − display(sky), which the additive
- * blend puts on top of the sky. That is exact for a star by itself, but where point-
- * spread functions overlap the increments add on the display, not in radiance, and
- * a crowded cluster comes out too bright.
+ * blend puts on top of the sky. That is exact for a star by itself as long as the
+ * increment is positive in every channel. It need not be: the highlight compression
+ * and the tone curve, which sets all three channels by the largest, let a bright
+ * star of another colour than the sky lower the sky's other channels on the display,
+ * and a blend cannot subtract, so those channels stay too bright (in the GPU check,
+ * looking up at β = 0.9 with thermal emission on, a sixth of the star pixels were
+ * off by more than one level, by 110 of 255 at most). Where point-spread functions
+ * overlap, the increments add on the display, not in radiance, and a crowded
+ * cluster comes out too bright.
  */
 
 import { ATLAS_ROW, ATLAS_ROWS } from '@/physics/spectralAtlas';
@@ -49,7 +55,8 @@ export const STAR_LN_PEAK_MAX = 12;
  * about 5 000 (e^12 times the largest colour component of a unit-luminance black body
  * in the atlas, 7.9, for the reddest of them), so thirteen of the brightest possible
  * stars fit on one pixel; should more ever meet there, the sky shader clamps what it
- * reads, so the pixel is near white rather than undefined. At the dark end the scaled
+ * reads, so the pixel is still drawn at full brightness, in a colour the clamp has made
+ * a little paler, rather than undefined. At the dark end the scaled
  * radiance of a star that is just visible (1/255 on the display, about 1.4 × 10⁻³) is
  * still held to about one per cent by the subnormal half floats.
  */

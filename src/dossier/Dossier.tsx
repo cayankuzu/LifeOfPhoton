@@ -12,6 +12,7 @@ import { type ReactNode, createContext, memo, useContext, useEffect, useMemo, us
 import { ArrowUpRight, Play, X } from 'lucide-react';
 import { MESSAGES } from '@/i18n/messages';
 import { type Language, type Settings, look, lookAhead, updateSettings, useSettings } from '@/state/simulation';
+import { SHEET_COVERS_QUERY } from '@/ui/DossierFrame';
 import { IconButton } from '@/ui/primitives';
 import { DOSSIER } from './content';
 import { FIGURES } from './figures';
@@ -108,8 +109,8 @@ export function applyScenario(scenario: Scenario): void {
   } else {
     lookAhead();
   }
-  // on a narrow screen the sheet covers the scene: step aside to show it
-  if (window.matchMedia('(max-width: 1023px)').matches) updateSettings({ dossier: null });
+  // where the sheet covers the scene, step aside to show it
+  if (window.matchMedia(SHEET_COVERS_QUERY).matches) updateSettings({ dossier: null });
 }
 
 const TONE = {
@@ -500,6 +501,7 @@ export default function Dossier({ modal = false }: { readonly modal?: boolean })
   const target = useSettings((state) => state.dossier);
   const beta = useSettings((state) => state.beta);
   const t = MESSAGES[language];
+  const sheet = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
   // Take the focus on opening and give it back on closing. The focus goes to the element
@@ -510,6 +512,12 @@ export default function Dossier({ modal = false }: { readonly modal?: boolean })
     return () => previous?.focus();
   }, []);
 
+  // A sheet that becomes modal while open (the window narrowed across the breakpoint) takes the
+  // focus as well: wherever it was beside the sheet has just become inert.
+  useEffect(() => {
+    if (modal && !sheet.current?.contains(document.activeElement)) scroller.current?.focus({ preventScroll: true });
+  }, [modal]);
+
   // open at the section named in the settings
   useEffect(() => {
     if (!target || target === 'abstract') return;
@@ -518,6 +526,7 @@ export default function Dossier({ modal = false }: { readonly modal?: boolean })
 
   return (
     <div
+      ref={sheet}
       role="dialog"
       aria-modal={modal}
       aria-labelledby="dossier-title"

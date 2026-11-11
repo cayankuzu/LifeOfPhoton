@@ -13,6 +13,13 @@ import { updateSettings } from '@/state/simulation';
 import { useMessages } from './hooks';
 import { Button, IconButton, Panel } from './primitives';
 
+/**
+ * Where the sheet takes the whole viewport: below the `lg` breakpoint of Tailwind, at which it
+ * becomes a side sheet. Written as the exact complement of `(min-width: 1024px)`, which a
+ * `(max-width: 1023px)` is not at fractional widths (a zoomed page can be 1023.5 px wide).
+ */
+export const SHEET_COVERS_QUERY = 'not all and (min-width: 1024px)';
+
 /** The outer box of the sheet; the same as the dossier's own, so that nothing moves when it arrives. */
 const SHEET =
   'fixed inset-y-0 right-0 z-20 flex w-full flex-col border-l border-hairline bg-panel shadow-[-24px_0_48px_rgb(0_0_0/0.45)] lg:w-[min(46rem,52vw)]';
@@ -66,8 +73,9 @@ interface BoundaryState {
 }
 
 /**
- * Error boundary around the dossier. A failure closes the sheet and leaves a notice;
- * asking for the dossier again is a new attempt.
+ * Error boundary around the dossier. A failure closes the sheet and leaves a notice.
+ * Asking for the dossier again renders it again, but does not fetch it again: React.lazy
+ * keeps a rejected import, so the notice returns at once and only a reload helps.
  */
 export class DossierBoundary extends Component<BoundaryProps, BoundaryState> {
   state: BoundaryState = { failed: false, open: this.props.open };

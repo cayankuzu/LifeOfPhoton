@@ -350,8 +350,18 @@ describe('stars over the sky, where the half-float target is not available', () 
     // over a black sky the increment is the star itself
     const alone = toDisplay(star);
     increment([0, 0, 0], star).forEach((value, channel) => expect(value).toBeCloseTo(alone[channel], 12));
-    // and it is never negative in luminance: a star cannot darken the sky
-    expect(luma(increment([2, 1.5, 0.4], [0.2, 0.3, 0.9]))).toBeGreaterThan(0);
+    // A faint bluish star over a warm glow above the reference white brightens the pixel, although the highlight
+    // compression already takes a little from its red channel (−0.005) …
+    const faint = increment([2, 1.5, 0.4], [0.2, 0.3, 0.9]);
+    expect(luma(faint)).toBeGreaterThan(0);
+    expect(faint[0]).toBeLessThan(0);
+    // … and a bright one takes over the largest channel, and the tone curve, which sets all three by that one,
+    // lowers the other two: the pixel is now mostly the star's blue light. Here the fallback errs, since an additive
+    // blend cannot subtract (shaders/stars.ts); the radiance target gets it right.
+    const takeover = increment([2, 1.5, 0.4], [0, 0, 20]);
+    expect(takeover[2]).toBeGreaterThan(0);
+    expect(takeover[0]).toBeLessThan(-0.3);
+    expect(takeover[1]).toBeLessThan(-0.3);
   });
 });
 

@@ -35,17 +35,38 @@ const ANNOUNCE_AFTER_MS = 500;
 const DEGREES = 180 / Math.PI;
 
 /** One instrument: what it is on the left, its reading on the right; the note explains it on hover and to screen readers. */
-function Row({ label, note, children }: { readonly label: ReactNode; readonly note?: string; readonly children: ReactNode }) {
+function Row({
+  label,
+  note,
+  band,
+  children,
+}: {
+  readonly label: ReactNode;
+  readonly note?: string;
+  /** A name beside the value; where room is short it gives way first, never the label or the value. */
+  readonly band?: ReactNode;
+  readonly children: ReactNode;
+}) {
   return (
     <div
-      className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 border-t border-hairline py-[5px] first:border-t-0"
+      className={`grid ${band ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)_auto]'} items-baseline gap-x-3 border-t border-hairline py-[5px] first:border-t-0`}
       title={note}
     >
-      <dt className="min-w-0 truncate text-[11.5px] leading-4 text-ink-2">
+      <dt className={`text-[11.5px] leading-4 text-ink-2 ${band ? 'whitespace-nowrap' : 'min-w-0 truncate'}`}>
         {label}
         {note && <span className="sr-only"> ({note})</span>}
       </dt>
-      <dd className="m-0 whitespace-nowrap text-right">{children}</dd>
+      <dd className="m-0 min-w-0 whitespace-nowrap text-right">
+        {/* an inline box keeps the line height of the other rows; inside it the name can shrink */}
+        {band ? (
+          <span className="inline-flex max-w-full items-baseline">
+            {band}
+            {children}
+          </span>
+        ) : (
+          children
+        )}
+      </dd>
     </div>
   );
 }
@@ -122,7 +143,7 @@ export default function InstrumentDock() {
 
   return (
     // a landmark of its own: a name on a generic element would be ignored
-    <Panel className="flex max-h-full min-h-0 w-[18rem] max-w-full flex-col" role="region" aria-labelledby="dock-title">
+    <Panel className="flex max-h-full min-h-0 w-[19rem] max-w-full flex-col" role="region" aria-labelledby="dock-title">
       <div className="flex items-center justify-between gap-2 py-1 pl-3 pr-1">
         <h2 id="dock-title" className="label m-0">
           {t.dock.title}
@@ -173,12 +194,16 @@ export default function InstrumentDock() {
                 <Row label={t.dock.neutralCone} note={t.dock.neutralConeNote}>
                   <span ref={cone} className={VALUE} />
                 </Row>
-                <Row label={`${t.dock.reference} · ${t.dock.ahead}`}>
-                  <span ref={aheadBand} className="mr-2 text-[10.5px] text-ink-3" />
+                <Row
+                  label={`${t.dock.reference} · ${t.dock.ahead}`}
+                  band={<span ref={aheadBand} className="mr-2 min-w-0 truncate text-[10.5px] text-ink-3" />}
+                >
                   <span ref={aheadValue} className={VALUE} />
                 </Row>
-                <Row label={`${t.dock.reference} · ${t.dock.behind}`}>
-                  <span ref={behindBand} className="mr-2 text-[10.5px] text-ink-3" />
+                <Row
+                  label={`${t.dock.reference} · ${t.dock.behind}`}
+                  band={<span ref={behindBand} className="mr-2 min-w-0 truncate text-[10.5px] text-ink-3" />}
+                >
                   <span ref={behindValue} className={VALUE} />
                 </Row>
                 <Row label={`${t.dock.ambient} · ${t.dock.ahead}`} note={t.dock.ambientNote}>

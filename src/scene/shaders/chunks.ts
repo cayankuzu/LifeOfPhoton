@@ -132,7 +132,8 @@ export const SKY_RADIANCE = /* glsl */ `
  *   2. highlights: luminance above the reference white is compressed logarithmically
  *      at constant chromaticity, so very bright thermal light keeps the colour of
  *      its temperature instead of clipping to white,
- *   3. tone: each channel follows a filmic curve,
+ *   3. tone: a filmic curve sets the largest channel and the other two keep their
+ *      ratio to it, so the chromaticity survives this step too (display.ts says why),
  *   4. the exact sRGB transfer function, plus half an LSB of ordered dither to
  *      keep the dark sky free of banding.
  */
@@ -140,7 +141,7 @@ export const DISPLAY_TRANSFORM = /* glsl */ `
   const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
 
   // Narkowicz (2016) fit of the ACES filmic curve: a toe, a linear middle and a long shoulder.
-  vec3 filmic(vec3 x) {
+  float filmic(float x) {
     return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
   }
 
@@ -163,6 +164,9 @@ export const DISPLAY_TRANSFORM = /* glsl */ `
     float lowest = min(c.r, min(c.g, c.b));
     if (lowest < 0.0) c = mix(vec3(y), c, y / (y - lowest));
     if (y > 1.0) c *= (1.0 + ${HIGHLIGHT_SLOPE.toFixed(4)} * log(y)) / y;
-    return encodeSrgb(filmic(c)) + dither;
+    c = max(c, vec3(0.0));
+    float peak = max(c.r, max(c.g, c.b));
+    if (!(peak > 0.0)) return vec3(dither);
+    return encodeSrgb(filmic(peak) * (c / peak)) + dither;
   }
 `;

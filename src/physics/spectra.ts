@@ -65,9 +65,12 @@ export const REFLECTANCE_BASIS = {
  * emits 92 % of a black body, and the sky emits with 0.78 while it transmits starlight
  * and moonlight unattenuated. Of the two, the emissivity is the realistic value
  * (building materials are nearly black at 10 µm whatever their colour); the continued
- * reflectance is not, but the light it reflects is negligible where it matters: a
- * blueshift large enough to bring the infrared into view (D > 3.6) makes the thermal
- * term exceed the reflected moonlight by many orders of magnitude.
+ * reflectance is not, but the light it reflects is negligible where it matters. The
+ * thermal infrared, beyond about 5 µm, reaches the visible band only from D ≈ 7 on
+ * (5 µm / 0.7 µm), and there the thermal term is already more than 10⁴ times the
+ * moonlight a white surface reflects (2 × 10⁴ at D = 7, 4 × 10⁶ at D = 14). Below
+ * that, where the two are comparable (equal at D ≈ 3.6), the reflected light comes
+ * from the near infrared, 1–3 µm, where a paint may well reflect as much as in the red.
  *
  * Writes [ρ_R, ρ_G, ρ_B] into `out`.
  */

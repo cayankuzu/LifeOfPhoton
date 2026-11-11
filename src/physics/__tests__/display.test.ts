@@ -1,9 +1,44 @@
 import { describe, expect, it } from 'vitest';
+import { BASE_LN_EXPOSURE } from '@/scene/uniforms';
 import { DISPLAY_TRANSFORM } from '@/scene/shaders/chunks';
-import { type Triple, LUMINANCE_WEIGHTS, compressToGamut, encodeSrgb, relativeLuminance } from '../colorimetry';
+import {
+  type Triple,
+  D65_XYZ,
+  LUMINANCE_WEIGHTS,
+  SRGB_TO_XYZ,
+  apply,
+  compressToGamut,
+  decodeSrgb,
+  encodeSrgb,
+  relativeLuminance,
+} from '../colorimetry';
 import { HIGHLIGHT_SLOPE, compressHighlight, filmic, toCss, toDisplay, toneMap } from '../display';
+import { EXPOSURE_MAX_EV, EXPOSURE_MIN_EV } from '../exposure';
+import { REFERENCE_LUMINANCE_CD_M2, SCENARIO } from '../scenario';
+import { lineRadiance, sharedAtlas } from '../spectralAtlas';
 
 const scaled = (colour: Triple, factor: number): Triple => [colour[0] * factor, colour[1] * factor, colour[2] * factor];
+
+/** The tone curve as it was before, applied to each channel separately: the reference for what had to change. */
+function perChannel(radiance: Triple): Triple {
+  const luminance = relativeLuminance(radiance);
+  if (!(luminance > 0)) return [0, 0, 0];
+  const scale = compressHighlight(luminance) / luminance;
+  const inGamut = compressToGamut(radiance);
+  return [filmic(inGamut[0] * scale), filmic(inGamut[1] * scale), filmic(inGamut[2] * scale)];
+}
+
+/** Hue of a display colour on the colour wheel of its RGB values, degrees: red 0, green 120, blue 240, magenta 300. */
+function hue([r, g, b]: Triple): number {
+  const max = Math.max(r, g, b);
+  const span = max - Math.min(r, g, b);
+  if (!(span > 0)) return Number.NaN;
+  const sector = max === r ? (g - b) / span : max === g ? 2 + (b - r) / span : 4 + (r - g) / span;
+  return (60 * sector + 360) % 360;
+}
+
+/** Angle between two hues, degrees. */
+const hueDistance = (a: number, b: number): number => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
 
 /** A saturated orange, such as the glow of a body at about 2000 K. */
 const ORANGE: Triple = [1, 0.3, 0.05];
@@ -17,6 +52,16 @@ const COLOURS: Triple[] = [
   [1.4, -0.3, 0.2], // outside the display gamut: negative green
   [-0.2, 0.9, 1.3], // outside the display gamut: negative red
 ];
+
+const atlas = sharedAtlas();
+/** Lines of the scene at unit luminance, in camera RGB (with the fixed white balance), all outside the gamut. */
+const LINES = {
+  red: lineRadiance(atlas, SCENARIO.signals.redNm, 1),
+  amber: lineRadiance(atlas, SCENARIO.signals.amberNm, 1),
+  green: lineRadiance(atlas, SCENARIO.signals.greenNm, 1),
+  violet: lineRadiance(atlas, 400, 1),
+};
+const SATURATED: Triple[] = Object.values(LINES);
 
 describe('filmic curve', () => {
   it('maps black to black, never leaves [0, 1] and ignores negative input', () => {
@@ -97,7 +142,8 @@ describe('toneMap', () => {
     expect(toneMap([Number.NaN, 1, 1])).toEqual([0, 0, 0]);
   });
 
-  it('applies the filmic curve channel by channel to colours inside the gamut and below the reference white', () => {
+  it('sets the largest channel by the filmic curve and scales the other two with it', () => {
+    // inside the gamut and below the reference white, where neither step 1 nor step 2 does anything
     const colours: Triple[] = [
       [0.2, 0.5, 0.7],
       [0.02, 0.01, 0.3],
@@ -105,16 +151,37 @@ describe('toneMap', () => {
     ];
     for (const colour of colours) {
       expect(relativeLuminance(colour)).toBeLessThan(1);
-      expect(toneMap(colour)).toEqual([filmic(colour[0]), filmic(colour[1]), filmic(colour[2])]);
+      const peak = Math.max(...colour);
+      const level = filmic(peak);
+      expect(toneMap(colour)).toEqual(colour.map((value) => level * (value / peak)));
     }
   });
 
-  it('keeps neutral input neutral at every level', () => {
-    for (let exponent = -6; exponent <= 14; exponent++) {
+  it('keeps neutral input neutral at every level, exactly as the curve applied to each channel did', () => {
+    for (let exponent = -6; exponent <= 14; exponent += 0.25) {
       const grey = 10 ** exponent;
       const [r, g, b] = toneMap([grey, grey, grey]);
       expect(g).toBe(r);
       expect(b).toBe(r);
+      expect([r, g, b]).toEqual(perChannel([grey, grey, grey]));
+    }
+  });
+
+  it('keeps the ratios between the channels at every exposure', () => {
+    // what steps 1 and 2 leave of a colour (the projection into the gamut; a common factor) is what is shown
+    for (const colour of [...COLOURS, ...SATURATED]) {
+      const inGamut = compressToGamut(colour);
+      const strongest = Math.max(...inGamut);
+      for (let step = 0; step <= 264; step++) {
+        const mapped = toneMap(scaled(colour, 10 ** (step / 12 - 8)));
+        const peak = Math.max(...mapped);
+        if (peak === 0) continue;
+        for (let channel = 0; channel < 3; channel++) {
+          expect(mapped[channel] / peak).toBeCloseTo(Math.max(0, inGamut[channel]) / strongest, 12);
+          expect(mapped[channel]).toBeGreaterThanOrEqual(0);
+          expect(mapped[channel]).toBeLessThanOrEqual(1);
+        }
+      }
     }
   });
 
@@ -155,16 +222,13 @@ describe('toneMap', () => {
     // every channel …
     const glare = scaled(ORANGE, 1e6);
     expect([filmic(glare[0]), filmic(glare[1]), filmic(glare[2])]).toEqual([1, 1, 1]);
-    // … but the luminance is compressed first, at constant chromaticity. Measured: (1.000, 0.931, 0.529)
-    // in linear display values, rgb(255 247 192) on screen: pale, but unmistakably orange.
-    expect(toneMap(glare)[2]).toBeLessThan(0.6);
-    // The order of the channels survives at any brightness. Even at 10¹², the scale of the brightest light
-    // in the scene, the weakest channel is still a quarter below the strongest (measured 0.708).
-    for (const factor of [1, 1e3, 1e6, 1e9, 1e12]) {
-      const [r, g, b] = toneMap(scaled(ORANGE, factor));
-      expect(r).toBeGreaterThan(g);
-      expect(g).toBeGreaterThan(b);
-      expect(b).toBeLessThan(0.75);
+    // … and applied to each channel after the highlight compression it still bleached the orange to
+    // (1.000, 0.931, 0.529), rgb(255 247 192). On the largest channel it shows the orange itself, at full
+    // brightness: (1, 0.3, 0.05), rgb(255 149 63), here and at 10¹², the scale of the brightest light in the scene.
+    expect(perChannel(glare)[2]).toBeGreaterThan(0.5);
+    for (const factor of [1e6, 1e9, 1e12]) {
+      const mapped = toneMap(scaled(ORANGE, factor));
+      for (let channel = 0; channel < 3; channel++) expect(mapped[channel]).toBeCloseTo(ORANGE[channel], 12);
     }
   });
 
@@ -190,6 +254,70 @@ describe('toneMap', () => {
       // give or take the rounding of the projection
       expect(mapped[colour.indexOf(Math.min(...colour))]).toBeCloseTo(0, 12);
     }
+  });
+});
+
+describe('the lights of the scene', () => {
+  // a lit signal lens, about 1 250 times the reference white, at every exposure the camera can choose
+  const signalLevel = SCENARIO.signals.luminanceCdM2 / REFERENCE_LUMINANCE_CD_M2;
+  const exposures: number[] = [];
+  for (let ev = EXPOSURE_MIN_EV; ev <= EXPOSURE_MAX_EV; ev += 0.5) exposures.push(Math.exp(BASE_LN_EXPOSURE) * 2 ** ev);
+  const shown = (line: Triple, level: number): Triple => toDisplay(scaled(line, level));
+
+  it('a red signal at rest is red, not magenta', () => {
+    // 626 nm keeps a small blue component in the gamut (its dominant wavelength lies beyond that of the sRGB red
+    // primary, towards the purples): 4.7 % of the red in linear terms, rgb(255 0 61) at the exposure at rest. Per
+    // channel the shoulder lifted it to rgb(255 0 207), 49° from red on the colour wheel and 11° from magenta.
+    for (const exposure of exposures) {
+      const colour = shown(LINES.red, signalLevel * exposure);
+      expect(colour[1]).toBeCloseTo(0, 9);
+      expect(colour[2]).toBeLessThan(0.25 * colour[0]);
+      // at most 14.4° on the colour wheel, at full brightness, where the blue is encoded highest
+      expect(hueDistance(hue(colour), 0)).toBeLessThan(20);
+    }
+    const atRest = Math.exp(BASE_LN_EXPOSURE) * signalLevel;
+    expect(toCss(scaled(LINES.red, atRest))).toBe('rgb(255 0 61)');
+    expect(hueDistance(hue(perChannel(scaled(LINES.red, atRest)).map(encodeSrgb) as unknown as Triple), 300)).toBeLessThan(15);
+  });
+
+  it('a red signal keeps its dominant wavelength, its perceived hue only roughly (display.ts, step 1)', () => {
+    // CIELAB hue angle (D65), the usual measure of perceived hue
+    const lab = (t: number): number => (t > (6 / 29) ** 3 ? Math.cbrt(t) : t / (3 * (6 / 29) ** 2) + 4 / 29);
+    const hueAngle = (rgb: Triple): number => {
+      const [x, y, z] = apply(SRGB_TO_XYZ, rgb).map((value, i) => lab(value / D65_XYZ[i]));
+      return ((Math.atan2(200 * (y - z), 500 * (x - y)) * 180) / Math.PI + 360) % 360;
+    };
+    const shown = toDisplay(scaled(LINES.red, Math.exp(BASE_LN_EXPOSURE) * signalLevel)).map(decodeSrgb) as unknown as Triple;
+    // the light itself has the hue of the sRGB red primary (measured 41.0° and 40.0°); shown, it is 13.5° nearer pink
+    expect(Math.abs(hueAngle(LINES.red) - hueAngle([1, 0, 0]))).toBeLessThan(2);
+    expect(hueAngle(shown)).toBeCloseTo(27.5, 1);
+    // per channel it was 337.6°, next to magenta (328.2°)
+    expect(hueAngle(perChannel(scaled(LINES.red, Math.exp(BASE_LN_EXPOSURE) * signalLevel)))).toBeCloseTo(337.6, 1);
+  });
+
+  it('a green signal is the blue-green of 505 nm, not cyan', () => {
+    // In the gamut 505 nm has two thirds as much blue as green. Per channel the blue was lifted to the green:
+    // rgb(0 250 246) at rest, cyan. Shown at its own ratio it is rgb(0 250 209).
+    for (const exposure of exposures) {
+      const colour = shown(LINES.green, signalLevel * exposure);
+      expect(colour[0]).toBeCloseTo(0, 9);
+      expect(colour[2]).toBeLessThan(0.86 * colour[1]);
+    }
+    const atRest = Math.exp(BASE_LN_EXPOSURE) * signalLevel;
+    expect(toCss(scaled(LINES.green, atRest))).toBe('rgb(0 250 209)');
+    expect(perChannel(scaled(LINES.green, atRest))[2]).toBeGreaterThan(0.95 * perChannel(scaled(LINES.green, atRest))[1]);
+  });
+
+  it('violet light is violet, not magenta, however bright', () => {
+    // 400 nm: the blue channel carries it and the red one stays at a sixth of it in linear terms; per channel
+    // the red rose with the brightness to rgb(241 0 255) already at the reference white
+    for (let exponent = -2; exponent <= 4; exponent += 0.5) {
+      const colour = shown(LINES.violet, 10 ** exponent);
+      expect(colour[1]).toBeCloseTo(0, 9);
+      expect(colour[0]).toBeLessThan(0.5 * colour[2]);
+      expect(hueDistance(hue(colour), 270)).toBeLessThan(10);
+    }
+    expect(hueDistance(hue(perChannel(LINES.violet).map(encodeSrgb) as unknown as Triple), 300)).toBeLessThan(5);
   });
 });
 
@@ -257,5 +385,25 @@ describe('GLSL copy of the display transform (src/scene/shaders/chunks.ts)', () 
     expect(literals).toContain(HIGHLIGHT_SLOPE.toFixed(4));
     // the shader source carries four decimals: a slope with more would be compressed differently on the GPU
     expect(Number(HIGHLIGHT_SLOPE.toFixed(4))).toBe(HIGHLIGHT_SLOPE);
+  });
+
+  it('applies the curve to the largest channel and keeps the ratios, as toneMap does', () => {
+    const code = DISPLAY_TRANSFORM.replace(/\/\/[^\n]*/g, '').replace(/\s+/g, ' ');
+    // the curve takes a single value; a vec3 version would bring the per-channel curve back
+    expect(code).toContain('float filmic(float x)');
+    expect(code).not.toContain('vec3 filmic');
+    for (const line of [
+      'c = max(c, vec3(0.0));',
+      'float peak = max(c.r, max(c.g, c.b));',
+      'if (!(peak > 0.0)) return vec3(dither);',
+      'return encodeSrgb(filmic(peak) * (c / peak)) + dither;',
+    ]) {
+      expect(code).toContain(line);
+    }
+    // in this order, after the highlight compression
+    const order = ['log(y)) / y;', 'c = max(c, vec3(0.0));', 'float peak', 'filmic(peak) * (c / peak)'].map((part) =>
+      code.indexOf(part)
+    );
+    expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 });

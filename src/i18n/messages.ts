@@ -266,9 +266,10 @@ const tr: Messages = {
       ['T', 'Isıl ışıma'],
       ['G', 'Kılavuz çizgileri'],
       ['L', 'Mercek ×1 / ×3 / ×10'],
-      ['F', 'İleri bak'],
+      ['F · Home', 'İleri bak'],
       ['R', 'Saatleri sıfırla'],
       ['D', 'Bilimsel analiz'],
+      ['Esc', 'Bu listeyi, o kapalıysa analizi kapat'],
     ],
     pointer: [
       ['Sürükle', 'Çevreye bak'],
@@ -432,9 +433,10 @@ const en: Messages = {
       ['T', 'Thermal emission'],
       ['G', 'Guide lines'],
       ['L', 'Lens ×1 / ×3 / ×10'],
-      ['F', 'Look ahead'],
+      ['F · Home', 'Look ahead'],
       ['R', 'Reset clocks'],
       ['D', 'Scientific dossier'],
+      ['Esc', 'Close this sheet, or else the dossier'],
     ],
     pointer: [
       ['Drag', 'Look around'],

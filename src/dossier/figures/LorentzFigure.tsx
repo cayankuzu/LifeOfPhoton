@@ -7,7 +7,7 @@
  * keys, one equal boost per press, and Home / End.
  */
 
-import { type KeyboardEvent, type PointerEvent, useMemo } from 'react';
+import { type KeyboardEvent, type PointerEvent, useMemo, useRef } from 'react';
 import { formatBeta, formatSignificant } from '@/i18n/format';
 import { BETA_MAX, boostBy, clampBeta, kinematicState } from '@/physics/kinematics';
 import { RAPIDITY_STEP } from '@/state/simulation';
@@ -42,8 +42,23 @@ const DECADE_LABEL: Record<number, string> = {
   1000: '10³',
 };
 
+/** Distance a finger travels before its gesture counts as a drag rather than a tap, px. */
+const TOUCH_SLOP = 8;
+
+/**
+ * What a finger that has moved by (dx, dy) since touching the plot is doing: nothing yet, setting
+ * the speed (a sideways drag), or scrolling the document (anything steeper than 45°). The
+ * browser dispatches moves before it decides to scroll, so the plot must decide for itself.
+ */
+export function touchGesture(dx: number, dy: number): 'undecided' | 'sideways' | 'scroll' {
+  if (Math.hypot(dx, dy) < TOUCH_SLOP) return 'undecided';
+  return Math.abs(dx) > Math.abs(dy) ? 'sideways' : 'scroll';
+}
+
 export default function LorentzFigure({ beta, language, onSelectBeta }: FigureProps) {
   const t = LABELS[language];
+  // where the finger on the plot touched down, and whether it has turned out to be a sideways drag
+  const touch = useRef<{ x: number; y: number; sideways: boolean } | null>(null);
   const x = useMemo(() => linearScale([0, PHI_MAX], [PLOT.left, PLOT.right]), []);
   const y = useMemo(() => logScale([1e-3, 1e3], [PLOT.bottom, PLOT.top]), []);
 
@@ -174,14 +189,36 @@ export default function LorentzFigure({ beta, language, onSelectBeta }: FigurePr
           aria-valuetext={`β = ${formatBeta(state.beta, language)}; γ = ${gamma}; D₀ = ${doppler}`}
           onPointerDown={(event) => {
             event.currentTarget.setPointerCapture(event.pointerId);
-            if (event.pointerType !== 'touch') select(event);
+            if (event.pointerType === 'touch') touch.current = { x: event.clientX, y: event.clientY, sideways: false };
+            else select(event);
           }}
           onPointerMove={(event) => {
-            if (event.buttons === 1) select(event);
+            if (event.buttons !== 1) return;
+            if (event.pointerType !== 'touch') {
+              select(event);
+              return;
+            }
+            const start = touch.current;
+            if (!start) return;
+            if (!start.sideways) {
+              const gesture = touchGesture(event.clientX - start.x, event.clientY - start.y);
+              if (gesture === 'undecided') return;
+              // a swipe that starts on the plot scrolls the document and sets nothing, not even on lifting
+              if (gesture === 'scroll') {
+                touch.current = null;
+                return;
+              }
+              start.sideways = true;
+            }
+            select(event);
           }}
           onPointerUp={(event) => {
-            // a vertical pan ends in pointercancel instead, and selects nothing
-            if (event.pointerType === 'touch') select(event);
+            // a tap selects where it lifts
+            if (event.pointerType === 'touch' && touch.current) select(event);
+            touch.current = null;
+          }}
+          onPointerCancel={() => {
+            touch.current = null;
           }}
           onKeyDown={onKeyDown}
         />

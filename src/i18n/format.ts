@@ -33,7 +33,7 @@ function fixedFormatter(language: Language, digits: number, grouping: boolean): 
  * the comma of the locales would read as a decimal marker in the other language, and
  * in Turkish "128.900 K" would stand next to "0,256°".
  */
-export const GROUP_SEPARATOR = ' ';
+export const GROUP_SEPARATOR = '\u202F';
 
 /** Fixed number of decimals, e.g. 7.089 → "7,089" in Turkish. */
 export function formatFixed(value: number, digits: number, language: Language, grouping = false): string {

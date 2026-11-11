@@ -200,6 +200,22 @@ describe('thermal glow of the environment', () => {
     const d0 = Math.sqrt(1.999 / 0.001);
     expect(blackbodyLuminance(ambient * d0)).toBeGreaterThan(blackbodyLuminance(NOMINAL_SOLAR_TEMPERATURE_K));
   });
+
+  it('outshines the moonlight reflected in the thermal infrared by more than 10⁴ (spectra.ts, Kirchhoff)', () => {
+    // A white surface facing the Moon against the same surface's own glow, in reference units. The two are equal
+    // near D = 3.6 (measured 3.64), where the reflected light still comes from the near infrared; the infrared
+    // beyond 5 µm, where reflectance and emissivity are inconsistent, reaches the visible band (below 700 nm) only
+    // from D ≈ 7 on (measured there: 1.9 × 10⁴).
+    const moonlight = (doppler: number) =>
+      (SCENARIO.moon.illuminanceLux / SCENARIO.street.illuminanceLux) * reflectedGain(atlas, 'moon', doppler);
+    const glow = (doppler: number) => emissivity * blackbodyLuminanceUnits(atlas, ambient * doppler);
+    const equal = solveLogBisection((d) => glow(d) - moonlight(d), 2, 10);
+    expect(equal).toBeGreaterThan(3.5);
+    expect(equal).toBeLessThan(3.8);
+    for (const doppler of [7, 10, 14, 50, headOnDopplerFactor(BETA_MAX)]) {
+      expect(glow(doppler) / moonlight(doppler)).toBeGreaterThan(1e4);
+    }
+  });
 });
 
 describe('line emitters', () => {

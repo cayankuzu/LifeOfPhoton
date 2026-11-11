@@ -74,8 +74,9 @@ export const SCENARIO = {
      */
     surfaceTemperatureK: 380,
     /**
-     * Long-wave emissivity of the lunar regolith, as assumed in the thermal models fitted to
-     * the Diviner data (Vasavada et al. 2012, J. Geophys. Res. Planets 117, E00H18).
+     * Long-wave emissivity of the lunar regolith, as in the thermal model fitted to the
+     * Diviner data by Hayne et al. 2017 (J. Geophys. Res. Planets 122, 2371, Table A1), who
+     * lowered the 0.98 of the earlier models to 0.95.
      */
     surfaceEmissivity: 0.95,
   },
@@ -177,9 +178,13 @@ export const SCENARIO = {
    * air scatters short wavelengths more strongly.
    */
   sky: {
-    /** Glow at the zenith, in units of the reference luminance. */
+    /**
+     * Level of the glow at the zenith, in reference units. The glow is LED light of this level
+     * reflected by glowTint, so its luminance is this level times the luminance factor of the
+     * tint (about 0.6).
+     */
     glowZenith: 0.0016,
-    /** Additional glow at the horizon, and its e-folding in the tangent of the elevation. */
+    /** Additional glow at the horizon (a level, as above), and its e-folding in the tangent of the elevation. */
     glowHorizon: 0.02,
     glowFalloff: 6,
     /** Spectral weighting of the glow, as the reflectance of a bluish scatterer. */
