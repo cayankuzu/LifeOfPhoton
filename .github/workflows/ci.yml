@@ -47,6 +47,13 @@ jobs:
 
       - name: Test
         run: npm test
+        # src/scene/__tests__/gpu.test.ts compiles and runs the shaders in headless Chrome on its software
+        # rasteriser (SwiftShader); the hosted Ubuntu runner has Google Chrome installed. "require" turns a
+        # missing browser or WebGL 2 context into a failure: skipped, the only test that executes the GLSL would
+        # let a broken shader through. (The test treats CI=true, which Actions sets, the same way; this line
+        # states it where the workflow is read.)
+        env:
+          GPU_TESTS: require
 
       - name: Build
         run: npm run build

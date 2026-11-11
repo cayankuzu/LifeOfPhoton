@@ -26,6 +26,36 @@ export const skyVertexShader = /* glsl */ `
   }
 `;
 
+/**
+ * The Moon: a uniform disc of angular radius `radius` around the rest-frame direction `moon`, as the pixel looking
+ * along the rest-frame direction `d` sees it. Returns the share of the disc's radiance that pixel receives.
+ * gpu.test.ts executes this function and checks that the disc is round and keeps its flux.
+ */
+export const MOON_DISC = /* glsl */ `
+  float moonDisc(vec3 d, vec3 moon, float radius) {
+    float sine = length(cross(d, moon));
+    float angle = dot(d, moon) > 0.0 ? asin(clamp(sine, 0.0, 1.0)) : 3.14159265;
+    // The angle one pixel spans here, from the change of the view direction itself between neighbouring pixels. That
+    // changes smoothly across the screen and, since aberration is conformal, by the same angle across and along a
+    // pixel. (It used to be fwidth(angle): |dFdx| + |dFdy| of the angle from the centre of the disc, which is up to √2
+    // larger along the diagonals of the screen and, formed by differences within 2 × 2 pixels, wrong near the
+    // centre, where that angle has a cusp. The edge filter and the change to a point source below then depended on
+    // the direction from the centre, and while the disc was one to three pixels across it was drawn as a cross. Where
+    // the angle jumps to π, 90° from the Moon, the footprint became a right angle and the point-source term drew a
+    // dashed arc across the sky at high speed.)
+    float footprint = max(0.5 * (length(dFdx(d)) + length(dFdy(d))), 1e-7);
+    // a uniform disc, anti-aliased over one pixel footprint while it is resolved
+    float resolved = 1.0 - smoothstep(radius - footprint, radius + footprint, angle);
+    // Aberration shrinks the disc: at the top of the range it is a hundredth of a pixel across. Below
+    // about a pixel it is a point source, and an edge filter would draw it far too bright: its light
+    // L·Ω is then spread over the footprint of the pixel instead, which conserves the flux.
+    float ratio = radius / footprint;
+    float spread = max(footprint, radius);
+    float unresolved = min(ratio * ratio, 1.0) * exp(-(angle * angle) / (spread * spread));
+    return mix(unresolved, resolved, smoothstep(0.75, 2.0, ratio));
+  }
+`;
+
 export const skyFragmentShader = /* glsl */ `
   ${COMMON_UNIFORMS}
   uniform vec3 uMoonDirection;
@@ -48,6 +78,7 @@ export const skyFragmentShader = /* glsl */ `
   ${SKY_RADIANCE}
   ${STAR_RADIANCE_LOOKUP}
   ${DISPLAY_TRANSFORM}
+  ${MOON_DISC}
 
   void main() {
     vec3 seen = normalize(vDirection);
@@ -71,18 +102,8 @@ export const skyFragmentShader = /* glsl */ `
     if (d.y > 0.0) {
       // night sky: the glow of the city's LEDs and the atmosphere's own thermal emission
       radiance += skyRadiance(d.y / max(length(d.xz), 1e-5), lnD);
-      // the Moon: a uniform disc, anti-aliased over one pixel footprint while it is resolved
-      float sine = length(cross(d, uMoonDirection));
-      float angle = dot(d, uMoonDirection) > 0.0 ? asin(clamp(sine, 0.0, 1.0)) : 3.14159265;
-      float footprint = max(fwidth(angle), 1e-7);
-      float resolved = 1.0 - smoothstep(uMoonRadius - footprint, uMoonRadius + footprint, angle);
-      // Aberration shrinks the disc: at the top of the range it is a hundredth of a pixel across. Below
-      // about a pixel it is a point source, and an edge filter would draw it far too bright: its light
-      // L·Ω is then spread over the footprint of the pixel instead, which conserves the flux.
-      float ratio = uMoonRadius / footprint;
-      float spread = max(footprint, uMoonRadius);
-      float unresolved = min(ratio * ratio, 1.0) * exp(-(angle * angle) / (spread * spread));
-      float disc = mix(unresolved, resolved, smoothstep(0.75, 2.0, ratio));
+      // the Moon (MOON_DISC)
+      float disc = moonDisc(d, uMoonDirection, uMoonRadius);
       // reflected sunlight, and the surface's own thermal emission, which outshines it above D ≈ 5.5
       radiance += disc * (blackbody(uLnMoonT + lnD, uLnMoonDisc) + thermal * blackbody(uLnMoonSurfaceT + lnD, uLnMoonEmissivity));
     } else {

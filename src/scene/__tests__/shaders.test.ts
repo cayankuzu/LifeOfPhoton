@@ -1,6 +1,6 @@
 /**
- * The shaders cannot be compiled without a graphics context, but a good part of
- * what can go wrong between GLSL and TypeScript is checkable as text: a uniform
+ * A good part of what can go wrong between GLSL and TypeScript is checkable as text
+ * (gpu.test.ts compiles the programs and runs parts of them in a browser): a uniform
  * that is declared but never supplied (it would silently read as zero), a uniform
  * that is supplied but never used, a varying whose two declarations disagree, an
  * attribute the geometry does not provide.
@@ -15,7 +15,7 @@ import { ATLAS_ROW, ATLAS_ROWS, ATLAS_WIDTH, blackbodyLuminanceUnits, sharedAtla
 import { EMITTER } from '../emitters';
 import { LUMINAIRE_FACE_LUMINANCE } from '../geometry/lighting';
 import { cityFragmentShader, cityVertexShader } from '../shaders/city';
-import { skyFragmentShader, skyVertexShader } from '../shaders/sky';
+import { MOON_DISC, skyFragmentShader, skyVertexShader } from '../shaders/sky';
 import {
   STAR_LN_PEAK_MAX,
   STAR_RADIANCE_SCALE,
@@ -382,6 +382,16 @@ describe('the Moon', () => {
       code.includes('blackbody(uLnMoonT + lnD, uLnMoonDisc) + thermal * blackbody(uLnMoonSurfaceT + lnD, uLnMoonEmissivity)')
     ).toBe(true);
     expect(code.includes('float thermal = uThermal * uOptical;')).toBe(true);
+  });
+
+  it('the disc is drawn by MOON_DISC, whose pixel footprint is the same in every direction (gpu.test.ts runs it)', () => {
+    const code = withoutComments(skyFragmentShader);
+    const disc = withoutComments(MOON_DISC);
+    expect(code.includes(disc)).toBe(true);
+    expect(code.includes('float disc = moonDisc(d, uMoonDirection, uMoonRadius);')).toBe(true);
+    // the footprint from the change of the view direction, not fwidth of the angle from the disc's centre (a cross)
+    expect(disc.includes('float footprint = max(0.5 * (length(dFdx(d)) + length(dFdy(d))), 1e-7);')).toBe(true);
+    expect(disc.includes('fwidth')).toBe(false);
   });
 
   it('at rest it shows reflected light only; its own glow outshines that above D ≈ 5.5', () => {

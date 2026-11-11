@@ -5,10 +5,11 @@
  * implementations in src/physics (optics.ts: aberratePoint / deaberrateDirection and
  * measuredPoint / measuredDirectionInverse, spectralAtlas.ts: sampleAtlas and friends,
  * display.ts: toDisplay), which are covered by unit tests — including a float32
- * emulation of exactly this arithmetic. No test runs GLSL: the unit tests pin the
- * shader text to the references (src/scene/__tests__/shaders.test.ts, display.test.ts),
- * and agreement on a GPU has been checked by rendering the real materials in a
- * headless browser against the references, outside the test suite.
+ * emulation of exactly this arithmetic. The unit tests pin the shader text to the
+ * references (src/scene/__tests__/shaders.test.ts, display.test.ts), and
+ * src/scene/__tests__/gpu.test.ts compiles every program in a headless browser
+ * (SwiftShader) and runs DISPLAY_TRANSFORM, ATLAS_SAMPLING, SKY_RADIANCE and the
+ * vertex stages of the city and the stars against the references.
  */
 
 import { HIGHLIGHT_SLOPE } from '@/physics/display';

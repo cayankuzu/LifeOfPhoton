@@ -43,8 +43,12 @@ export const FADE_BEHIND_END = MODEL_BEHIND - CHUNK_LENGTH - 4;
 
 /**
  * Uploads the atlas as a half-float RGBA texture. Half floats are filterable in
- * core WebGL 2 (32-bit floats need an extension that many mobile GPUs lack) and
- * their 11-bit mantissa is ample for unit-luminance colours and log-luminances.
+ * core WebGL 2 (32-bit floats need an extension that many mobile GPUs lack). Their
+ * 11-bit significand costs little, but THREE.DataUtils.toHalfFloat (r169) truncates
+ * instead of rounding, so the error is one unit in the last place, not half of one:
+ * up to 9.4e-4 of the largest component of a colour, and up to 0.0156 in ln L where
+ * |ln L| lies between 16 and 32 (1.6 % in luminance on the black-body row), towards
+ * zero in ln L (src/scene/__tests__/gpu.test.ts reports the loss).
  */
 export function createAtlasTexture(atlas: SpectralAtlas): THREE.DataTexture {
   const half = new Uint16Array(atlas.data.length);
