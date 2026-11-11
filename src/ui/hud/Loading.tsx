@@ -1,15 +1,25 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { updateSettings, useLoadPhase, useSettings } from '@/state/simulation';
 import { useMessages } from '../hooks';
 import { Button } from '../primitives';
+import poster from './poster.jpg';
 
 /**
  * Start-up screen: says what is happening and how far along it is, and turns into
  * a plain explanation when the scene cannot be shown at all. The controls behind it
  * are inert until the scene is ready (App.tsx); when it cannot be shown, the dossier
  * is still offered from here, since it does not need the scene.
+ *
+ * Behind it lies a still frame of the simulation at β = 0.866, the social image
+ * without its title card (README, "Social image and start-up still"). It is in the
+ * server's HTML and preloaded, and a blurred version painted from the inline data of
+ * the static import stands in until the JPEG arrives, so that a screenshot taken while
+ * the models load, and a browser without WebGL 2, show the avenue rather than black.
+ * It is decorative; a caption says it is a still, so that it is not taken for the live
+ * scene. The text sits on a solid panel, so its contrast does not depend on the picture.
  */
 export default function Loading() {
   const { t } = useMessages();
@@ -57,7 +67,25 @@ export default function Loading() {
       role={failed ? 'alert' : 'status'}
       aria-live="polite"
     >
-      <div className="w-[min(22rem,calc(100vw-3rem))]">
+      <div aria-hidden="true" className="absolute inset-0">
+        {/* The vanishing point of the avenue is the middle of the frame, which object-cover keeps on narrow screens. */}
+        <Image
+          src={poster}
+          alt=""
+          fill
+          sizes="100vw"
+          unoptimized
+          preload
+          fetchPriority="high"
+          placeholder="blur"
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-[rgb(5_7_10/0.45)]" />
+        <p className="absolute bottom-3 right-3 max-w-[calc(100vw-1.5rem)] rounded-[4px] border border-hairline bg-panel px-2 py-1 text-[11px] leading-snug text-ink-2">
+          {t.loading.still}
+        </p>
+      </div>
+      <div className="relative w-[min(24.5rem,calc(100vw-2rem))] rounded border border-hairline-strong bg-panel p-5 shadow-[0_1px_0_rgb(255_255_255/0.03)_inset]">
         <p aria-hidden="true" className="font-mono text-[12px] font-semibold tracking-[0.2em] text-ink">
           LIFE OF A PHOTON
         </p>

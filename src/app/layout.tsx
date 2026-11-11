@@ -15,6 +15,12 @@ const serif = Source_Serif_4({ subsets: ['latin', 'latin-ext'], variable: '--fon
  * The page is served in Turkish. The document title is not part of the metadata: App.tsx renders it, in Turkish on the
  * server and in the language of the visit once that is known. (Next.js hydrates its metadata after the page's effects
  * and would put a title given here back over the visit's.) The social cards below keep the Turkish title.
+ *
+ * The social image is not named here: it is the file opengraph-image.jpg next to this layout (with its alt text in
+ * opengraph-image.alt.txt). Next.js then writes og:image with its size, type and alt, and with a hash of the file in the
+ * query string, so that a platform that cached an earlier picture fetches the new one when the file changes.
+ * twitter-image.jpg is the same file: X is said to fall back to og:image without a twitter:image, but its own
+ * documentation could not be reached to confirm it, so the card names the picture explicitly.
  */
 const title = MESSAGES.tr.app.title;
 const description =
@@ -38,15 +44,6 @@ export const metadata: Metadata = {
     description,
     url: '/',
     siteName: 'Life of a Photon',
-    images: [
-      {
-        url: '/opengraph-image.jpg',
-        width: 1600,
-        height: 900,
-        type: 'image/jpeg',
-        alt: 'Life of a Photon: 0,866 c hızında (γ = 2) bir gece caddesi; binalar öne doğru eğilmiş, sokak ışığı Doppler halkasına dönmüş, ileride ortamın ısıl ışıması parlıyor.',
-      },
-    ],
     locale: 'tr_TR',
     alternateLocale: ['en_US'],
     type: 'website',
@@ -55,7 +52,6 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title,
     description,
-    images: ['/opengraph-image.jpg'],
   },
 };
 

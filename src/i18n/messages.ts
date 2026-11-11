@@ -103,6 +103,8 @@ export interface Messages {
     readonly unsupported: string;
     readonly unsupportedDetail: string;
     readonly retry: string;
+    /** Caption of the picture behind the start-up screen, so that the still is not taken for the live scene. */
+    readonly still: string;
   };
   readonly help: {
     readonly title: string;
@@ -254,6 +256,7 @@ const tr: Messages = {
     unsupported: 'Bu tarayıcı WebGL 2 desteklemiyor',
     unsupportedDetail: 'Simülasyon için güncel bir masaüstü ya da mobil tarayıcı gerekir.',
     retry: 'Yeniden dene',
+    still: 'Görsel: simülasyondan durağan bir kare, 0,866 c',
   },
   help: {
     title: 'Denetimler',
@@ -421,6 +424,7 @@ const en: Messages = {
     unsupported: 'This browser does not support WebGL 2',
     unsupportedDetail: 'The simulation needs a current desktop or mobile browser.',
     retry: 'Try again',
+    still: 'Picture: a still frame of the simulation, 0.866 c',
   },
   help: {
     title: 'Controls',

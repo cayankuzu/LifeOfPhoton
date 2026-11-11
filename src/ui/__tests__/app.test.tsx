@@ -21,6 +21,21 @@ describe('the page as the server sends it', () => {
     expect(html.match(/ inert=""/g)).toHaveLength(1);
   });
 
+  it('lays a still of the simulation behind it, decorative and captioned in the language of the visit', () => {
+    // The picture is in the markup itself, so that it paints before any script runs (a screenshot service, a browser
+    // without WebGL 2). It is a static import: next/image writes the blur placeholder inline and asks for a preload.
+    const image = html.match(/<img [^>]*poster[^>]*>/)?.[0] ?? '';
+    expect(image).toContain('alt=""');
+    expect(image).toContain('fetchPriority="high"');
+    expect(image).toContain('background-image');
+    expect(image).not.toContain('loading="lazy"');
+    // it and its caption are hidden from assistive technology, inside the start-up screen
+    const hidden = html.lastIndexOf('<div aria-hidden="true"', html.indexOf(image));
+    expect(hidden).toBeGreaterThan(html.indexOf('role="status"'));
+    expect(html.indexOf(MESSAGES.tr.loading.still)).toBeGreaterThan(hidden);
+    expect(html).not.toContain(MESSAGES.en.loading.still);
+  });
+
   it('offers no way to skip to controls that cannot be reached', () => {
     expect(html).not.toContain('href="#controls"');
   });

@@ -2,7 +2,7 @@
 
 # Life of a Photon
 
-![0,866 c hızında (γ = 2) bir gece caddesi · A night avenue at 0.866 c (γ = 2)](public/opengraph-image.jpg)
+![0,866 c hızında (γ = 2) bir gece caddesi · A night avenue at 0.866 c (γ = 2)](src/app/opengraph-image.jpg)
 
 <a name="tr"></a>
 
@@ -164,7 +164,8 @@ Görüntüleyici bütün sahneyi durgun çerçevesinde tutar ve itmeyi olabilece
 
 ```text
 src/
-├── app/                  Next.js App Router girişi: layout.tsx (yazı tipleri, üstveri), page.tsx, error.tsx (son savunma hattı), globals.css
+├── app/                  Next.js App Router girişi: layout.tsx (yazı tipleri, üstveri), page.tsx, error.tsx (son savunma hattı), globals.css,
+│                         opengraph-image.jpg ve twitter-image.jpg (paylaşım görseli, alt metinleriyle)
 ├── physics/              saf TypeScript fizik kütüphanesi; React’ten ve three.js’ten bağımsız
 │   ├── constants.ts      fiziksel sabitler ve başvuru verileri, her biri kaynağıyla
 │   ├── kinematics.ts     β, γ, hızlılık, ileri Doppler çarpanı, hız denetimi eşlemesi, hiperbolik hareket
@@ -199,7 +200,7 @@ src/
 ├── i18n/                 format.ts (dile göre sayı biçimi), messages.ts (arayüz metinleri, Türkçe ve İngilizce)
 ├── ui/                   App.tsx (bileşim, klavye, URL ve dil), shortcuts.ts (klavye kısayolları),
 │                         DossierFrame.tsx (analiz yüklenirken ve yüklenemezse), hooks.ts, primitives.tsx,
-│                         hud/ (ölçerler), __tests__/
+│                         hud/ (ölçerler; Loading.tsx ve poster.jpg: açılış ekranı), __tests__/
 └── dossier/              bilimsel analiz
     ├── content/          veri olarak metin; iki dil yan yana
     ├── figures/          etkileşimli SVG şekilleri
@@ -347,6 +348,7 @@ Işık sapıncı, Doppler çarpanı ve ışınım parlaklığının dönüşüm�
 ### 10. Varlıklar ve lisanslar
 
 - **3B modeller.** `public/models` klasöründeki dosyalar, Kenney’nin (kenney.nl) Creative Commons Zero (CC0 1.0) ile yayımladığı model takımlarından gelir: _City Kit (Commercial)_, _City Kit (Suburban)_, _City Kit (Roads)_ ve aynı yazarın taşıt, ağaç ve kent mobilyası takımları. Köken, dosyaların içinde kayıtlı nesne adlarından (örneğin `building-skyscraper-a`, `detail-awning-wide`, `sign-highway-detailed`), dışa aktarıcıdan (UnityGLTF) ve palet dokularından (`public/models/Textures`) belirlenmiştir; dosyalar depoya eklenirken yeniden adlandırılmış, içerikleri değiştirilmemiştir. 39 model dosyasının 26’sı caddeye yerleştirilir (`src/scene/geometry/layout.ts` içindeki `MODEL_PATHS`); ötekiler takımların parçasıdır ve yüklenmez. Ayrıntılar `NOTICE.md` dosyasındadır.
+- **Paylaşım görseli ve açılış karesi.** Bağlantı paylaşıldığında görünen görsel `src/app/opengraph-image.jpg` dosyasıdır (1600 × 900; X için aynı dosya `twitter-image.jpg` olarak), Next.js’in üstveri dosyası kuralıyla sunulur: `og:image` adresi dosyanın özetini taşır, böylece görsel değiştiğinde önbellekteki eski kopya kullanılmaz. Açılış ekranının arkasındaki `src/ui/hud/poster.jpg` aynı karenin başlık kartı olmayan hâlidir. İkisi de üretim derlemesinden, makinenin grafik işlemcisinde çalışan başsız Chrome’da `#b=0.8660254&g=0` adresiyle, arayüz gizli ve simülasyon duraklatılmışken çekilen tek bir karedir; biri başlık kartıyla, öteki kartsız. Açılış ekranı bu kareyi karartılmış olarak, modeller yüklenirken ve WebGL 2 yoksa gösterir; görsel sunucunun HTML’inde yer alır, önceden yüklenir ve JPEG gelene kadar satır içi verisinden bulanık bir hâli çizilir. Köşedeki bir not bunun simülasyondan durağan bir kare olduğunu söyler; metin, kontrastı görsele bağlı olmayan düz bir panel üzerindedir.
 - **Yazı tipleri.** Inter (arayüz metni), JetBrains Mono (ölçer sayıları ve etiketleri) ve Source Serif 4 (analizdeki uzun metin); `next/font` üzerinden yüklenir, SIL Open Font License 1.1.
 - **Kütüphaneler.** Bağımlılıklar: Next.js, React, three.js (React Three Fiber ve drei ile), KaTeX ve lucide-react; geliştirme bağımlılıkları arasında Tailwind CSS, TypeScript, Vitest, ESLint ve Prettier vardır (bkz. `package.json`). Paket üstverilerine göre doğrudan bağımlılıkların tümü MIT lisanslıdır; lucide-react (ISC) ve TypeScript (Apache-2.0) bunun dışındadır.
 - **Projenin kendisi.** Kaynak kodu, analiz metni ve belgeler MIT Lisansı ile yayımlanır (`LICENSE`). Üçüncü taraflara ait varlıklar kendi koşullarını korur (`NOTICE.md`).
@@ -544,7 +546,8 @@ The renderer keeps the whole scene in its rest frame and applies the boost at th
 
 ```text
 src/
-├── app/                  Next.js App Router entry: layout.tsx (fonts, metadata), page.tsx, error.tsx (last line of defence), globals.css
+├── app/                  Next.js App Router entry: layout.tsx (fonts, metadata), page.tsx, error.tsx (last line of defence), globals.css,
+│                         opengraph-image.jpg and twitter-image.jpg (the social image, with their alt texts)
 ├── physics/              pure TypeScript physics library; independent of React and three.js
 │   ├── constants.ts      physical constants and reference data, each with its provenance
 │   ├── kinematics.ts     β, γ, rapidity, head-on Doppler factor, speed-control mapping, hyperbolic motion
@@ -579,7 +582,7 @@ src/
 ├── i18n/                 format.ts (number formatting per language), messages.ts (interface strings, Turkish and English)
 ├── ui/                   App.tsx (composition, keyboard, URL and language), shortcuts.ts (keyboard shortcuts),
 │                         DossierFrame.tsx (while the dossier loads or fails), hooks.ts, primitives.tsx,
-│                         hud/ (instruments), __tests__/
+│                         hud/ (instruments; Loading.tsx and poster.jpg: the start-up screen), __tests__/
 └── dossier/              the scientific dossier
     ├── content/          the text as data; both languages side by side
     ├── figures/          interactive SVG figures
@@ -727,6 +730,7 @@ The aberration, the Doppler factor and the transformation of radiance are exact.
 ### 10. Assets and licences
 
 - **3D models.** The files in `public/models` come from asset kits published by Kenney (kenney.nl) under Creative Commons Zero (CC0 1.0): _City Kit (Commercial)_, _City Kit (Suburban)_, _City Kit (Roads)_ and further kits by the same author for the vehicles, the trees and the street furniture. Their origin was established from the object names stored inside the files (for example `building-skyscraper-a`, `detail-awning-wide`, `sign-highway-detailed`), from the exporter (UnityGLTF) and from the palette textures (`public/models/Textures`); the files were renamed when they were added to the repository and their contents are unchanged. Of the 39 model files 26 are placed in the avenue (`MODEL_PATHS` in `src/scene/geometry/layout.ts`); the others are part of the kits and are not loaded. Details are in `NOTICE.md`.
+- **Social image and start-up still.** The picture shown when a link is shared is `src/app/opengraph-image.jpg` (1600 × 900; for X the same file as `twitter-image.jpg`), served through the metadata file convention of Next.js: the `og:image` address carries a hash of the file, so a cached copy is not reused once the picture changes. The picture behind the start-up screen, `src/ui/hud/poster.jpg`, is the same frame without the title card. Both are one frame of the production build, shot in headless Chrome on the machine’s graphics processor at `#b=0.8660254&g=0` with the interface hidden and the simulation paused, once with the title card and once without. The start-up screen shows it darkened while the models load and when WebGL 2 is missing; it is in the server’s HTML, preloaded, and painted blurred from inline data until the JPEG arrives. A caption in the corner says it is a still frame of the simulation; the text sits on a solid panel, so its contrast does not depend on the picture.
 - **Fonts.** Inter (interface text), JetBrains Mono (instrument numerals and labels) and Source Serif 4 (long-form reading in the dossier); loaded through `next/font`, SIL Open Font License 1.1.
 - **Libraries.** Dependencies: Next.js, React, three.js (with React Three Fiber and drei), KaTeX and lucide-react; the development dependencies include Tailwind CSS, TypeScript, Vitest, ESLint and Prettier (see `package.json`). According to their package metadata all direct dependencies are MIT-licensed, with the exception of lucide-react (ISC) and TypeScript (Apache-2.0).
 - **The project itself.** The source code, the text of the dossier and the documentation are released under the MIT License (`LICENSE`). Third-party assets keep their own terms (`NOTICE.md`).
