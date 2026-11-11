@@ -86,15 +86,21 @@ interface FrameProps {
   readonly height: number;
   /** Accessible description of what the figure shows. */
   readonly label: string;
+  /**
+   * The figure holds a control. An image's children are presentational, so a control
+   * inside role="img" would not be exposed; such a figure is a named group instead,
+   * and hides its drawing from assistive technology itself.
+   */
+  readonly interactive?: boolean;
   readonly children: ReactNode;
 }
 
 /** The outer SVG of a figure. */
-export function Frame({ width, height, label, children }: FrameProps) {
+export function Frame({ width, height, label, interactive = false, children }: FrameProps) {
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      role="img"
+      role={interactive ? 'group' : 'img'}
       aria-label={label}
       className="block h-auto w-full select-none"
       style={{ fontFamily: FIGURE_FONT, fontSize: 10 }}

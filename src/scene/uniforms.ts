@@ -60,6 +60,17 @@ export function createAtlasTexture(atlas: SpectralAtlas): THREE.DataTexture {
   return texture;
 }
 
+/** A single black texel: what the sky reads as the stars' radiance when they are drawn over it instead. */
+export function createNoStarsTexture(): THREE.DataTexture {
+  const texture = new THREE.DataTexture(new Uint8Array(4), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 export type SceneUniforms = Record<string, THREE.IUniform>;
 
 /** Unit vector towards the Moon: azimuth measured from the direction of travel (−z) towards +x. */
@@ -114,6 +125,9 @@ export function createSceneUniforms(atlas: SpectralAtlas, texture: THREE.DataTex
     uMoonRadius: { value: THREE.MathUtils.degToRad(moon.angularRadiusDeg) },
     uLnMoonT: { value: Math.log(moon.colourTemperatureK) },
     uLnMoonDisc: { value: units(MOON_DISC_LUMINANCE_CD_M2) - blackbodyLn(moon.colourTemperatureK) },
+    // the disc's own thermal emission
+    uLnMoonSurfaceT: { value: Math.log(moon.surfaceTemperatureK) },
+    uLnMoonEmissivity: { value: Math.log(moon.surfaceEmissivity) },
     // --- thermal emission
     uLnAmbientT: { value: Math.log(environment.temperatureK) },
     uLnEmissivity: { value: Math.log(environment.surfaceEmissivity) },
@@ -130,5 +144,8 @@ export function createSceneUniforms(atlas: SpectralAtlas, texture: THREE.DataTex
     // --- stars (updated every frame)
     uPointSize: { value: 3 },
     uLnStarNorm: { value: 0 },
+    // their summed radiance per pixel, read by the sky; black until the renderer provides a target (shaders/stars.ts)
+    uStars: { value: createNoStarsTexture() },
+    uStarsTexel: { value: new THREE.Vector2(1, 1) },
   };
 }

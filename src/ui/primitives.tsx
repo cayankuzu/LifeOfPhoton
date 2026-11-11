@@ -74,18 +74,22 @@ export function Toggle({
   onChange,
   children,
   hint,
+  describedBy,
   className,
 }: {
   readonly pressed: boolean;
   readonly onChange: (next: boolean) => void;
   readonly children: ReactNode;
   readonly hint?: string;
+  /** Id of a visible note that explains the switch. */
+  readonly describedBy?: string;
   readonly className?: string;
 }) {
   return (
     <button
       type="button"
       aria-pressed={pressed}
+      aria-describedby={describedBy}
       title={hint}
       onClick={() => onChange(!pressed)}
       className={join(CONTROL, 'relative', pressed ? 'text-ink' : 'text-ink-3', className)}
@@ -132,10 +136,14 @@ export function Segmented<T extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => {
-              if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+              // all four arrows move the selection, as in a native radio group; up and down
+              // must not fall through to the window, where they would change the speed
+              const forward = event.key === 'ArrowRight' || event.key === 'ArrowDown';
+              const backward = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+              if (!forward && !backward) return;
               event.preventDefault();
               const index = options.findIndex((candidate) => candidate.value === value);
-              const next = options[(index + (event.key === 'ArrowRight' ? 1 : options.length - 1)) % options.length];
+              const next = options[(index + (forward ? 1 : options.length - 1)) % options.length];
               onChange(next.value);
               const group = event.currentTarget.parentElement;
               requestAnimationFrame(() => group?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus());

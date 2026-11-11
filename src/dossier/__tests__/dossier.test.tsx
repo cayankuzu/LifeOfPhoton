@@ -1,13 +1,17 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import katex from 'katex';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MESSAGES } from '@/i18n/messages';
 import { BETA_MAX } from '@/physics/kinematics';
-import { LENSES, type Language } from '@/state/simulation';
+import { DEFAULT_SETTINGS, LENSES, type Language, getSettings, look, updateSettings } from '@/state/simulation';
 import { DOSSIER } from '../content';
 import { SPEED_MARKERS, betaOfExcess, oneMinusBeta } from '../data/speedScale';
-import { DossierDocument } from '../Dossier';
+import Dossier, { DossierDocument, applyScenario, numberFloats } from '../Dossier';
 import { FIGURES } from '../figures';
-import { citationsIn } from '../inline';
+import { citationsIn, renderInline } from '../inline';
 import { REFERENCES, REFERENCE_BY_KEY } from '../references';
 import { type Block, type DossierContent, type FigureId, localize } from '../types';
 
@@ -69,6 +73,78 @@ function prose(text: string): string {
     .replace(/\[@[^\]]+\]/g, ' ')
     .replace(/\]\(https?:[^)]+\)/g, ' ');
 }
+
+/**
+ * The last word of a number as it is read out in Turkish ("1924" → "dört", "0,045" →
+ * "beş", "%30" → "otuz"): a case suffix written after the digits follows this word.
+ */
+function turkishLastWord(digits: string): string {
+  const [whole, fraction] = digits.replace(/[\s\u202F.]/g, '').split(',');
+  const value = Number(fraction !== undefined && Number(fraction) > 0 ? fraction : whole);
+  const units = ['', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz'];
+  const tens = ['', 'on', 'yirmi', 'otuz', 'kırk', 'elli', 'altmış', 'yetmiş', 'seksen', 'doksan'];
+  if (value === 0) return 'sıfır';
+  if (value % 10) return units[value % 10];
+  if (value % 100) return tens[(value % 100) / 10];
+  if (value % 1000) return 'yüz';
+  if (value % 1e6) return 'bin';
+  return value % 1e9 ? 'milyon' : 'milyar';
+}
+
+/** Why a suffix cannot follow a word under vowel harmony and consonant assimilation, or null if it can. */
+function suffixError(word: string, suffix: string): string | null {
+  const vowels = 'aeıioöuü';
+  const lastVowel = [...word].reverse().find((ch) => vowels.includes(ch)) ?? 'e';
+  const firstVowel = [...suffix].find((ch) => vowels.includes(ch));
+  if (!firstVowel) return null;
+  const back = (ch: string) => 'aıou'.includes(ch);
+  const rounded = (ch: string) => 'oöuü'.includes(ch);
+  if (back(lastVowel) !== back(firstVowel)) return 'front/back harmony';
+  if ('ıiuü'.includes(firstVowel) && rounded(lastVowel) !== rounded(firstVowel)) return 'rounding harmony';
+  const voicelessEnd = 'çfhkpsşt'.includes(word.at(-1) ?? '');
+  if (suffix[0] === 'd' && voicelessEnd) return 'd after a voiceless consonant';
+  if (suffix[0] === 't' && !voicelessEnd) return 't after a voiced sound';
+  if (vowels.includes(word.at(-1) ?? '') && vowels.includes(suffix[0])) return 'missing buffer consonant';
+  return null;
+}
+
+describe('Turkish suffixes after numbers', () => {
+  it('reads numbers the way the suffix checker assumes', () => {
+    expect(['1924', '%30', '0,045', '10\u202F000', '1960', '100'].map((n) => turkishLastWord(n.replace('%', '')))).toEqual([
+      'dört',
+      'otuz',
+      'beş',
+      'bin',
+      'altmış',
+      'yüz',
+    ]);
+    expect(suffixError('dört', 'te')).toBeNull();
+    expect(suffixError('bir', 'den')).toBeNull();
+    expect(suffixError('altı', 'sında')).toBeNull();
+    expect(suffixError('kırk', 'si')).not.toBeNull();
+    expect(suffixError('beş', 'de')).not.toBeNull();
+    expect(suffixError('iki', 'e')).not.toBeNull();
+  });
+
+  it('agree with the number as it is read out, so a generated value never carries a hand-written suffix that does not fit', () => {
+    const turkish = localize(DOSSIER, 'tr');
+    let checked = 0;
+    for (const { where, text } of texts(turkish)) {
+      for (const match of prose(text).matchAll(/(\d[\d\u202F]*(?:,\d+)?)\s?’([a-zçğıöşü]+)/g)) {
+        const word = turkishLastWord(match[1]);
+        expect(suffixError(word, match[2]), `${where}: "${match[0]}" (read "${word}")`).toBeNull();
+        checked += 1;
+      }
+      // a formula that ends in a number, such as $\beta = 0{,}99$’da
+      for (const match of text.matchAll(/(\d+(?:\{,\}\d+)?)\$’([a-zçğıöşü]+)/g)) {
+        const word = turkishLastWord(match[1].replace('{,}', ','));
+        expect(suffixError(word, match[2]), `${where}: "${match[0]}" (read "${word}")`).toBeNull();
+        checked += 1;
+      }
+    }
+    expect(checked).toBeGreaterThan(40);
+  });
+});
 
 describe.each(LANGUAGES)('dossier content (%s)', (language) => {
   const content = localize(DOSSIER, language);
@@ -246,6 +322,10 @@ describe('bibliography', () => {
       expect(reference.year, reference.key).toMatch(/^\d{4}$/);
       if (reference.doi) expect(reference.doi, reference.key).toMatch(/^10\.\d{4,9}\/\S+$/);
       if (reference.url) expect(reference.url, reference.key).toMatch(/^https:\/\/\S+$/);
+      // a well-formed BCP 47 tag, written the canonical way
+      if (reference.language !== undefined) {
+        expect(Intl.getCanonicalLocales(reference.language), reference.key).toEqual([reference.language]);
+      }
       expect(['primary', 'secondary']).toContain(reference.checked);
     }
   });
@@ -308,5 +388,199 @@ describe('rendering', () => {
         expect(svg, `${id} at β = ${beta}`).not.toMatch(/NaN|Infinity|undefined/);
       }
     }
+  });
+});
+
+describe.each(LANGUAGES)('references to figures and tables (%s)', (language) => {
+  const content = localize(DOSSIER, language);
+  const numbering = numberFloats(content);
+  const words = MESSAGES[language].dossier;
+  const floats = { figure: [...numbering.figure.keys()], table: [...numbering.table.keys()] };
+
+  /** Every prose string with the block it belongs to (null outside the sections). */
+  const units: Array<{ block: Block | null; text: string }> = [
+    ...content.abstract.map((text) => ({ block: null, text })),
+    ...content.glossary.map((entry) => ({ block: null, text: entry.definition })),
+    ...content.sections.flatMap((section) => [
+      { block: null, text: section.title },
+      { block: null, text: section.summary },
+      ...section.blocks.flatMap((block) => blockTexts(block).map((text) => ({ block, text }))),
+    ]),
+  ];
+
+  // "Şekil 3", "Çizelge 3’ün", "Figure 3", "Tables 1 and 2", "Şekil 4–6"
+  const reference = new RegExp(
+    `(?<!\\p{L})(${words.figure}|${words.table})(?:s|ler|lar)?\\s+(\\d+(?:\\s*(?:,|ve|and|–)\\s*\\d+)*)`,
+    'gu'
+  );
+  const found = units.flatMap(({ block, text }) =>
+    [...prose(text).matchAll(reference)].flatMap((match) => {
+      const kind = match[1] === words.figure ? ('figure' as const) : ('table' as const);
+      const numbers: number[] = [];
+      for (const part of match[2].matchAll(/(\d+)(?:\s*–\s*(\d+))?/g)) {
+        const from = Number(part[1]);
+        const to = part[2] === undefined ? from : Number(part[2]);
+        for (let number = from; number <= to; number++) numbers.push(number);
+      }
+      return numbers.map((number) => ({ kind, number, block, text }));
+    })
+  );
+
+  it('refers only to figures and captioned tables that exist', () => {
+    for (const { kind, number, text } of found) {
+      expect(floats[kind][number - 1], `${kind} ${number} does not exist: "${text.slice(0, 80)}"`).toBeDefined();
+    }
+  });
+
+  it('refers to every figure and every captioned table at least once, outside its own caption', () => {
+    for (const kind of ['figure', 'table'] as const) {
+      floats[kind].forEach((target, index) => {
+        const referred = found.some((entry) => entry.kind === kind && entry.number === index + 1 && entry.block !== target);
+        const name =
+          target.type === 'figure' ? target.figure : target.type === 'table' ? (target.caption ?? '').slice(0, 50) : '';
+        expect(referred, `${kind} ${index + 1} ("${name}") is never referred to`).toBe(true);
+      });
+    }
+  });
+});
+
+describe('"show in the scene" buttons', () => {
+  const scenarios = localize(DOSSIER, 'en')
+    .sections.flatMap((section) => section.blocks)
+    .flatMap((block) => (block.type === 'try' ? [block.scenario] : []));
+
+  /** A browser window as far as applyScenario asks about it. */
+  const stubWindow = ({ reduceMotion = false, narrow = false } = {}): void => {
+    vi.stubGlobal('window', {
+      matchMedia: (query: string) => ({
+        matches: query.includes('prefers-reduced-motion') ? reduceMotion : query.includes('max-width') ? narrow : false,
+      }),
+    });
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    updateSettings(DEFAULT_SETTINGS);
+  });
+
+  it('include the states whose leftovers would make the next label false', () => {
+    // otherwise the test below would not test what it is for
+    expect(scenarios.some((scenario) => scenario.view === 'measured')).toBe(true);
+    expect(scenarios.some((scenario) => scenario.thermal === false)).toBe(true);
+    expect(scenarios.some((scenario) => scenario.view === undefined && scenario.thermal === undefined)).toBe(true);
+  });
+
+  it('are self-contained: each shows its own state whatever was pressed before (every pair, both orders)', () => {
+    stubWindow();
+    const yaw = { ahead: 0, left: Math.PI / 2, behind: Math.PI, up: 0 } as const;
+    for (const before of scenarios) {
+      for (const scenario of scenarios) {
+        applyScenario(before);
+        applyScenario(scenario);
+        const settings = getSettings();
+        const where = `${JSON.stringify(before)} then ${JSON.stringify(scenario)}`;
+        expect(settings.beta, where).toBe(scenario.beta);
+        expect(settings.view, where).toBe(scenario.view ?? 'seen');
+        expect(settings.thermal, where).toBe(scenario.thermal ?? true);
+        expect(settings.lens, where).toBe(scenario.lens ?? 1);
+        expect(look.yaw, where).toBe(yaw[scenario.look ?? 'ahead']);
+      }
+    }
+  });
+
+  it('start the motion, except for readers who asked for less of it', () => {
+    stubWindow();
+    updateSettings({ paused: true });
+    applyScenario(scenarios[0]);
+    expect(getSettings().paused).toBe(false);
+
+    stubWindow({ reduceMotion: true });
+    updateSettings({ paused: true });
+    applyScenario(scenarios[0]);
+    expect(getSettings().paused).toBe(true);
+  });
+
+  it('step the sheet aside only where it covers the scene', () => {
+    stubWindow();
+    updateSettings({ dossier: 'method' });
+    applyScenario(scenarios[0]);
+    expect(getSettings().dossier).toBe('method');
+
+    stubWindow({ narrow: true });
+    applyScenario(scenarios[0]);
+    expect(getSettings().dossier).toBeNull();
+  });
+});
+
+describe('inline markup', () => {
+  const context = { citationNumber: new Map<string, number>(), referenceByKey: REFERENCE_BY_KEY };
+  const html = (text: string): string => renderToStaticMarkup(<>{renderInline(text, context)}</>);
+
+  it('sets italics between underscores at word boundaries only', () => {
+    expect(html('_Annalen_ der Physik')).toBe('<em>Annalen</em> der Physik');
+    expect(html('see (_ibid._), p. 3')).toBe('see (<em>ibid.</em>), p. 3');
+    expect(html('MAX_ANGLE and snake_case_name')).toBe('MAX_ANGLE and snake_case_name');
+    expect(html('an escaped \\_x_')).toBe('an escaped \\_x_');
+  });
+
+  it('gives the other patterns precedence over an italic that starts in the same place', () => {
+    expect(html('**_x_**')).toBe('<strong class="font-semibold text-ink"><em>x</em></strong>');
+  });
+
+  it('uses no regular-expression lookbehind in the code that reaches the browser', () => {
+    // a lookbehind is a syntax error in Safari before 16.4, and would stop the dossier from loading
+    const sources = (directory: string): string[] =>
+      readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+        if (entry.isDirectory()) return entry.name === '__tests__' ? [] : sources(join(directory, entry.name));
+        return /\.tsx?$/.test(entry.name) ? [join(directory, entry.name)] : [];
+      });
+    const files = sources(fileURLToPath(new URL('..', import.meta.url)));
+    expect(files.length).toBeGreaterThan(10);
+    for (const file of files) expect(readFileSync(file, 'utf8'), file).not.toMatch(/\(\?<[=!]/);
+  });
+});
+
+describe('accessibility of the rendered document', () => {
+  it.each(LANGUAGES)('gives every formula a MathML form that screen readers can read (%s)', (language) => {
+    const html = renderToStaticMarkup(<DossierDocument language={language} beta={0.5} />);
+    const formulas = html.match(/class="katex"/g)?.length ?? 0;
+    expect(formulas).toBeGreaterThan(100);
+    expect(html.match(/<math/g)?.length ?? 0).toBe(formulas);
+    expect(html.match(/<annotation encoding="application\/x-tex">/g)?.length ?? 0).toBe(formulas);
+  });
+
+  it.each(LANGUAGES)('declares the language of every bibliography entry (%s)', (language) => {
+    const html = renderToStaticMarkup(<DossierDocument language={language} beta={0} />);
+    for (const reference of REFERENCES) {
+      const entry = html.indexOf(`id="reference-${reference.key}"`);
+      expect(entry, reference.key).toBeGreaterThan(0);
+      const declared = /<span lang="([^"]+)">/.exec(html.slice(entry))?.[1];
+      expect(declared, reference.key).toBe(reference.language ?? 'en');
+    }
+  });
+
+  it('lets the headings that the contents list jumps to take the focus', () => {
+    const html = renderToStaticMarkup(<DossierDocument language="en" beta={0} />);
+    expect(html).toContain('<h2 id="dossier-title" tabindex="-1"');
+    for (const section of DOSSIER.sections) expect(html).toContain(`<h3 id="dossier-${section.id}-title" tabindex="-1"`);
+    expect(html).toContain('<h3 id="dossier-references-title" tabindex="-1"');
+    expect(html).toContain('<h3 id="dossier-glossary-title" tabindex="-1"');
+  });
+
+  it('is a dialog that is modal only when the host says it covers the scene', () => {
+    expect(renderToStaticMarkup(<Dossier />)).toMatch(/^<div role="dialog" aria-modal="false"/);
+    expect(renderToStaticMarkup(<Dossier modal />)).toMatch(/^<div role="dialog" aria-modal="true"/);
+  });
+
+  it('exposes the interactive plot as a group holding a slider, not as an image', () => {
+    const Lorentz = FIGURES.lorentz;
+    const interactive = renderToStaticMarkup(<Lorentz beta={0.5} language="tr" onSelectBeta={() => {}} />);
+    expect(interactive).toMatch(/^<svg[^>]* role="group"/);
+    expect(interactive).toMatch(/role="slider"[^>]* aria-valuetext="β = 0,5000; γ = 1,155; D₀ = 1,732"/);
+    expect(interactive).toContain('touch-action:pan-y');
+    expect(interactive).toContain('<g aria-hidden="true">');
+    const still = renderToStaticMarkup(<Lorentz beta={0.5} language="tr" />);
+    expect(still).toMatch(/^<svg[^>]* role="img"/);
+    expect(still).not.toContain('role="slider"');
   });
 });

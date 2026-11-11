@@ -121,9 +121,12 @@ export default function InstrumentDock() {
   });
 
   return (
-    <Panel className="flex max-h-full min-h-0 w-[18rem] max-w-full flex-col" aria-label={t.dock.title}>
+    // a landmark of its own: a name on a generic element would be ignored
+    <Panel className="flex max-h-full min-h-0 w-[18rem] max-w-full flex-col" role="region" aria-labelledby="dock-title">
       <div className="flex items-center justify-between gap-2 py-1 pl-3 pr-1">
-        <h2 className="label m-0">{t.dock.title}</h2>
+        <h2 id="dock-title" className="label m-0">
+          {t.dock.title}
+        </h2>
         <IconButton
           label={open ? t.controls.collapse : t.controls.expand}
           aria-expanded={open}

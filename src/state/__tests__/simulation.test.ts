@@ -35,6 +35,7 @@ const EVERYTHING_CHANGED: Settings = {
   language: 'en',
   dossier: 'optics',
   dock: false,
+  singleKeys: false,
 };
 
 /** Subscriptions made by a test; they are removed after it even if it fails half-way. */
@@ -447,6 +448,10 @@ describe('boostByWheel', () => {
     updateSettings({ beta: 0 });
     boostByWheel(wheel(-100000));
     expect(getSettings().beta).toBeCloseTo(Math.tanh(3 * RAPIDITY_STEP), 12);
+    // a page is 400 px: half a page is two notches
+    updateSettings({ beta: 0 });
+    boostByWheel(wheel(-0.5, { deltaMode: 2 }));
+    expect(getSettings().beta).toBeCloseTo(Math.tanh(2 * RAPIDITY_STEP), 12);
   });
 
   it('leaves ctrl + wheel to the browser: that is its zoom, and what a trackpad pinch sends', () => {

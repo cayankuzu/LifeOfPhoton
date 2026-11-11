@@ -12,9 +12,12 @@ import type { Language, Lens, ViewMode } from '@/state/simulation';
 export interface Messages {
   readonly app: {
     readonly name: string;
+    /** Title of the browser tab; follows the language of the interface. */
+    readonly title: string;
     readonly tagline: string;
-    readonly frame: string;
     readonly skipToControls: string;
+    /** Shown by the last line of defence when the application itself fails. */
+    readonly crashed: string;
   };
   readonly view: {
     readonly group: string;
@@ -53,7 +56,6 @@ export interface Messages {
   readonly readout: {
     readonly velocity: string;
     readonly lorentz: string;
-    readonly rapidity: string;
     readonly clockRate: string;
     readonly dopplerAhead: string;
   };
@@ -75,10 +77,8 @@ export interface Messages {
     readonly ambientNote: string;
     readonly exposure: string;
     readonly exposureNote: string;
-    readonly heading: string;
     readonly spectrum: string;
     readonly spectrumCaption: string;
-    readonly visible: string;
   };
   readonly bands: Record<BandId, string>;
   /** One live sentence describing what the current speed does to the view. */
@@ -92,7 +92,6 @@ export interface Messages {
     readonly measured: (length: string) => string;
   };
   readonly guides: {
-    readonly motion: string;
     readonly neutral: string;
     readonly transverse: string;
   };
@@ -110,6 +109,11 @@ export interface Messages {
     readonly rows: ReadonlyArray<readonly [keys: string, action: string]>;
     readonly pointer: ReadonlyArray<readonly [gesture: string, action: string]>;
     readonly coach: string;
+    /** The coach line for touch screens, which have no wheel. */
+    readonly coachTouch: string;
+    /** Switch for the single-character shortcuts (WCAG 2.1.4) and what stays active without them. */
+    readonly singleKeys: string;
+    readonly singleKeysNote: string;
   };
   readonly dossier: {
     readonly title: string;
@@ -121,10 +125,11 @@ export interface Messages {
     readonly tryIt: string;
     readonly figure: string;
     readonly table: string;
-    readonly equation: string;
     readonly checkedPrimary: string;
     readonly checkedSecondary: string;
     readonly loading: string;
+    readonly failed: string;
+    readonly failedDetail: string;
     readonly backToTop: string;
   };
 }
@@ -132,20 +137,21 @@ export interface Messages {
 const tr: Messages = {
   app: {
     name: 'Life of a Photon',
+    title: 'Life of a Photon — özel göreliliğin birinci şahıs görünümü',
     tagline: 'Özel görelilik · birinci şahıs',
-    frame: 'Gözlemci çerçevesi S′',
     skipToControls: 'Denetimlere geç',
+    crashed: 'Uygulama beklenmedik bir hatayla durdu',
   },
   view: {
     group: 'Görünüm',
     modes: {
-      seen: { label: 'Görülen', hint: 'Gözün gördüğü: ışık sapıncı, Doppler kayması, ışınım dönüşümü' },
+      seen: { label: 'Görülen', hint: 'Gözün gördüğü: ışık sapıncı, Doppler kayması, ışınım parlaklığının dönüşümü' },
       measured: { label: 'Ölçülen', hint: 'Eşzamanlı ölçüm: yalnızca Lorentz büzülmesi, L = L₀/γ' },
     },
   },
   controls: {
     thermal: 'Isıl ışıma',
-    thermalHint: '288 K ortamın kendi ışımasını göster ya da gizle',
+    thermalHint: '288 K’lik ortamın kendi ışımasını göster ya da gizle',
     guides: 'Kılavuz',
     guidesHint: 'Hareket yönü, nötr koni ve yan düzlem işaretleri',
     lens: 'Mercek',
@@ -161,14 +167,14 @@ const tr: Messages = {
     lookAhead: 'İleri bak',
     resetClocks: 'Saatleri sıfırla',
     collapse: 'Ölçerleri daralt',
-    expand: 'Ölçerleri aç',
+    expand: 'Ölçerleri genişlet',
     close: 'Kapat',
   },
   speed: {
     label: 'Hız',
     slower: 'Yavaşla',
     faster: 'Hızlan',
-    valueText: (beta, gamma) => `β = ${beta}, γ = ${gamma}`,
+    valueText: (beta, gamma) => `β = ${beta}; γ = ${gamma}`,
     rest: 'durgun',
     hint: 'Tekerlek: her çentik aynı Lorentz itmesi (Δφ = 0,045)',
     presetHint: (beta) => `${beta} c değerine git`,
@@ -176,7 +182,6 @@ const tr: Messages = {
   readout: {
     velocity: 'Hız',
     lorentz: 'Lorentz çarpanı',
-    rapidity: 'Hızlılık',
     clockRate: 'Saat hızı',
     dopplerAhead: 'İleri Doppler çarpanı',
   },
@@ -185,7 +190,7 @@ const tr: Messages = {
     properTime: 'Öz zaman τ',
     streetTime: 'Cadde zamanı t',
     rate: 'dτ/dt',
-    road: '100 m yol',
+    road: '100 m’lik yol',
     roadNote: 'ölçülen, L₀/γ',
     transverse: 'Yan düzlem θ = 90°',
     transverseNote: 'görüldüğü açı θ′',
@@ -194,14 +199,12 @@ const tr: Messages = {
     reference: '555 nm',
     ahead: 'ileride',
     behind: 'geride',
-    ambient: '288 K ortam',
+    ambient: '288 K’lik ortam',
     ambientNote: 'ileride görünen sıcaklık',
     exposure: 'Pozlama',
     exposureNote: 'otomatik, durgun hâle göre',
-    heading: 'Bakış yönü',
     spectrum: 'Elektromanyetik tayf',
     spectrumCaption: '555 nm başvuru ışığının ileride ve geride kaydığı yer',
-    visible: 'görünür',
   },
   bands: {
     gamma: 'gama ışını',
@@ -227,20 +230,19 @@ const tr: Messages = {
   regime: {
     rest: 'Durgun gözlemci: gece caddesi olduğu gibi görünür.',
     slow: (transverse) =>
-      `İlk değişen renktir: önünüzdeki dar bantlı ışık maviye kayar. Yanınızdaki düzlem ${transverse} önde görünür.`,
+      `İlk değişen renktir: önünüzdeki bant sınırlı ışık maviye kayar. Yanınızdaki düzlem hareket yönünden ${transverse} açıda görünür.`,
     moderate: (transverse, doppler) =>
-      `İleride D₀ = ${doppler}: LED ışığı morötesine çıkar, ay ışığı parlar ve mavileşir. Yan düzlem ${transverse} önde.`,
+      `İleride D₀ = ${doppler}: LED ışığı morötesine çıkar, ay ışığı parlar ve mavileşir. Yan düzlem hareket yönünden ${transverse} açıda.`,
     fast: (transverse, temperature) =>
-      `Yan düzlem ${transverse} önünüzde. Tam karşıda 288 K’lik ortam ${temperature} K’lik bir kara cisim gibi ışır.`,
+      `Yan düzlem hareket yönünden yalnızca ${transverse} açıda görünür. Tam karşıda 288 K’lik ortam ${temperature} K’lik bir kara cisim gibi ışır.`,
     extreme: (cone, hemisphere) =>
       `Ön yarıküre ${hemisphere} içine sığar. Nötr koni ${cone} açısında; çevresinde LED ışığının Doppler halkası.`,
     limit: (hemisphere, gamma) =>
-      `γ = ${gamma}: ön yarıkürenin tamamı ${hemisphere} içinde. Merceği kullanın; bir fotonun çerçevesi yoktur, bu yalnızca sınırdır.`,
+      `γ = ${gamma}: ön yarıkürenin tamamı ${hemisphere} içinde. Merceği kullanın; bir fotonun çerçevesi yoktur; bu yalnızca sınırdır.`,
     measured: (length) =>
       `Ölçülen görünüm: ışık gecikmesi yok. 100 m’lik yol ${length} olarak ölçülür; ızgara kareleri dilime döner.`,
   },
   guides: {
-    motion: 'hareket yönü',
     neutral: 'D = 1',
     transverse: 'θ = 90°',
   },
@@ -269,11 +271,15 @@ const tr: Messages = {
       ['D', 'Bilimsel analiz'],
     ],
     pointer: [
-      ['Sürükle', 'Çevrene bak'],
+      ['Sürükle', 'Çevreye bak'],
       ['Tekerlek', 'Hızı değiştir'],
       ['Çift tık', 'İleri bak'],
     ],
     coach: 'Hızlanmak için tekerleği çevirin · bakmak için sürükleyin',
+    coachTouch: 'Hızlanmak için alttaki hız çubuğunu kaydırın · bakmak için sürükleyin',
+    singleKeys: 'Tek tuşlu kısayollar',
+    singleKeysNote:
+      'Kapalıyken harf, rakam ve boşluk tuşları kısayol olarak çalışmaz; ok tuşları, Home ve Esc çalışmayı sürdürür.',
   },
   dossier: {
     title: 'Bilimsel analiz',
@@ -285,10 +291,11 @@ const tr: Messages = {
     tryIt: 'Sahnede göster',
     figure: 'Şekil',
     table: 'Çizelge',
-    equation: 'Denk.',
     checkedPrimary: 'kaynağın kendisi okundu',
-    checkedSecondary: 'künye doğrulandı; içerik ikincil kaynaktan',
-    loading: 'Dosya açılıyor',
+    checkedSecondary: 'künye doğrulandı; sav ikincil kaynaklara dayanır',
+    loading: 'Bilimsel analiz açılıyor',
+    failed: 'Bilimsel analiz yüklenemedi',
+    failedDetail: 'Bağlantınızı denetleyip sayfayı yeniden yükleyin; deneyin durumu adreste saklı kalır.',
     backToTop: 'Başa dön',
   },
 };
@@ -296,9 +303,10 @@ const tr: Messages = {
 const en: Messages = {
   app: {
     name: 'Life of a Photon',
+    title: 'Life of a Photon — a first-person view of special relativity',
     tagline: 'Special relativity · first person',
-    frame: 'Observer frame S′',
     skipToControls: 'Skip to controls',
+    crashed: 'The application stopped because of an unexpected error',
   },
   view: {
     group: 'View',
@@ -340,9 +348,8 @@ const en: Messages = {
   readout: {
     velocity: 'Velocity',
     lorentz: 'Lorentz factor',
-    rapidity: 'Rapidity',
     clockRate: 'Clock rate',
-    dopplerAhead: 'Doppler factor ahead',
+    dopplerAhead: 'Head-on Doppler factor',
   },
   dock: {
     title: 'Instruments',
@@ -362,10 +369,8 @@ const en: Messages = {
     ambientNote: 'apparent temperature ahead',
     exposure: 'Exposure',
     exposureNote: 'automatic, relative to rest',
-    heading: 'View direction',
     spectrum: 'Electromagnetic spectrum',
     spectrumCaption: 'Where 555 nm reference light lands ahead and behind',
-    visible: 'visible',
   },
   bands: {
     gamma: 'gamma ray',
@@ -391,20 +396,19 @@ const en: Messages = {
   regime: {
     rest: 'Observer at rest: the night avenue as it is.',
     slow: (transverse) =>
-      `Colour changes first: band-limited light ahead shifts towards blue. The plane beside you is seen ${transverse} ahead.`,
+      `Colour changes first: band-limited light ahead shifts towards blue. The plane beside you is seen at ${transverse} from the direction of motion.`,
     moderate: (transverse, doppler) =>
-      `Ahead D₀ = ${doppler}: LED light leaves for the ultraviolet, moonlight brightens and turns blue. Transverse plane at ${transverse}.`,
+      `Ahead D₀ = ${doppler}: LED light leaves for the ultraviolet, moonlight brightens and turns blue. Transverse plane at ${transverse} from the direction of motion.`,
     fast: (transverse, temperature) =>
-      `The transverse plane is ${transverse} ahead. Dead ahead the 288 K surroundings glow like a ${temperature} K black body.`,
+      `The transverse plane is seen at only ${transverse} from the direction of motion. Dead ahead the 288 K surroundings glow like a ${temperature} K black body.`,
     extreme: (cone, hemisphere) =>
-      `The forward hemisphere fits inside ${hemisphere}. Neutral cone at ${cone}, ringed by the Doppler iris of the LED light.`,
+      `The forward hemisphere fits inside ${hemisphere}. Neutral cone at ${cone}, surrounded by the Doppler ring of the LED light.`,
     limit: (hemisphere, gamma) =>
-      `γ = ${gamma}: the whole forward hemisphere lies within ${hemisphere}. Use the lens; a photon has no frame, this is only the limit.`,
+      `γ = ${gamma}: the whole forward hemisphere lies within ${hemisphere}. Use the lens; a photon has no frame; this is only the limit.`,
     measured: (length) =>
       `Measured view: no light-travel delay. 100 m of road measures ${length}; the grid squares become slabs.`,
   },
   guides: {
-    motion: 'direction of motion',
     neutral: 'D = 1',
     transverse: 'θ = 90°',
   },
@@ -438,6 +442,9 @@ const en: Messages = {
       ['Double click', 'Look ahead'],
     ],
     coach: 'Roll the wheel to accelerate · drag to look around',
+    coachTouch: 'Slide the speed rail below to accelerate · drag to look around',
+    singleKeys: 'Single-key shortcuts',
+    singleKeysNote: 'When off, the letter, digit and space keys are not shortcuts; the arrow keys, Home and Esc keep working.',
   },
   dossier: {
     title: 'Scientific dossier',
@@ -449,10 +456,11 @@ const en: Messages = {
     tryIt: 'Show in the scene',
     figure: 'Figure',
     table: 'Table',
-    equation: 'Eq.',
     checkedPrimary: 'the source itself was read',
-    checkedSecondary: 'bibliography verified; content from secondary sources',
-    loading: 'Opening the dossier',
+    checkedSecondary: 'bibliographic data verified; the claim rests on secondary sources',
+    loading: 'Opening the scientific dossier',
+    failed: 'The scientific dossier could not be loaded',
+    failedDetail: 'Check your connection and reload the page; the state of the experiment is kept in the address.',
     backToTop: 'Back to top',
   },
 };

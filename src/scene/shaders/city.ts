@@ -14,8 +14,14 @@
  * inputs (normal, albedo, irradiance) are rest-frame quantities.
  */
 
+import { SCENARIO } from '@/physics/scenario';
 import { EMITTER } from '../emitters';
-import { ATLAS_SAMPLING, BOOST_MATH, COMMON_UNIFORMS, DISPLAY_TRANSFORM } from './chunks';
+import { ATLAS_SAMPLING, BOOST_MATH, COMMON_UNIFORMS, DISPLAY_TRANSFORM, glslFloat } from './chunks';
+
+/** The diffuse moonlight a surface receives, as a share of uSkyFill: linear in n.y, 1 facing up (scenario.ts). */
+const FILL_DOWN = SCENARIO.moon.skyFillFacingDown;
+const FILL_MEAN = glslFloat((1 + FILL_DOWN) / 2);
+const FILL_SLOPE = glslFloat((1 - FILL_DOWN) / 2);
 
 /** Upper bound of an emitter code in the comparisons below (codes are interpolated floats). */
 const below = (code: number): string => (code + 0.5).toFixed(1);
@@ -109,7 +115,7 @@ export const cityFragmentShader = /* glsl */ `
     if (!gl_FrontFacing) n = -n;
 
     // --- reflected light: band-limited street LEDs and broadband moonlight
-    float moon = uMoonIrradiance * (max(dot(n, uMoonDirection), 0.0) + uSkyFill * (0.6 + 0.4 * n.y));
+    float moon = uMoonIrradiance * (max(dot(n, uMoonDirection), 0.0) + uSkyFill * (${FILL_MEAN} + ${FILL_SLOPE} * n.y));
     vec3 radiance = reflectedLed(vAlbedo, lnD) * vSurface.x + reflectedMoon(vAlbedo, lnD) * moon;
 
     // --- thermal self-emission: a grey body at ambient temperature, seen at D·T

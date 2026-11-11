@@ -13,6 +13,7 @@ import {
   formatSignificant,
   formatTemperature,
   formatWavelength,
+  GROUP_SEPARATOR,
 } from '../format';
 
 const LANGUAGES: readonly Language[] = ['tr', 'en'];
@@ -24,8 +25,11 @@ const MINUS = '−';
 /** Written with the micro sign U+00B5, which is not the Greek letter mu. */
 const MICROMETRE = 'µm';
 
-/** The same number as Turkish writes it: a decimal comma, and a dot between thousands. */
-const inTurkish = (english: string): string => english.replace(/[.,]/g, (mark) => (mark === '.' ? ',' : '.'));
+/** The narrow no-break space between digit groups, written short so that the expectations stay readable. */
+const G = GROUP_SEPARATOR;
+
+/** The same number as Turkish writes it: a decimal comma; the digit groups are separated alike in both languages. */
+const inTurkish = (english: string): string => english.replace(/\./g, ',');
 
 /** Superscript digits in numerical order, for reading an exponent back. */
 const SUPERSCRIPT_DIGITS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
@@ -36,7 +40,8 @@ const SUPERSCRIPT_DIGITS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
  */
 function readBack(text: string, language: Language): number {
   const [mantissa, power] = text.split(' × 10');
-  const plain = language === 'tr' ? mantissa.replace(/\./g, '').replace(',', '.') : mantissa.replace(/,/g, '');
+  const ungrouped = mantissa.replaceAll(GROUP_SEPARATOR, '');
+  const plain = language === 'tr' ? ungrouped.replace(',', '.') : ungrouped;
   const exponent =
     power === undefined
       ? '0'
@@ -67,11 +72,14 @@ describe('formatFixed', () => {
     expect(formatFixed(447.2125, 0, 'en')).toBe('447');
   });
 
-  it('separates thousands only when asked to', () => {
+  it('separates thousands only when asked to, with a narrow no-break space in both languages', () => {
+    expect(GROUP_SEPARATOR).toBe('\u202F');
     expect(formatFixed(1234567.891, 2, 'en')).toBe('1234567.89');
-    expect(formatFixed(1234567.891, 2, 'en', true)).toBe('1,234,567.89');
+    expect(formatFixed(1234567.891, 2, 'en', true)).toBe(`1${G}234${G}567.89`);
     expect(formatFixed(1234567.891, 2, 'tr')).toBe('1234567,89');
-    expect(formatFixed(1234567.891, 2, 'tr', true)).toBe('1.234.567,89');
+    expect(formatFixed(1234567.891, 2, 'tr', true)).toBe(`1${G}234${G}567,89`);
+    // neither the point nor the comma of the locales: each is the decimal marker of the other language
+    for (const language of LANGUAGES) expect(formatFixed(1234567, 0, language, true)).toBe(`1${G}234${G}567`);
   });
 
   it('keeps language, precision and grouping apart however the calls are interleaved', () => {
@@ -82,7 +90,7 @@ describe('formatFixed', () => {
           for (const grouping of [false, true]) {
             const text = formatFixed(1234567.03125, digits, language, grouping);
             const [whole, fraction = ''] = text.split(language === 'tr' ? ',' : '.');
-            const grouped = language === 'tr' ? '1.234.567' : '1,234,567';
+            const grouped = `1${G}234${G}567`;
             expect(whole, text).toBe(grouping ? grouped : '1234567');
             expect(fraction, text).toHaveLength(digits);
           }
@@ -93,17 +101,21 @@ describe('formatFixed', () => {
 });
 
 describe('formatInteger', () => {
-  it('rounds to a whole number and separates the thousands', () => {
+  it('rounds to a whole number and separates the thousands from five digits on', () => {
     // the speed of light in km/s, the largest value the speed rail can show …
-    expect(formatInteger(299_792.458, 'tr')).toBe('299.792');
-    expect(formatInteger(299_792.458, 'en')).toBe('299,792');
+    expect(formatInteger(299_792.458, 'tr')).toBe(`299${G}792`);
+    expect(formatInteger(299_792.458, 'en')).toBe(`299${G}792`);
     // … 0.5 c, and the top of the simulated range
-    expect(formatInteger(149_896.229, 'en')).toBe('149,896');
-    expect(formatInteger(299_789.46, 'tr')).toBe('299.789');
+    expect(formatInteger(149_896.229, 'en')).toBe(`149${G}896`);
+    expect(formatInteger(299_789.46, 'tr')).toBe(`299${G}789`);
     expect(formatInteger(0, 'tr')).toBe('0');
     expect(formatInteger(999.4, 'en')).toBe('999');
-    expect(formatInteger(999.6, 'en')).toBe('1,000');
-    expect(formatInteger(1_000_000_000, 'tr')).toBe('1.000.000.000');
+    // a four-digit number stands unseparated (SI Brochure, §5.4.4), the rounding decides how many digits there are
+    expect(formatInteger(999.6, 'en')).toBe('1000');
+    expect(formatInteger(9999.4, 'tr')).toBe('9999');
+    expect(formatInteger(9999.6, 'tr')).toBe(`10${G}000`);
+    expect(formatInteger(-12_345, 'en')).toBe(`-12${G}345`);
+    expect(formatInteger(1_000_000_000, 'tr')).toBe(`1${G}000${G}000${G}000`);
   });
 });
 
@@ -117,14 +129,16 @@ describe('formatSignificant', () => {
       [0.001234, 3, '0.00123'],
       [1.1547, 4, '1.155'],
       [447.2125, 4, '447.2'],
-      [12345.678, 7, '12,345.68'],
+      [12345.678, 7, `12${G}345.68`],
     ];
     for (const [value, figures, english] of cases) {
       expect(formatSignificant(value, figures, 'en')).toBe(english);
       expect(formatSignificant(value, figures, 'tr')).toBe(inTurkish(english));
     }
     expect(formatSignificant(447.2125, 4, 'tr')).toBe('447,2');
-    expect(formatSignificant(12345.678, 7, 'tr')).toBe('12.345,68');
+    expect(formatSignificant(12345.678, 7, 'tr')).toBe(`12${G}345,68`);
+    // four digits before the decimal marker stand unseparated
+    expect(formatSignificant(4064.86, 4, 'tr')).toBe('4065');
   });
 
   it('switches to mantissa × 10ⁿ below 10⁻³ and from 10⁶ upwards', () => {
@@ -132,7 +146,7 @@ describe('formatSignificant', () => {
     expect(formatSignificant(0.001, 3, 'en')).toBe('0.00100');
     expect(formatSignificant(0.000999, 3, 'en')).toBe('9.99 × 10⁻⁴');
     // the upper limit is the first value in powers of ten
-    expect(formatSignificant(999_999, 6, 'en')).toBe('999,999');
+    expect(formatSignificant(999_999, 6, 'en')).toBe(`999${G}999`);
     expect(formatSignificant(1e6, 3, 'en')).toBe('1.00 × 10⁶');
     expect(formatSignificant(1_234_567, 3, 'tr')).toBe('1,23 × 10⁶');
     expect(formatSignificant(0.000025, 2, 'tr')).toBe('2,5 × 10⁻⁵');
@@ -213,7 +227,7 @@ describe('formatSignificant', () => {
     // an integer is rounded to the figures asked for, not printed in full
     expect(formatSignificant(3514.86, 2, 'en')).toBe('3500');
     expect(formatSignificant(1301.55, 2, 'tr')).toBe('1300');
-    expect(formatSignificant(299_792.458, 4, 'en')).toBe('299,800');
+    expect(formatSignificant(299_792.458, 4, 'en')).toBe(`299${G}800`);
     // the case the dossier prints: 1 − β at the top of the range, to two figures
     expect(formatSignificant(9.999999999954e-6, 2, 'en')).toBe('1.0 × 10⁻⁵');
   });
@@ -429,8 +443,8 @@ describe('formatTemperature', () => {
     expect(formatTemperature(1.5e7, 'tr')).toBe('1,500 × 10⁷');
     // what the instrument shows for the surroundings ahead at 0.99 c and at the top of the range
     expect(formatTemperature(4064.86, 'en')).toBe('4065');
-    expect(formatTemperature(128_864, 'en')).toBe('128,900');
-    expect(formatTemperature(128_864, 'tr')).toBe('128.900');
+    expect(formatTemperature(128_864, 'en')).toBe(`128${G}900`);
+    expect(formatTemperature(128_864, 'tr')).toBe(`128${G}900`);
   });
 });
 
@@ -568,7 +582,7 @@ describe('every formatter', () => {
     { name: 'formatExposure', format: formatExposure, samples: REALS },
   ];
 
-  it('differs between the languages only in the decimal mark and the thousands separator', () => {
+  it('differs between the languages only in the decimal mark', () => {
     for (const { name, format, samples } of READOUTS) {
       for (const value of samples) {
         expect(format(value, 'tr'), `${name}(${value})`).toBe(inTurkish(format(value, 'en')));

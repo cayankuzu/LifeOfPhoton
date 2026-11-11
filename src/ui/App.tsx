@@ -1,10 +1,10 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BETA_MAX, boostBy } from '@/physics/kinematics';
 import { decodeFragment, encodeFragment, isExperimentFragment } from '@/state/fragment';
-import { storedLanguage } from '@/state/preferences';
+import { storedLanguage, storedSingleKeys } from '@/state/preferences';
 import {
   LENSES,
   type Language,
@@ -17,8 +17,10 @@ import {
   telemetry,
   turnBy,
   updateSettings,
+  useSceneReady,
   useSettings,
 } from '@/state/simulation';
+import { DossierBoundary, DossierLoading } from './DossierFrame';
 import { useMessages } from './hooks';
 import Guides from './hud/Guides';
 import InstrumentDock from './hud/InstrumentDock';
@@ -29,7 +31,13 @@ import TopBar from './hud/TopBar';
 import { HudTierProvider } from './hud/tier';
 
 const UrbanScene = dynamic(() => import('@/scene/UrbanScene'), { ssr: false });
-const Dossier = dynamic(() => import('@/dossier/Dossier'), { ssr: false });
+const Dossier = dynamic(() => import('@/dossier/Dossier'), { ssr: false, loading: () => <DossierLoading /> });
+
+/** Where the dossier sheet takes the whole viewport: below the `lg` breakpoint of Tailwind, at which it becomes a side sheet. */
+const SHEET_COVERS_QUERY = 'not all and (min-width: 1024px)';
+
+/** A layout effect in the browser; on the server, where there is no layout, a plain effect (which React does not warn about). */
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /** Velocities on the digit keys 0–5. */
 const PRESETS = [0, 0.5, Math.sqrt(3) / 2, 0.99, 0.9999, BETA_MAX] as const;
@@ -67,8 +75,18 @@ function belongsToFocus(event: KeyboardEvent): boolean {
 export default function App() {
   const { language, t } = useMessages();
   const dossierOpen = useSettings((state) => state.dossier !== null);
+  const ready = useSceneReady();
   const [coached, setCoached] = useState(true);
+  // read after mounting, so that the server's markup and the first render in the browser agree
+  const [touch, setTouch] = useState(false);
+  const [sheetCovers, setSheetCovers] = useState(false);
   const hud = useRef<HTMLDivElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
+
+  // What a full-screen layer covers must be out of reach as well as out of sight: the start-up
+  // screen until the scene is ready, and the dossier where it takes the whole viewport.
+  const covered = !ready || (dossierOpen && sheetCovers);
 
   // --- initial state: URL fragment, stored language, motion preference
   useEffect(() => {
@@ -78,6 +96,7 @@ export default function App() {
     updateSettings({
       ...fromUrl,
       language: initialLanguage(fromUrl.language),
+      ...(storedSingleKeys() === false ? { singleKeys: false } : {}),
       // people who ask for less motion start with the avenue standing still
       ...(reduceMotion ? { paused: true } : {}),
       // on small screens the instruments start collapsed so that the view stays open
@@ -88,6 +107,8 @@ export default function App() {
     } catch {
       setCoached(false);
     }
+    // a touch screen has no wheel to roll
+    setTouch(window.matchMedia('(pointer: coarse)').matches);
     if (process.env.NODE_ENV !== 'production') {
       (window as unknown as Record<string, unknown>).__photon = { getSettings, updateSettings, telemetry, look };
     }
@@ -115,7 +136,40 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.lang = language;
-  }, [language]);
+    // the tab, the history entry and the first thing a screen reader says follow the language too
+    document.title = t.app.title;
+  }, [language, t]);
+
+  // --- the stage is inert while a layer covers it
+  useEffect(() => {
+    const query = window.matchMedia(SHEET_COVERS_QUERY);
+    const sync = (): void => setSheetCovers(query.matches);
+    sync();
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  }, []);
+
+  // A layout effect, so that the stage is reachable again before the layer that is closing gives
+  // the focus back to the control that opened it (React has no `inert` property yet, hence the attribute).
+  useIsomorphicLayoutEffect(() => {
+    const element = stage.current;
+    if (!element) return;
+    if (covered) {
+      if (element.contains(document.activeElement)) opener.current = document.activeElement as HTMLElement;
+      element.setAttribute('inert', '');
+    } else {
+      element.removeAttribute('inert');
+    }
+  }, [covered]);
+
+  // If the focus was lost on the way (the layer arrived after the stage had become inert and so could
+  // not see where the focus came from), return it to the control that was in use.
+  useEffect(() => {
+    if (covered) return;
+    const back = opener.current;
+    opener.current = null;
+    if (back?.isConnected && (!document.activeElement || document.activeElement === document.body)) back.focus();
+  }, [covered]);
 
   // --- the first deliberate input dismisses the coach line for good
   useEffect(() => {
@@ -150,8 +204,13 @@ export default function App() {
         if (settings.dossier !== null) updateSettings({ dossier: null });
         return;
       }
+      // nothing behind the start-up screen is worked from the keyboard either
+      if (telemetry.phase !== 'ready') return;
       // inside the dossier the keys belong to reading, not to flying
       if (event.target instanceof HTMLElement && event.target.closest('[data-dossier]')) return;
+      // the reader can switch off every shortcut that is a single character (WCAG 2.1.4):
+      // speech input types them with every word; arrows, Home and Escape stay
+      if (key.length === 1 && !settings.singleKeys) return;
 
       // holding a switch down must not flip it at the keyboard's repeat rate
       if (event.repeat && !CONTINUOUS_KEYS.has(key)) return;
@@ -216,20 +275,24 @@ export default function App() {
 
   return (
     <main className="relative h-dvh w-screen overflow-hidden">
-      <a
-        href="#controls"
-        onClick={(event) => {
-          // move the focus without touching the address bar, which holds the state of the experiment
-          event.preventDefault();
-          document.querySelector<HTMLElement>('#controls button, #controls [tabindex="0"]')?.focus();
-        }}
-        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded focus:bg-panel focus:px-3 focus:py-2 focus:text-[13px]"
-      >
-        {t.app.skipToControls}
-      </a>
+      {!covered && (
+        <a
+          href="#controls"
+          onClick={(event) => {
+            // move the focus without touching the address bar, which holds the state of the experiment;
+            // in the view switch only the selected option is a tab stop
+            event.preventDefault();
+            document.querySelector<HTMLElement>('#controls [role="radio"][aria-checked="true"]')?.focus();
+          }}
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded focus:bg-panel focus:px-3 focus:py-2 focus:text-[13px]"
+        >
+          {t.app.skipToControls}
+        </a>
+      )}
+      <h1 className="sr-only">{t.app.name}</h1>
 
       {/* The stage: scene, guide layer and instruments share one box, which makes room for the dossier on wide screens. */}
-      <div className={`absolute inset-y-0 left-0 ${dossierOpen ? 'right-0 lg:right-[min(46rem,52vw)]' : 'right-0'}`}>
+      <div ref={stage} className={`absolute inset-y-0 left-0 ${dossierOpen ? 'right-0 lg:right-[min(46rem,52vw)]' : 'right-0'}`}>
         <UrbanScene />
         <Guides />
 
@@ -244,7 +307,7 @@ export default function App() {
 
             {!coached && (
               <p className="pointer-events-none mx-auto -mb-1 max-w-full rounded-full border border-hairline bg-panel px-3 py-1.5 text-center text-[12px] text-ink-2">
-                {t.help.coach}
+                {touch ? t.help.coachTouch : t.help.coach}
               </p>
             )}
             <SpeedRail />
@@ -252,7 +315,9 @@ export default function App() {
         </HudTierProvider>
       </div>
 
-      {dossierOpen && <Dossier />}
+      <DossierBoundary open={dossierOpen}>
+        <Dossier modal={sheetCovers} />
+      </DossierBoundary>
       <Loading />
     </main>
   );

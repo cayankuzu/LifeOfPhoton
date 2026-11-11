@@ -19,6 +19,7 @@
  * the signal model lacks.
  */
 
+import { SCENARIO } from '@/physics/scenario';
 import { type EmitterCode, EMITTER } from '../emitters';
 
 export const CHUNK_LENGTH = 36;
@@ -305,11 +306,11 @@ export function chunkLayout(variant: number): ChunkLayout {
       const yaw = side < 0 ? -Math.PI / 2 : Math.PI / 2;
       const base: readonly [number, number, number] = [side * LAMP_BASE_X, PAVEMENT_Y, 9.2];
       placements.push({ model: SIGNAL_MODEL, kind: 'prop', position: base, yaw, scale: SIGNAL_SCALE });
-      // the signal shows red; the unlit lenses keep the dark tint of their glass
-      const lenses: Array<{ emitter: EmitterCode; lit: boolean; glass: readonly [number, number, number] }> = [
-        { emitter: EMITTER.signalRed, lit: true, glass: [0.1, 0.012, 0.012] },
-        { emitter: EMITTER.signalAmber, lit: false, glass: [0.1, 0.06, 0.008] },
-        { emitter: EMITTER.signalGreen, lit: false, glass: [0.01, 0.08, 0.03] },
+      // one lens is lit (scenario.ts); the others keep the dark tint of their glass
+      const lenses: ReadonlyArray<{ name: 'red' | 'amber' | 'green'; emitter: EmitterCode }> = [
+        { name: 'red', emitter: EMITTER.signalRed },
+        { name: 'amber', emitter: EMITTER.signalAmber },
+        { name: 'green', emitter: EMITTER.signalGreen },
       ];
       lenses.forEach((lens, index) => {
         const [ox, oz] = rotate(SIGNAL_HEAD.lensX * SIGNAL_SCALE[0], SIGNAL_HEAD.lensZ * SIGNAL_SCALE[2], yaw);
@@ -318,8 +319,8 @@ export function chunkLayout(variant: number): ChunkLayout {
           centre: [base[0] + ox, base[1] + SIGNAL_HEAD.lensY[index] * SIGNAL_SCALE[1], base[2] + oz],
           u: [ux, 0, uz],
           v: [0, SIGNAL_HEAD.lensRadius * SIGNAL_SCALE[1], 0],
-          colour: lens.glass,
-          emitter: lens.lit ? lens.emitter : EMITTER.none,
+          colour: SCENARIO.signals.glassAlbedo[lens.name],
+          emitter: lens.name === SCENARIO.signals.aspect ? lens.emitter : EMITTER.none,
           level: 1,
         });
       });

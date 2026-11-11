@@ -25,7 +25,7 @@ import { type Triple, compressToGamut, encodeSrgb, relativeLuminance } from './c
  */
 export const HIGHLIGHT_SLOPE = 0.18;
 
-/** Narkowicz's (2015) rational fit of the ACES filmic curve. */
+/** Narkowicz's (2016) rational fit of the ACES filmic curve. */
 export function filmic(value: number): number {
   const x = Math.max(0, value);
   return Math.min(1, (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14));

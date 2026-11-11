@@ -23,8 +23,14 @@ import { type SpectralAtlas, blackbodyLuminanceUnits, reflectedGain } from './sp
 const TYPICAL_LED_LUMINANCE = 0.11;
 const TYPICAL_MOON_LUMINANCE = (SCENARIO.moon.illuminanceLux / SCENARIO.street.illuminanceLux) * 0.3;
 
-/** A direction counts as lit when it is at least this bright relative to the rest level. */
-const LIT_THRESHOLD = 0.04;
+/**
+ * A direction counts fully as lit from LIT_FULL (relative to the rest level) on and not at all below
+ * LIT_NONE; in between its weight rises linearly in ln L. A sharp threshold would make the meter jump
+ * whenever a ring of sample directions crosses it, by up to a stop for an arbitrarily small change of
+ * speed or view direction.
+ */
+const LIT_NONE = 0.02;
+const LIT_FULL = 0.08;
 /** Brighter samples than this (relative to rest) are treated as this bright, so a glare spot cannot blind the meter. */
 const METER_CEILING = 3e3;
 /** Below this lit fraction of the field of view the camera starts to open up for the darkness. */
@@ -101,9 +107,10 @@ export function meterLnExposure(atlas: SpectralAtlas, input: MeterInput): number
       const sin2 = 0.5 * (1 - cosApparent);
       const doppler = 1 / (cos2 / d0 + d0 * sin2);
       const relative = typicalLuminance(atlas, doppler, input.thermal) / rest;
-      if (relative < LIT_THRESHOLD) continue;
-      sum += Math.log(Math.min(METER_CEILING, relative));
-      lit++;
+      const weight = Math.min(1, Math.max(0, Math.log(relative / LIT_NONE) / Math.log(LIT_FULL / LIT_NONE)));
+      if (weight === 0) continue;
+      sum += weight * Math.log(Math.min(METER_CEILING, relative));
+      lit += weight;
     }
   }
   const darkest = EXPOSURE_MAX_EV * Math.LN2;

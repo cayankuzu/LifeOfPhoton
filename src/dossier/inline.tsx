@@ -17,12 +17,17 @@ export interface InlineContext {
 
 const mathCache = new Map<string, string>();
 
-/** TeX → HTML. KaTeX output is generated from our own strings and contains no user input. */
+/**
+ * TeX → HTML. KaTeX output is generated from our own strings and contains no user input.
+ * KaTeX's default output is kept: the visible HTML is hidden from assistive technology and
+ * a MathML copy (clipped by katex.min.css) is what screen readers read. HTML alone would
+ * leave every formula of the text out of what they announce.
+ */
 export function renderMath(tex: string, display: boolean): string {
   const key = `${display ? 'D' : 'I'}${tex}`;
   let html = mathCache.get(key);
   if (html === undefined) {
-    html = katex.renderToString(tex, { displayMode: display, throwOnError: false, strict: 'ignore', output: 'html' });
+    html = katex.renderToString(tex, { displayMode: display, throwOnError: false, strict: 'ignore', output: 'htmlAndMathml' });
     mathCache.set(key, html);
   }
   return html;
@@ -105,9 +110,17 @@ const PATTERNS: ReadonlyArray<{
     ),
   },
   {
-    // underscores delimit italics only at word boundaries, so identifiers stay intact
-    regex: /(?<![\w\\])_([^_\n]+)_(?!\w)/,
-    build: (match, context) => (key) => <em key={key}>{renderInline(match[1], context)}</em>,
+    // Underscores delimit italics only at word boundaries, so identifiers stay intact. The
+    // character before the underscore is matched and put back rather than looked behind at:
+    // a lookbehind is a syntax error in Safari before 16.4 and would stop the whole chunk
+    // from loading. Ties go to the earlier patterns, so the extra character changes no token.
+    regex: /(^|[^\w\\])_([^_\n]+)_(?!\w)/,
+    build: (match, context) => (key) => (
+      <Fragment key={key}>
+        {match[1]}
+        <em>{renderInline(match[2], context)}</em>
+      </Fragment>
+    ),
   },
 ];
 

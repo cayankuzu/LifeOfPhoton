@@ -229,7 +229,7 @@ describe('GLSL copy of the display transform (src/scene/shaders/chunks.ts)', () 
   const literals = DISPLAY_TRANSFORM.match(/\d+\.\d+/g) ?? [];
 
   it('uses the same filmic coefficients', () => {
-    // Narkowicz (2015): f(x) = x(ax + b) / (x(cx + d) + e)
+    // Narkowicz (2016): f(x) = x(ax + b) / (x(cx + d) + e)
     const [a, b, c, d, e] = [2.51, 0.03, 2.43, 0.59, 0.14];
     for (const x of [1e-6, 0.02, 0.18, 1, 3, 7]) {
       expect(filmic(x)).toBeCloseTo((x * (a * x + b)) / (x * (c * x + d) + e), 14);

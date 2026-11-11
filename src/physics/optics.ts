@@ -254,3 +254,32 @@ export function deaberrateDirection(
     doppler,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Measured view — what the observer's frame says is where, at one instant
+// ---------------------------------------------------------------------------
+
+/**
+ * Reference implementation of the measured view of the city and star shaders. On the
+ * observer's surface of simultaneity the scene, moving at β along +Z past an observer
+ * who travels along −Z, is Lorentz contracted along the motion and nothing else:
+ *
+ *     x′ = x,   y′ = y,   z′ = z / γ
+ *
+ * for a rest-frame displacement `rel` from the observer. The city shader moves its
+ * vertices so; the star shader uses the direction of the result.
+ */
+export function measuredPoint(rel: Vec3, gamma: number): Vec3 {
+  return { x: rel.x, y: rel.y, z: rel.z / gamma };
+}
+
+/**
+ * Inverse of measuredPoint for directions, as the sky shader evaluates it per pixel:
+ * the unit rest-frame direction whose contracted image lies along the unit view
+ * direction `dir`, the normalised (x, y, γ z).
+ */
+export function measuredDirectionInverse(dir: Vec3, gamma: number): Vec3 {
+  const z = dir.z * gamma;
+  const length = Math.hypot(dir.x, dir.y, z);
+  return { x: dir.x / length, y: dir.y / length, z: z / length };
+}

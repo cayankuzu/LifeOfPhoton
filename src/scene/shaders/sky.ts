@@ -11,6 +11,7 @@
 
 import { SCENARIO } from '@/physics/scenario';
 import { ATLAS_SAMPLING, BOOST_MATH, COMMON_UNIFORMS, DISPLAY_TRANSFORM, SKY_RADIANCE, glslFloat, glslVec3 } from './chunks';
+import { STAR_RADIANCE_LOOKUP } from './stars';
 
 const { ground } = SCENARIO;
 
@@ -31,6 +32,8 @@ export const skyFragmentShader = /* glsl */ `
   uniform float uMoonRadius;       // angular radius of the lunar disc, rad
   uniform float uLnMoonT;          // ln of the colour temperature of moonlight
   uniform float uLnMoonDisc;       // ln of (disc luminance / luminance of a black body at that temperature)
+  uniform float uLnMoonSurfaceT;   // ln of the temperature of the sunlit lunar surface
+  uniform float uLnMoonEmissivity; // ln of its long-wave emissivity
   uniform float uMoonIrradiance;
   uniform float uSkyFill;
   uniform float uLnEmissivity;
@@ -43,6 +46,7 @@ export const skyFragmentShader = /* glsl */ `
   ${BOOST_MATH}
   ${ATLAS_SAMPLING}
   ${SKY_RADIANCE}
+  ${STAR_RADIANCE_LOOKUP}
   ${DISPLAY_TRANSFORM}
 
   void main() {
@@ -79,7 +83,8 @@ export const skyFragmentShader = /* glsl */ `
       float spread = max(footprint, uMoonRadius);
       float unresolved = min(ratio * ratio, 1.0) * exp(-(angle * angle) / (spread * spread));
       float disc = mix(unresolved, resolved, smoothstep(0.75, 2.0, ratio));
-      radiance += disc * blackbody(uLnMoonT + lnD, uLnMoonDisc);
+      // reflected sunlight, and the surface's own thermal emission, which outshines it above D ≈ 5.5
+      radiance += disc * (blackbody(uLnMoonT + lnD, uLnMoonDisc) + thermal * blackbody(uLnMoonSurfaceT + lnD, uLnMoonEmissivity));
     } else {
       // the ground beyond the avenue: a dark plane, moonlit from above
       float range = uEyeHeight / max(-d.y, 1e-4);
@@ -100,6 +105,9 @@ export const skyFragmentShader = /* glsl */ `
         radiance += vec3(0.95, 0.62, 0.12) * exp(uLnExposure) * fade * (0.16 * max(fine.x, fine.y) + 0.4 * major);
       }
     }
+
+    // the stars in front of all this, summed in radiance (see stars.ts)
+    radiance += starRadiance();
 
     gl_FragColor = vec4(toDisplay(radiance), 1.0);
   }

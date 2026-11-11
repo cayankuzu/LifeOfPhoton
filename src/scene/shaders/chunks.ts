@@ -2,10 +2,13 @@
  * GLSL shared by every material of the scene.
  *
  * The functions here are line-for-line counterparts of the reference
- * implementations in src/physics (optics.ts: aberratePoint / deaberrateDirection,
- * spectralAtlas.ts: sampleAtlas and friends, display.ts: toDisplay),
- * which are covered by unit tests — including a float32 emulation of exactly this
- * arithmetic.
+ * implementations in src/physics (optics.ts: aberratePoint / deaberrateDirection and
+ * measuredPoint / measuredDirectionInverse, spectralAtlas.ts: sampleAtlas and friends,
+ * display.ts: toDisplay), which are covered by unit tests — including a float32
+ * emulation of exactly this arithmetic. No test runs GLSL: the unit tests pin the
+ * shader text to the references (src/scene/__tests__/shaders.test.ts, display.test.ts),
+ * and agreement on a GPU has been checked by rendering the real materials in a
+ * headless browser against the references, outside the test suite.
  */
 
 import { HIGHLIGHT_SLOPE } from '@/physics/display';
@@ -136,7 +139,7 @@ export const SKY_RADIANCE = /* glsl */ `
 export const DISPLAY_TRANSFORM = /* glsl */ `
   const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
 
-  // Narkowicz (2015) fit of the ACES filmic curve: a toe, a linear middle and a long shoulder.
+  // Narkowicz (2016) fit of the ACES filmic curve: a toe, a linear middle and a long shoulder.
   vec3 filmic(vec3 x) {
     return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
   }

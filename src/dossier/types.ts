@@ -165,7 +165,7 @@ export function localize(source: DossierSource, language: Language): DossierCont
   };
 }
 
-/** One entry of the bibliography. Language-independent. */
+/** One entry of the bibliography, the same in both languages of the dossier. */
 export interface Reference {
   /** Citation key, e.g. "terrell1959". */
   readonly key: string;
@@ -177,6 +177,12 @@ export interface Reference {
   readonly venue: string;
   readonly doi?: string;
   readonly url?: string;
+  /**
+   * Language of the authors, title and venue as a BCP 47 tag; 'en' when absent. Rendered
+   * as `lang` on the entry, so that a screen reader pronounces a German title as German
+   * inside a Turkish or English document.
+   */
+  readonly language?: string;
   /**
    * How far the citation was checked while this dossier was written:
    *   'primary'   the source itself (or at least its abstract) was read and supports the claim it is cited for

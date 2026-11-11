@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import { blackbodyLuminance, visibleGainOfBlackbody } from '@/physics/radiometry';
 import { REFERENCE_LUMINANCE_CD_M2, SCENARIO } from '@/physics/scenario';
 import { ATLAS_ROW, sampleAtlas, sharedAtlas, temperatureCoordinate } from '@/physics/spectralAtlas';
-import { generateStarField, illuminanceOfMagnitude } from '../stars';
+import {
+  STAR_PSF_AREA,
+  STAR_PSF_CUTOFF,
+  STAR_PSF_STEEPNESS,
+  STAR_SIZE,
+  generateStarField,
+  illuminanceOfMagnitude,
+  starLnFlux,
+  starLnNormalisation,
+  starLnOffAxis,
+  starPointSize,
+} from '../stars';
 
 const atlas = sharedAtlas();
 const field = generateStarField(atlas);
@@ -54,6 +66,14 @@ describe('the star field', () => {
     }
   });
 
+  it('has as many stars as the real sky above the horizon haze, down to the limiting magnitude', () => {
+    // published whole-sky counts: 1 602 stars brighter than magnitude 5, 4 800 brighter than 6; interpolated in log N
+    const wholeSky = 1602 * (4800 / 1602) ** (limitingMagnitude - 5);
+    // half of them are above the horizon, and the generator leaves out the 4° next to it
+    const aboveCut = (wholeSky / 2) * (1 - Math.sin(Math.atan(0.07)));
+    expect(Math.abs(count / aboveCut - 1)).toBeLessThan(0.05);
+  });
+
   it('covers the sky uniformly: no preferred azimuth, uniform in the sine of the elevation', () => {
     let sumX = 0;
     let sumZ = 0;
@@ -66,14 +86,14 @@ describe('the star field', () => {
       sumY += y;
       quadrants[(x >= 0 ? 0 : 1) + (z >= 0 ? 0 : 2)]++;
     }
-    // the mean of n unit-ish vectors scatters by about 1/√n ≈ 0.02; four standard deviations
+    // each horizontal component of the mean scatters by about 0.57/√n ≈ 0.013; more than four standard deviations
     expect(Math.abs(sumX / count)).toBeLessThan(0.06);
     expect(Math.abs(sumZ / count)).toBeLessThan(0.06);
     // uniform on the sphere means uniform in y = sin(elevation) between the cut and the zenith
     expect(sumY / count).toBeGreaterThan(0.5);
     expect(sumY / count).toBeLessThan(0.57);
     for (const quadrant of quadrants) {
-      // binomial scatter of a quarter of 2600 is about 22
+      // binomial scatter of a quarter of 1800 is about 18
       expect(Math.abs(quadrant - count / 4)).toBeLessThan(90);
     }
   });
@@ -87,8 +107,8 @@ describe('the star field', () => {
     for (const fainter of [1, 2, 3]) {
       const expected = 10 ** (-0.51 * fainter);
       const measured = share((i) => field.magnitudes[i] < limitingMagnitude - fainter);
-      // binomial scatter: √(p(1−p)/n) ≤ 0.009; allow three standard deviations and a little more
-      expect(Math.abs(measured - expected)).toBeLessThan(0.035);
+      // binomial scatter: √(p(1−p)/n) ≤ 0.011; allow three standard deviations and a little more
+      expect(Math.abs(measured - expected)).toBeLessThan(0.04);
     }
     // a handful of first-magnitude stars, as in the real sky above the horizon
     const bright = share((i) => field.magnitudes[i] < 1.5) * count;
@@ -99,10 +119,10 @@ describe('the star field', () => {
   it('mixes spectral classes as the naked-eye sky does: mostly B–A stars and K giants', () => {
     const between = (low: number, high: number): number =>
       share((i) => field.temperatures[i] >= low && field.temperatures[i] < high);
-    // three standard deviations of a binomial share at n = 2600 are about 0.025
-    expect(Math.abs(between(10_000, 30_000) - 0.19)).toBeLessThan(0.03); // B
-    expect(Math.abs(between(7_500, 10_000) - 0.22)).toBeLessThan(0.03); // A
-    expect(Math.abs(between(3_700, 5_200) - 0.25)).toBeLessThan(0.03); // K
+    // three standard deviations of a binomial share at n = 1800 are about 0.03
+    expect(Math.abs(between(10_000, 30_000) - 0.19)).toBeLessThan(0.035); // B
+    expect(Math.abs(between(7_500, 10_000) - 0.22)).toBeLessThan(0.035); // A
+    expect(Math.abs(between(3_700, 5_200) - 0.25)).toBeLessThan(0.035); // K
     expect(between(2_600, 40_000 + 1)).toBeCloseTo(1, 12);
     // hot and cool stars are both well represented: this is what makes the boosted sky change colour
     expect(between(7_500, 40_001)).toBeGreaterThan(0.35);
@@ -130,5 +150,98 @@ describe('the star field', () => {
     const brightestLux = (Math.exp(brightest) * REFERENCE_LUMINANCE_CD_M2) / visibilityGain;
     expect(brightestLux).toBeLessThan(illuminanceOfMagnitude(-1.5) * 1.001);
     expect(brightestLux).toBeLessThan(SCENARIO.moon.illuminanceLux / 1e4);
+  });
+});
+
+describe('drawing a star', () => {
+  const sumOverGrid = (pointSize: number, centreX: number, centreY: number, step = 1): number => {
+    // the shader evaluates the point-spread function at the sample positions (n + ½)·step inside the square sprite
+    const radius = pointSize / 2;
+    const first = (centre: number): number => (Math.ceil((centre - radius) / step - 0.5) + 0.5) * step;
+    let sum = 0;
+    for (let y = first(centreY); y <= centreY + radius; y += step) {
+      for (let x = first(centreX); x <= centreX + radius; x += step) {
+        const rho2 = ((x - centreX) ** 2 + (y - centreY) ** 2) / (radius * radius);
+        const falloff = Math.exp(-STAR_PSF_STEEPNESS * rho2);
+        if (falloff >= STAR_PSF_CUTOFF) sum += falloff * step * step;
+      }
+    }
+    return sum;
+  };
+
+  it('changes the flux by L(D·T) / (D² L(T)): a black body at D·T whose solid angle has shrunk by D²', () => {
+    for (const temperature of [3_000, 5_772, 10_000, 30_000]) {
+      for (const doppler of [0.2, 0.7, 1, 2.5, 20, 447]) {
+        const lnFlux = starLnFlux(
+          Math.log(3e-7),
+          Math.log(blackbodyLuminance(temperature)),
+          Math.log(blackbodyLuminance(temperature * doppler)),
+          Math.log(doppler)
+        );
+        const expected = (3e-7 * visibleGainOfBlackbody(temperature, doppler)) / doppler ** 2;
+        expect(Math.exp(lnFlux) / expected).toBeCloseTo(1, 9);
+      }
+    }
+    // at rest the flux is the rest flux
+    expect(starLnFlux(-12.5, 3.2, 3.2, 0)).toBe(-12.5);
+  });
+
+  it('spreads the flux over exactly the solid angle the normalisation assumes', () => {
+    // integral of the point-spread function over the region drawn: (π/k)(1 − c) times the square of the radius
+    for (const pointSize of [2.6, 3.9, 6]) {
+      const integral = sumOverGrid(pointSize, 0.37, -0.21, 0.01);
+      const pixelAngle = 1.1e-3;
+      // radiance at the centre × ∫ falloff dΩ = flux, with a flux of one
+      expect(integral * pixelAngle * pixelAngle * Math.exp(starLnNormalisation(pointSize, pixelAngle))).toBeCloseTo(1, 3);
+    }
+    expect(STAR_PSF_AREA).toBeCloseTo((Math.PI / 4) * 0.98, 12);
+    // the cut-off lies inside the sprite, so the disc it bounds is never clipped by the square
+    expect(Math.exp(-STAR_PSF_STEEPNESS)).toBeLessThan(STAR_PSF_CUTOFF);
+  });
+
+  it('is never drawn narrower than 2.6 device pixels, so its flux hardly depends on where it falls on the pixel grid', () => {
+    expect(starPointSize(1)).toBeCloseTo(STAR_SIZE, 12);
+    expect(starPointSize(1.5)).toBeCloseTo(1.5 * STAR_SIZE, 12);
+    expect(starPointSize(0.6)).toBe(STAR_SIZE);
+    // evaluated at pixel centres, over a grid of sub-pixel positions of the star (measured 0.94–1.06 at 2.6 px;
+    // a sprite of 1.56 px, as at a pixel ratio of 0.6 without the floor, ranges over 0.31–2.1)
+    const spread = (pointSize: number): [number, number] => {
+      const exact = STAR_PSF_AREA * (pointSize / 2) ** 2;
+      let low = Infinity;
+      let high = 0;
+      for (let i = 0; i < 20; i++) {
+        for (let j = 0; j < 20; j++) {
+          const ratio = sumOverGrid(pointSize, (i + 0.5) / 20, (j + 0.5) / 20) / exact;
+          low = Math.min(low, ratio);
+          high = Math.max(high, ratio);
+        }
+      }
+      return [low, high];
+    };
+    const [low, high] = spread(starPointSize(0.6));
+    expect(low).toBeGreaterThan(0.93);
+    expect(high).toBeLessThan(1.07);
+    const [narrowLow, narrowHigh] = spread(STAR_SIZE * 0.6);
+    expect(narrowHigh / narrowLow).toBeGreaterThan(5);
+  });
+
+  it('is brighter per pixel off the optical axis, where a pixel subtends cos³θ less solid angle', () => {
+    // exact solid angle of a pixel of a rectilinear projection: a rectangle on the image plane at distance f
+    const f = 1000;
+    const corner = (x: number, y: number): number => Math.atan((x * y) / (f * Math.hypot(x, y, f)));
+    const pixel = (x: number, y: number): number => corner(x + 1, y + 1) - corner(x, y + 1) - corner(x + 1, y) + corner(x, y);
+    const onAxis = pixel(-0.5, -0.5);
+    for (const [x, y] of [
+      [0, 0],
+      [600, 0],
+      [0, 540],
+      [960, 540],
+      [1500, 1200],
+    ]) {
+      const cosAxis = f / Math.hypot(x + 0.5, y + 0.5, f);
+      // the same flux over the smaller solid angle: the radiance rises by exactly the inverse ratio
+      expect(Math.exp(-starLnOffAxis(cosAxis)) / (pixel(x, y) / onAxis)).toBeCloseTo(1, 5);
+    }
+    expect(starLnOffAxis(1)).toBe(-0);
   });
 });

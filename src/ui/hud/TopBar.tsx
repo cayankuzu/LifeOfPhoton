@@ -1,21 +1,37 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { BookOpen, Crosshair, Keyboard, Pause, Play, Telescope, Thermometer } from 'lucide-react';
-import { chooseLanguage } from '@/state/preferences';
+import { chooseLanguage, chooseSingleKeys } from '@/state/preferences';
 import { LENSES, type Language, type ViewMode, updateSettings, useSettings } from '@/state/simulation';
 import { useMessages } from '../hooks';
 import { Button, Divider, IconButton, Kbd, Panel, Segmented, Toggle } from '../primitives';
 import { useHudTier } from './tier';
 
-/** Shortcut sheet, anchored under its button. */
-function HelpSheet({ onClose }: { readonly onClose: () => void }) {
+/**
+ * Shortcut sheet, anchored under its button. A non-modal dialog: it takes the focus
+ * when it opens and gives it back to its button when it closes from the inside.
+ */
+function HelpSheet({ onClose, trigger }: { readonly onClose: () => void; readonly trigger: RefObject<HTMLButtonElement> }) {
   const { t } = useMessages();
+  const singleKeys = useSettings((state) => state.singleKeys);
   const sheet = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    const button = trigger.current;
+    sheet.current?.focus();
+    return () => {
+      // the focus was inside the sheet, which is gone now; a click elsewhere moves it on by itself
+      if (!document.activeElement || document.activeElement === document.body) button?.focus();
+    };
+  }, [trigger]);
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose();
+      if (event.key !== 'Escape') return;
+      // the sheet is the top layer: the same stroke must not also close the dossier
+      event.preventDefault();
+      onClose();
     };
     const onPointer = (event: PointerEvent): void => {
       if (!(event.target instanceof Element) || sheet.current?.contains(event.target)) return;
@@ -23,10 +39,11 @@ function HelpSheet({ onClose }: { readonly onClose: () => void }) {
       if (event.target.closest('[data-help-trigger]')) return;
       onClose();
     };
-    window.addEventListener('keydown', onKey);
+    // capture phase: before the window handler of the application sees the key
+    window.addEventListener('keydown', onKey, true);
     window.addEventListener('pointerdown', onPointer, true);
     return () => {
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey, true);
       window.removeEventListener('pointerdown', onPointer, true);
     };
   }, [onClose]);
@@ -36,7 +53,8 @@ function HelpSheet({ onClose }: { readonly onClose: () => void }) {
       ref={sheet}
       role="dialog"
       aria-label={t.help.title}
-      className="scroll-thin absolute right-0 top-[calc(100%+8px)] z-20 max-h-[calc(100dvh-5.5rem)] w-[min(21rem,calc(100vw-1.5rem))] overflow-y-auto p-3"
+      tabIndex={-1}
+      className="scroll-thin absolute right-0 top-[calc(100%+8px)] z-20 max-h-[calc(100dvh-5.5rem)] w-[min(21rem,calc(100vw-1.5rem))] overflow-y-auto p-3 outline-none"
     >
       <p className="label mb-2">{t.help.title}</p>
       <dl className="m-0 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 text-[12px] text-ink-2">
@@ -56,6 +74,14 @@ function HelpSheet({ onClose }: { readonly onClose: () => void }) {
           </div>
         ))}
       </dl>
+      <div className="mt-2 border-t border-hairline pt-2">
+        <Toggle pressed={singleKeys} onChange={chooseSingleKeys} className="-ml-2.5" describedBy="single-keys-note">
+          {t.help.singleKeys}
+        </Toggle>
+        <p id="single-keys-note" className="m-0 mt-1 text-[11.5px] leading-snug text-ink-3">
+          {t.help.singleKeysNote}
+        </p>
+      </div>
     </Panel>
   );
 }
@@ -70,6 +96,8 @@ export default function TopBar() {
   const paused = useSettings((state) => state.paused);
   const dossierOpen = useSettings((state) => state.dossier !== null);
   const [help, setHelp] = useState(false);
+  const helpTrigger = useRef<HTMLButtonElement>(null);
+  const closeHelp = useCallback(() => setHelp(false), []);
 
   const otherLanguage: Language = language === 'tr' ? 'en' : 'tr';
   const cycleLens = (): void => {
@@ -84,7 +112,11 @@ export default function TopBar() {
       {/* the name gives way to the controls where room is short */}
       {tier !== 'narrow' && (
         <Panel className="pointer-events-none shrink-0 select-none px-3 py-2">
-          <p className="m-0 whitespace-nowrap font-mono text-[12px] font-semibold leading-none tracking-[0.18em] text-ink">
+          {/* the name is the h1 of the page; written in capitals by hand, since CSS would make the i of "Life" an İ in Turkish */}
+          <p
+            aria-hidden="true"
+            className="m-0 whitespace-nowrap font-mono text-[12px] font-semibold leading-none tracking-[0.18em] text-ink"
+          >
             LIFE OF A PHOTON
           </p>
           {tier === 'wide' && <p className="m-0 mt-1.5 whitespace-nowrap text-[11px] leading-none text-ink-3">{t.app.tagline}</p>}
@@ -114,11 +146,8 @@ export default function TopBar() {
           <Telescope className="h-3.5 w-3.5" aria-hidden="true" />
           <span className="tabular font-mono text-[11.5px]">{t.controls.lensValue(lens)}</span>
         </Button>
-        <IconButton
-          label={paused ? t.controls.resume : t.controls.pause}
-          aria-pressed={paused}
-          onClick={() => updateSettings({ paused: !paused })}
-        >
+        {/* the name says what a press does; an aria-pressed state as well would contradict it */}
+        <IconButton label={paused ? t.controls.resume : t.controls.pause} onClick={() => updateSettings({ paused: !paused })}>
           {paused ? <Play className="h-3.5 w-3.5" aria-hidden="true" /> : <Pause className="h-3.5 w-3.5" aria-hidden="true" />}
         </IconButton>
         <Divider />
@@ -131,19 +160,28 @@ export default function TopBar() {
           <BookOpen className="h-3.5 w-3.5 text-amber" aria-hidden="true" />
           {tier === 'narrow' ? <span className="sr-only">{t.controls.dossier}</span> : <span>{t.controls.dossier}</span>}
         </Button>
-        <IconButton label={t.controls.help} aria-expanded={help} data-help-trigger onClick={() => setHelp((open) => !open)}>
+        <IconButton
+          ref={helpTrigger}
+          label={t.controls.help}
+          aria-expanded={help}
+          aria-haspopup="dialog"
+          data-help-trigger
+          onClick={() => setHelp((open) => !open)}
+        >
           <Keyboard className="h-3.5 w-3.5" aria-hidden="true" />
         </IconButton>
         <Button
           onClick={() => chooseLanguage(otherLanguage)}
-          aria-label={`${t.controls.language}: ${t.controls.languageName[otherLanguage]}`}
           hint={t.controls.languageName[otherLanguage]}
-          lang={otherLanguage}
           className="w-9 px-0 font-mono text-[11px]"
         >
-          {otherLanguage.toUpperCase()}
+          {/* each part of the name in its own language: "Dil" in Turkish, "English" in English */}
+          <span aria-hidden="true">{otherLanguage.toUpperCase()}</span>
+          <span className="sr-only">
+            {t.controls.language}: <span lang={otherLanguage}>{t.controls.languageName[otherLanguage]}</span>
+          </span>
         </Button>
-        {help && <HelpSheet onClose={() => setHelp(false)} />}
+        {help && <HelpSheet onClose={closeHelp} trigger={helpTrigger} />}
       </Panel>
     </header>
   );

@@ -16,6 +16,7 @@ const config: Config = {
         well: 'var(--well)',
         hairline: 'var(--hairline)',
         'hairline-strong': 'var(--hairline-strong)',
+        rule: 'var(--rule)',
         ink: {
           DEFAULT: 'var(--ink)',
           2: 'var(--ink-2)',

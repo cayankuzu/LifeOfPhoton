@@ -55,9 +55,29 @@ export const SCENARIO = {
      * this share of the direct illuminance is added as a diffuse term.
      */
     skyFillFraction: 0.22,
+    /**
+     * Share of that diffuse term received by a surface facing straight down, which sees the
+     * ground rather than the sky; a surface facing up receives all of it, and in between the
+     * share is linear in the vertical component of the normal.
+     */
+    skyFillFacingDown: 0.2,
     /** Position in the sky: azimuth measured from the direction of travel, and elevation, degrees. */
     azimuthDeg: 5,
     elevationDeg: 27,
+    /**
+     * The Moon also glows on its own. Its sunlit surface is warmer than the street and the
+     * air, so the blueshift that makes them glow makes the disc glow more: above D ≈ 5.5 its
+     * thermal emission outshines the moonlight it reflects. Temperature of the disc at full
+     * Moon, K, taken as uniform: a little below the sub-solar value, because the surface cools
+     * towards the limb (equatorial noon maxima of about 390 K in the Diviner measurements,
+     * Williams et al. 2017, Icarus 283, 300).
+     */
+    surfaceTemperatureK: 380,
+    /**
+     * Long-wave emissivity of the lunar regolith, as assumed in the thermal models fitted to
+     * the Diviner data (Vasavada et al. 2012, J. Geophys. Res. Planets 117, E00H18).
+     */
+    surfaceEmissivity: 0.95,
   },
 
   /** Street lighting: the band-limited light source of the scene. */
@@ -110,6 +130,14 @@ export const SCENARIO = {
     luminanceCdM2: 8000,
     /** Spectral width (standard deviation) of the emission line as observed, nm. */
     lineSigmaNm: 8,
+    /** The aspect every signal of the avenue shows. */
+    aspect: 'red',
+    /** Albedo of the tinted glass of each lens, linear RGB: an unlit lens shows only the light its glass reflects. */
+    glassAlbedo: {
+      red: [0.1, 0.012, 0.012],
+      amber: [0.1, 0.06, 0.008],
+      green: [0.01, 0.08, 0.03],
+    },
   },
 
   /**
@@ -127,7 +155,12 @@ export const SCENARIO = {
 
   /** The star field. */
   stars: {
-    count: 2600,
+    /**
+     * Stars brighter than the limiting magnitude more than 4° above the horizon: of the about
+     * 3 850 of the whole sky (src/scene/geometry/stars.ts) half are above the horizon, and 93 %
+     * of those more than 4° above it.
+     */
+    count: 1800,
     /** Faintest magnitude generated. */
     limitingMagnitude: 5.8,
     /**

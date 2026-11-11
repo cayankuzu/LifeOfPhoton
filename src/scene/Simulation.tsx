@@ -26,11 +26,11 @@ import {
   prepareModel,
 } from './geometry/build';
 import { type ModelPath, CHUNK_COUNT, CHUNK_LENGTH, MODEL_PATHS, VARIANT_COUNT, modelRole } from './geometry/layout';
-import { generateStarField } from './geometry/stars';
+import { generateStarField, starLnNormalisation, starPointSize } from './geometry/stars';
 import { adaptResolution, createResolutionState, preferredPixelRatio } from './resolution';
 import { cityFragmentShader, cityVertexShader } from './shaders/city';
 import { skyFragmentShader, skyVertexShader } from './shaders/sky';
-import { starFragmentShader, starVertexShader } from './shaders/stars';
+import { starFragmentShader, starRadianceFragmentShader, starRadianceVertexShader, starVertexShader } from './shaders/stars';
 import {
   BASE_LN_EXPOSURE,
   FADE_AHEAD_END,
@@ -54,15 +54,18 @@ const EXPOSURE_RESPONSE_UP = 1.1;
 /** Time after the avenue has appeared during which the frame rate is not yet judged, s. */
 const RESOLUTION_GRACE = 2;
 
-/** Diameter of the stellar point-spread function, CSS pixels. */
-const STAR_SIZE = 2.6;
-/** ∫ exp(−4ρ²) over the unit disc, as a fraction of the square of the radius. */
-const STAR_PSF_AREA = (Math.PI / 4) * (1 - Math.exp(-4));
-
 const GRID_PERIOD = 50;
 
 /** Yields to the event loop. A timer, not requestAnimationFrame: frames stop in a hidden tab, start-up must not. */
 const breathe = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+/**
+ * Whether the stars can be summed in radiance: that needs a half-float target that can be rendered to and
+ * blended into, which WebGL 2 provides with either extension (see shaders/stars.ts).
+ */
+function supportsStarRadiance(gl: THREE.WebGLRenderer): boolean {
+  return gl.extensions.has('EXT_color_buffer_float') || gl.extensions.has('EXT_color_buffer_half_float');
+}
 
 /** Exponential approach of `current` to `target` with time constant `tau`. */
 function ease(current: number, target: number, dt: number, tau: number): number {
@@ -155,12 +158,26 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
       side: THREE.BackSide,
       depthWrite: false,
     });
+    // The stars are summed in radiance in a target of their own, which the sky reads; where that cannot be
+    // done they are drawn over the sky, each as the increment it makes on the display (shaders/stars.ts).
+    const starTarget = supportsStarRadiance(gl)
+      ? new THREE.WebGLRenderTarget(1, 1, {
+          type: THREE.HalfFloatType,
+          format: THREE.RGBAFormat,
+          minFilter: THREE.NearestFilter,
+          magFilter: THREE.NearestFilter,
+          generateMipmaps: false,
+          depthBuffer: false,
+          stencilBuffer: false,
+        })
+      : null;
     const starMaterial = new THREE.ShaderMaterial({
-      vertexShader: starVertexShader,
-      fragmentShader: starFragmentShader,
+      vertexShader: starTarget ? starRadianceVertexShader : starVertexShader,
+      fragmentShader: starTarget ? starRadianceFragmentShader : starFragmentShader,
       uniforms,
       transparent: true,
       blending: THREE.AdditiveBlending,
+      depthTest: !starTarget,
       depthWrite: false,
     });
 
@@ -171,8 +188,19 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
     starGeometry.setAttribute('aStar', new THREE.BufferAttribute(field.attributes, 3));
     starGeometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), Number.POSITIVE_INFINITY);
 
-    return { texture, uniforms, city, sky, starMaterial, skyGeometry, starGeometry };
-  }, [atlas]);
+    let starScene: THREE.Scene | null = null;
+    if (starTarget) {
+      const noStars = uniforms.uStars.value as THREE.Texture;
+      noStars.dispose();
+      uniforms.uStars.value = starTarget.texture;
+      starScene = new THREE.Scene();
+      const points = new THREE.Points(starGeometry, starMaterial);
+      points.frustumCulled = false;
+      starScene.add(points);
+    }
+
+    return { texture, uniforms, city, sky, starMaterial, skyGeometry, starGeometry, starTarget, starScene };
+  }, [atlas, gl]);
 
   useEffect(
     () => () => {
@@ -182,6 +210,9 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
       resources.starMaterial.dispose();
       resources.skyGeometry.dispose();
       resources.starGeometry.dispose();
+      // the sky reads either the target's texture or the black stand-in
+      if (resources.starTarget) resources.starTarget.dispose();
+      else (resources.uniforms.uStars.value as THREE.Texture).dispose();
     },
     [resources]
   );
@@ -205,6 +236,7 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
     adaptFrom: Number.POSITIVE_INFINITY,
   });
   const resolution = useRef(createResolutionState());
+  const scratch = useMemo(() => ({ buffer: new THREE.Vector2(), clearColour: new THREE.Color() }), []);
 
   // Once the avenue is on screen, give the frame rate a moment to settle before judging it.
   useEffect(() => {
@@ -299,20 +331,41 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
     s.lnExposure = ease(s.lnExposure, metered, dt, metered < s.lnExposure ? EXPOSURE_RESPONSE_DOWN : EXPOSURE_RESPONSE_UP);
     u.uLnExposure.value = BASE_LN_EXPOSURE + s.lnExposure;
 
-    // --- stars: constant point-spread function in pixels; flux → luminance through its solid angle
-    const drawnRatio = gl.getPixelRatio();
-    const radiusPixels = (STAR_SIZE * drawnRatio) / 2;
-    const pixelAngle = (2 * Math.tan(fieldOfView / 2)) / Math.max(size.height * drawnRatio, 1);
-    u.uPointSize.value = STAR_SIZE * drawnRatio;
-    u.uLnStarNorm.value = -Math.log(STAR_PSF_AREA * radiusPixels * radiusPixels * pixelAngle * pixelAngle);
-
-    // --- telemetry
+    // --- telemetry (the triangles of the last frame: read before the star pass below starts a new count)
     telemetry.beta = beta;
     telemetry.lnExposure = s.lnExposure;
     telemetry.yaw = s.yaw;
     telemetry.pitch = s.pitch;
     telemetry.fieldOfView = fieldOfView;
     telemetry.triangles = gl.info.render.triangles;
+
+    // --- stars: a point-spread function of constant size in device pixels; flux → radiance through the solid
+    // angle it covers (on the optical axis here; the shader adds the off-axis factor)
+    const buffer = gl.getDrawingBufferSize(scratch.buffer);
+    const pointSize = starPointSize(gl.getPixelRatio());
+    const pixelAngle = (2 * Math.tan(fieldOfView / 2)) / Math.max(buffer.y, 1);
+    u.uPointSize.value = pointSize;
+    u.uLnStarNorm.value = starLnNormalisation(pointSize, pixelAngle);
+    const { starTarget, starScene } = resources;
+    if (starTarget && starScene) {
+      // the target follows the drawing buffer: the canvas size and the adaptive pixel ratio
+      if (starTarget.width !== buffer.x || starTarget.height !== buffer.y) {
+        starTarget.setSize(buffer.x, buffer.y);
+        (u.uStarsTexel.value as THREE.Vector2).set(1 / buffer.x, 1 / buffer.y);
+      }
+      const previousTarget = gl.getRenderTarget();
+      const previousAlpha = gl.getClearAlpha();
+      const autoClear = gl.autoClear;
+      gl.getClearColor(scratch.clearColour);
+      gl.setRenderTarget(starTarget);
+      gl.setClearColor(0x000000, 0);
+      gl.clear(true, false, false);
+      gl.autoClear = false;
+      gl.render(starScene, camera);
+      gl.autoClear = autoClear;
+      gl.setClearColor(scratch.clearColour, previousAlpha);
+      gl.setRenderTarget(previousTarget);
+    }
 
     // --- frame rate and resolution scaling
     s.fpsWindow += rawDelta;
@@ -348,7 +401,9 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
           />
         ))}
       <mesh geometry={resources.skyGeometry} material={resources.sky} frustumCulled={false} renderOrder={10} />
-      <points geometry={resources.starGeometry} material={resources.starMaterial} frustumCulled={false} renderOrder={11} />
+      {!resources.starTarget && (
+        <points geometry={resources.starGeometry} material={resources.starMaterial} frustumCulled={false} renderOrder={11} />
+      )}
     </group>
   );
 }

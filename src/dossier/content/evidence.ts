@@ -5,6 +5,7 @@
  * the figure draws.
  */
 
+import { SCENARIO } from '@/physics/scenario';
 import { SPEED_MARKERS, type SpeedMarker, betaOfExcess, oneMinusBeta } from '../data/speedScale';
 import { L, type SourceSection, type Text } from '../types';
 import { num, r, sig } from './helpers';
@@ -48,8 +49,8 @@ export const EVIDENCE: readonly SourceSection[] = [
       {
         type: 'paragraph',
         text: L(
-          r`Burada kullanılan bağıntıların hiçbiri varsayımsal değildir. Aşağıdaki çizelge; ışık hızının sabitliğine, zaman genişlemesine ve Doppler bağıntısına ilişkin, saniyede metreler düzeyindeki hızlardan onlarla ölçülen Lorentz çarpanlarına uzanan ölçümleri listeler.`,
-          r`None of the relations used here is hypothetical. The table below lists measurements of the constancy of the speed of light, of time dilation and of the Doppler relation, from speeds of metres per second to Lorentz factors of several tens.`
+          r`Burada kullanılan bağıntıların hiçbiri varsayımsal değildir. Çizelge 5; ışık hızının sabitliğine, zaman genişlemesine ve Doppler bağıntısına ilişkin, saniyede birkaç metrelik hızlardan onlar mertebesindeki Lorentz çarpanlarına uzanan ölçümleri listeler.`,
+          r`None of the relations used here is hypothetical. Table 5 lists measurements of the constancy of the speed of light, of time dilation and of the Doppler relation, from speeds of metres per second to Lorentz factors of several tens.`
         ),
       },
       {
@@ -92,10 +93,7 @@ export const EVIDENCE: readonly SourceSection[] = [
           ],
           [
             L('Alväger ve ark., 1964 [@alvager1964]', 'Alväger et al., 1964 [@alvager1964]'),
-            L(
-              r`$\gamma \approx 45$’lik $\pi^0$’lardan çıkan $\gamma$ ışınları`,
-              r`$\gamma$ rays from $\pi^0$ with $\gamma \approx 45$`
-            ),
+            L(r`$\gamma \approx 45$’lik $\pi^0$’lardan çıkan gama ışınları`, r`gamma rays from $\pi^0$ with $\gamma \approx 45$`),
             L(
               r`Foton hızı kaynağın hızından bağımsızdır: $c' = c + kv$ yazılırsa $k = (-3 \pm 13) \times 10^{-5}$.`,
               r`The photon speed is independent of the speed of the source: with $c' = c + kv$, $k = (-3 \pm 13) \times 10^{-5}$.`
@@ -119,7 +117,7 @@ export const EVIDENCE: readonly SourceSection[] = [
           ],
           [
             L('Chou ve ark., 2010 [@chou2010]', 'Chou et al., 2010 [@chou2010]'),
-            L('optik saatler, v < 10 m/s', 'optical clocks, v < 10 m/s'),
+            L(r`optik saatler, $v < 10\ \mathrm{m\,s^{-1}}$`, r`optical clocks, $v < 10\ \mathrm{m\,s^{-1}}$`),
             L(
               'Zaman genişlemesi, saniyede 10 metrenin altındaki bağıl hızlarda gözlendi.',
               'Time dilation was observed at relative speeds below 10 metres per second.'
@@ -138,7 +136,7 @@ export const EVIDENCE: readonly SourceSection[] = [
       {
         type: 'paragraph',
         text: L(
-          r`Işınımın sapıncı ve Doppler dönüşümü en büyük ölçekte kozmik mikrodalga arka planında (KMA) gözlenir. Güneş Sistemi ona göre 369,82 ± 0,11 km s⁻¹ hızla hareket eder ($\beta = 1{,}2336 \times 10^{-3}$); bu, 2,725 K’lik gökyüzünde 3,362 mK genlikli bir dipol olarak görünür [@planck2018i; @fixsen2009]: 4. bölümdeki Planck tayfı, $T' = DT$ sıcaklığında görülmektedir. Planck uydusu, buna eşlik eden sapıncı ve küçük ölçekli dalgalanmaların Doppler kiplenimini de $4\sigma$’nın üzerinde (istatistiksel) bir anlamlılıkla saptamıştır [@planck2013xxvii]. Hızlı hareket eden cisimlerin görünür dönmesi ise laboratuvarda görselleştirilmiştir [@hornof2025].`,
+          r`Işınımın sapıncı ve Doppler dönüşümü en büyük ölçekte kozmik mikrodalga arka planında (KMA) gözlenir. Güneş Sistemi ona göre 369,82 ± 0,11 km s⁻¹ hızla hareket eder ($\beta = 1{,}2336 \times 10^{-3}$); bu, 2,725 K’lik gökyüzünde 3,362 mK genlikli bir dipol olarak görünür [@planck2018i; @fixsen2009]: 4. bölümdeki Planck tayfı, $T' = DT$ sıcaklığında görülmektedir. Planck uydusu, buna eşlik eden ışık sapıncını ve küçük ölçekli yönbağımlılıkların (anizotropilerin) Doppler kiplenimini de $4\sigma$’nın üzerinde (istatistiksel) bir anlamlılıkla saptamıştır [@planck2013xxvii]. Hızlı hareket eden cisimlerin görünen dönmesi ise laboratuvarda görselleştirilmiştir [@hornof2025].`,
           r`Aberration and the Doppler transformation of radiation are observed on the largest scale in the cosmic microwave background (CMB). The Solar System moves relative to it at 369.82 ± 0.11 km s⁻¹ ($\beta = 1.2336 \times 10^{-3}$), which appears as a dipole of amplitude 3.362 mK in the 2.725 K sky [@planck2018i; @fixsen2009]: the Planck spectrum of Section 4, seen at $T' = DT$. The Planck satellite has also detected the accompanying aberration and Doppler modulation of the small-scale anisotropies, with a (statistical) significance above $4\sigma$ [@planck2013xxvii]. The apparent rotation of fast-moving objects has been visualised in the laboratory [@hornof2025].`
         ),
       },
@@ -146,8 +144,8 @@ export const EVIDENCE: readonly SourceSection[] = [
       {
         type: 'paragraph',
         text: L(
-          r`Aşağıdaki şekil ve çizelge, tanıdık ve uç hızları tek bir ölçeğe yerleştirir. Yatay eksen $\gamma - 1$’dir, yani durgun enerji biriminde kinetik enerji; çünkü $\beta$’nın kendisi doyuma ulaşır. Simülasyon aralığı $\gamma = 223{,}6$’da biter: deniz düzeyindeki kozmik ışın müonlarının ve CERN’de depolanan müonların Lorentz çarpanının ötesinde, SPS ve LHC’deki protonlarınkinin altında.`,
-          r`The figure and the table below place familiar and extreme speeds on one scale. The horizontal axis is $\gamma - 1$, the kinetic energy in units of the rest energy, because $\beta$ itself saturates. The simulated range ends at $\gamma = 223.6$: beyond the Lorentz factor of cosmic-ray muons at sea level and of the muons stored at CERN, below that of the protons in the SPS and the LHC.`
+          r`Şekil 7 ve Çizelge 6, tanıdık ve uç hızları tek bir ölçeğe yerleştirir. Yatay eksen $\gamma - 1$’dir, yani durgun enerji biriminde kinetik enerji; çünkü $\beta$’nın kendisi doyuma ulaşır. Simülasyon aralığı $\gamma = 223{,}6$’da biter: deniz düzeyindeki kozmik ışın müonlarının ve CERN’de depolanan müonların Lorentz çarpanının ötesinde, SPS ve LHC’deki protonlarınkinin altında.`,
+          r`Figure 7 and Table 6 place familiar and extreme speeds on one scale. The horizontal axis is $\gamma - 1$, the kinetic energy in units of the rest energy, because $\beta$ itself saturates. The simulated range ends at $\gamma = 223.6$: beyond the Lorentz factor of cosmic-ray muons at sea level and of the muons stored at CERN, below that of the protons in the SPS and the LHC.`
         ),
       },
       {
@@ -177,15 +175,15 @@ export const EVIDENCE: readonly SourceSection[] = [
     number: '9',
     title: L('Yazılımın doğrulanması', 'Verification of the software'),
     summary: L(
-      'Uygulamanın kapalı biçimli sonuçlara, standartlara ve bağımsız bir denetime karşı nasıl sınandığı.',
+      'Uygulamanın kapalı biçimli sonuçlarla, standartlarla ve bağımsız bir denetimle karşılaştırılarak nasıl sınandığı.',
       'How the implementation is checked against closed-form results, standards and an independent audit.'
     ),
     blocks: [
       {
         type: 'paragraph',
         text: L(
-          r`Fizik, görüntüleme kodundan ayrı, saf fonksiyonlardan oluşan bir kütüphanede yer alır ve otomatik bir test takımıyla sınanır. Gölgelendirici programları aynı aritmetiği satır satır yineler: bir gölgelendiricinin hesapladığı her şeyi kütüphanedeki bir başvuru uygulaması da hesaplar ve bu uygulama, grafik işlemcinin tek duyarlıklı aritmetiğinin benzetimi dâhil olmak üzere sınanır. Aşağıdaki çizelge neyin denetlendiğini ve her denetimin neye karşı koruduğunu listeler.`,
-          r`The physics lives in a library of pure functions, separate from the rendering code, that is exercised by an automated test suite. The shader programs repeat the same arithmetic line for line: whatever a shader computes, a reference implementation in the library computes too, and that implementation is tested, including an emulation of the single-precision arithmetic of the graphics processor. The table below lists what is checked and what each check guards against.`
+          r`Fizik, görüntüleme kodundan ayrı, saf fonksiyonlardan oluşan bir kütüphanede yer alır ve otomatik bir test takımıyla sınanır. Gölgelendirici programları bu aritmetiği yineler. İtme, atlas okumaları, gösterim dönüşümü, yıldızların akı yasası ve ölçülen görünüm için kütüphanede birer başvuru uygulaması vardır ve bunlar sınanır; itme ayrıca grafik işlemcinin tek duyarlıklı aritmetiğinin benzetimiyle de sınanır. Yalın aydınlatma toplamları (Lambert terimleri ve yaygın paylar) yalnızca gölgelendiricilerde yazılıdır. Gölgelendiricilerin başvuru uygulamalarıyla satır satır uyuştuğu makineyle denetlenmez: grafik bağlamı olmadan derlenemedikleri için testler onları metin olarak karşılaştırır (bildirilen ve sağlanan değişkenler, aktarılan sabitler, yıldızların akı yasasının ve ölçülen görünümün ifadeleri). Çizelge 7 neyin denetlendiğini ve her denetimin neye karşı koruduğunu listeler.`,
+          r`The physics lives in a library of pure functions, separate from the rendering code, that is exercised by an automated test suite. The shader programs repeat that arithmetic. The boost, the atlas look-ups, the display transform, the flux law of the stars and the measured view each have a reference implementation in the library, and these are tested; the boost is tested under an emulation of the single-precision arithmetic of the graphics processor as well. The simple lighting sums (Lambert terms and diffuse shares) are written in the shaders only. That the shaders agree with the reference implementations line for line is not machine-checked: since they cannot be compiled without a graphics context, the tests compare them as text (the variables declared and supplied, the constants passed in, the expressions of the flux law of the stars and of the measured view). Table 7 lists what is checked and what each check guards against.`
         ),
       },
       {
@@ -217,14 +215,14 @@ export const EVIDENCE: readonly SourceSection[] = [
           ],
           [
             L(
-              r`CIE 1931 çizelgesi yayımlanmış sütun toplamlarını verir ve bağımsız bir analitik uyumla tek tek uyuşur [@wyman2013].`,
+              r`CIE 1931 çizelgesi yayımlanmış sütun toplamlarını verir ve bağımsız bir analitik yaklaştırımla değer değer uyuşur [@wyman2013].`,
               r`The CIE 1931 table reproduces the published column sums and agrees entry by entry with an independent analytic fit [@wyman2013].`
             ),
             L('gözlemci verisinde aktarım hataları', 'transcription errors in the observer data'),
           ],
           [
             L(
-              r`sRGB renk koordinatlarından türetilen RGB matrisi, standartta basılı olana eşittir [@iec61966].`,
+              r`sRGB renksellik koordinatlarından türetilen RGB matrisi, standartta basılı olana eşittir [@iec61966].`,
               r`The RGB matrix derived from the sRGB chromaticities equals the one printed in the standard [@iec61966].`
             ),
             L('renk uzayı hataları', 'colour-space errors'),
@@ -245,7 +243,7 @@ export const EVIDENCE: readonly SourceSection[] = [
           ],
           [
             L(
-              r`Atlas, görünür kazancın doğrudan sayısal tümlevini $D = 0{,}4$ ile $D = 447$ arasında %1’den iyi yineler ve $D = 1$’de her albedoyu kendisi olarak verir.`,
+              r`Atlas, görünür kazancın doğrudan sayısal tümlevini $D = 0{,}4$ ile $D = 447$ arasında %1’den küçük bir farkla yineler ve $D = 1$’de her albedoyu kendisi olarak verir.`,
               r`The atlas reproduces direct numerical integration of the visible gain to better than 1 % between $D = 0.4$ and $D = 447$, and returns every albedo as itself at $D = 1$.`
             ),
             L('aradeğerleme ve ayar hataları', 'errors of interpolation and calibration'),
@@ -259,17 +257,27 @@ export const EVIDENCE: readonly SourceSection[] = [
           ],
           [
             L(
-              r`Alt bölme: her kenar kurala uyar, alan korunur, komşu üçgenler arasında T-bağlantısı oluşmaz; çizilen kenarların kesin görüntüden sapması ölçülür.`,
+              r`Alt bölümleme: her kenar kurala uyar, alan korunur, komşu üçgenler arasında T-bağlantısı oluşmaz; çizilen kenarların kesin görüntüden sapması ölçülür.`,
               r`Subdivision: every edge obeys the rule, area is preserved, no T-junction opens between neighbouring triangles; the deviation of drawn edges from the exact image is measured.`
             ),
             L('çatlaklar ve eğrilik hatası', 'cracks and curvature error'),
           ],
           [
             L(
-              r`Bu belge: her atıf kaynakçada vardır, kaynakçadaki her kaynak anılır, her formül derlenir.`,
-              r`This document: every citation exists in the bibliography, every entry of the bibliography is cited, every formula compiles.`
+              r`Yıldızlar: akı $L(DT)/(D^2 L(T))$ oranında değişir; ışık lekesinin tümlevi normalleştirmenin varsaydığı katı açıya eşittir ve pikselin nereye düştüğüne pek bağlı değildir; eksen dışında pikselin katı açısı $\cos^3\theta$ kadar küçülür; sayıları ve kadir dağılımı yayımlanmış sayımlarla uyuşur. Ölçülen görünüm: hareket doğrultusundaki uzunluklar $1/\gamma$ oranında kısalır; piksel başına ters dönüşüm onu geri alır.`,
+              r`Stars: the flux changes by $L(DT)/(D^2 L(T))$; the integral of the point-spread function equals the solid angle the normalisation assumes and hardly depends on where the star falls on the pixel grid; off the axis a pixel subtends $\cos^3\theta$ less solid angle; their number and distribution in magnitude agree with published counts. Measured view: lengths along the motion contract by $1/\gamma$, and the per-pixel inverse undoes it.`
             ),
-            L('kopuk atıflar, bozuk formüller', 'dangling citations, broken formulas'),
+            L('yıldızların titremesi, yanlış parlaklık ya da yoğunluk', 'flickering stars, wrong brightness or density'),
+          ],
+          [
+            L(
+              r`Bu belge: her atıf kaynakçada vardır, kaynakçadaki her kaynak anılır, her şekle ve çizelgeye metinde numarasıyla değinilir, her formül derlenir; iki dildeki her paragraf aynı sayıları verir.`,
+              r`This document: every citation exists in the bibliography, every entry of the bibliography is cited, every figure and table is referred to by number in the text, every formula compiles; every paragraph states the same numbers in both languages.`
+            ),
+            L(
+              'kopuk atıflar, bozuk formüller, iki dil arasında ayrılık',
+              'dangling citations, broken formulas, drift between the two languages'
+            ),
           ],
         ],
       },
@@ -304,8 +312,8 @@ export const EVIDENCE: readonly SourceSection[] = [
         type: 'list',
         items: [
           L(
-            r`**Boşluk.** Işığın boşlukta yayıldığı varsayılır. Kırılma indisi birden $2{,}8 \times 10^{-4}$ fazla olan havada, $\beta > 0{,}99972$ ($\gamma > 42$) hızındaki bir gözlemci ortamdaki ışığı geçerdi; dolayısıyla aralığın üst bölümü boşluktaki bir kenttir. Bakış doğrultusu boyunca soğurma, saçılma ve ışıma hesaba katılmaz.`,
-            r`**Vacuum.** Light is assumed to travel in vacuum. In air, whose refractive index exceeds one by $2.8 \times 10^{-4}$, an observer with $\beta > 0.99972$ ($\gamma > 42$) would outrun light in the medium; the upper part of the range is therefore a city in vacuum. No absorption, scattering or emission along the line of sight is included.`
+            r`**Boşluk.** Işığın boşlukta yayıldığı varsayılır. Deniz düzeyinde görünür ışık için kırılma indisi birden $2{,}8 \times 10^{-4}$ fazla olan havada [@ciddor1996], $\beta > 0{,}99972$ ($\gamma > 42$) hızındaki bir gözlemci ortamdaki ışığı geçerdi; dolayısıyla aralığın üst bölümü boşluktaki bir kenttir. Bakış doğrultusu boyunca soğurma, saçılma ve ışıma hesaba katılmaz.`,
+            r`**Vacuum.** Light is assumed to travel in vacuum. In air at sea level, whose refractive index for visible light exceeds one by $2.8 \times 10^{-4}$ [@ciddor1996], an observer with $\beta > 0.99972$ ($\gamma > 42$) would outrun light in the medium; the upper part of the range is therefore a city in vacuum. No absorption, scattering or emission along the line of sight is included.`
           ),
           L(
             r`**Durağan sahne, sabit hız.** Caddede hiçbir şey hareket etmez ya da değişmez; gözlemci ivmelenmez: hızı değiştirmek, kararlı durumlar arasında bir geçiştir. Her andaki görüntü, pozlama süresi sıfır olan ideal bir iğne deliği kamerasınınkidir.`,
@@ -316,20 +324,20 @@ export const EVIDENCE: readonly SourceSection[] = [
             r`**Photopic vision.** Luminance is computed with the photopic observer throughout, although a moonlit street is seen partly with rod vision.`
           ),
           L(
-            r`**Tayflar.** Görünür bandın dışındaki yansıtma bir dış kestirimdir (5. bölüm). Ay ışığı 4100 K’lik bir Planck tayfı sayılmıştır; bu, yaygın olarak verilen ancak belirsizliğiyle birlikte birincil bir ölçümü bulunamayan bir renk sıcaklığıdır ve gerçek ay ışığı ayrıca Güneş’in soğurma çizgilerini ve atmosferin soğurma bantlarını taşır. LED tayfı iki loblu bir modeldir. Isıl ışıma tek bir yayınırlık ve tek bir sıcaklıkla gri kabul edilmiştir; gerçek kızılötesinde malzemelerin ve atmosferin güçlü bir tayfsal yapısı vardır.`,
-            r`**Spectra.** Reflectance outside the visible band is an extrapolation (Section 5). Moonlight is taken as a Planck spectrum of 4100 K, a commonly quoted colour temperature for which no primary measurement with an uncertainty was found; real moonlight also carries the absorption lines of the Sun and the absorption bands of the atmosphere. The LED spectrum is a two-lobe model. Thermal emission is grey, with a single emissivity and a single temperature; in the real infrared, materials and the atmosphere have strong spectral structure.`
+            r`**Tayflar.** Görünür bandın dışındaki yansıtma bir dış kestirimdir (5. bölüm). Ay ışığı 4100 K’lik bir Planck tayfı sayılmıştır; bu, yaygın olarak verilen ancak belirsizliğiyle birlikte birincil bir ölçümü bulunamayan bir renk sıcaklığıdır ve gerçek ay ışığı ayrıca Güneş’in soğurma çizgilerini ve atmosferin soğurma bantlarını taşır. LED tayfı iki loblu bir modeldir. Isıl ışıma gri kabul edilmiştir: kentin yüzeyleri tek bir sıcaklık ve tek bir yayınırlıkla, Ay diski de kendi sıcaklığı ve yayınırlığıyla ışır; gerçek kızılötesinde malzemelerin ve atmosferin güçlü bir tayfsal yapısı vardır. Yansıyan ve yayılan ışık birbirinden bağımsız modellenmiştir: saydam olmayan bir yüzeyde Kirchhoff yasası gereği yansıtma ile yayınırlığın toplamı her dalga boyunda birdir, uzak kızılötesine sürdürülen yansıtma ise bu koşulu sağlamaz. Bu tutarsızlığın etkilediği yansıyan kızılötesi ışık, maviye kaymanın kızılötesini görünür banda getirdiği her yerde ısıl ışımanın pek çok mertebe altındadır.`,
+            r`**Spectra.** Reflectance outside the visible band is an extrapolation (Section 5). Moonlight is taken as a Planck spectrum of 4100 K, a commonly quoted colour temperature for which no primary measurement with an uncertainty was found; real moonlight also carries the absorption lines of the Sun and the absorption bands of the atmosphere. The LED spectrum is a two-lobe model. Thermal emission is grey: the surfaces of the city radiate with a single temperature and a single emissivity, the lunar disc with its own; in the real infrared, materials and the atmosphere have strong spectral structure. Reflected and emitted light are modelled independently: for an opaque surface Kirchhoff’s law makes reflectance and emissivity add up to one at every wavelength, which the reflectance continued into the far infrared does not satisfy. The reflected infrared that this inconsistency affects lies many orders of magnitude below the thermal emission wherever a blueshift brings the infrared into view.`
           ),
           L(
-            r`**Aydınlatma.** Gölge ve yüzeyler arası yansıma yoktur; sokak aydınlatması köşe başına hesaplanır. Yıldız alanı yapaydır ve yıldızların, sokak aydınlatmasına göre ayarlanmış bir pozlamada görünebilmesi için akıları 60 kat artırılmıştır.`,
-            r`**Lighting.** There are no shadows and no inter-reflection; street lighting is evaluated per vertex. The star field is synthetic, and its flux is raised by a factor of 60 so that stars register at an exposure set for street lighting.`
+            r`**Aydınlatma.** Gölge yoktur; yüzeyler arası yansımanın yerine küçük bir yaygın terim konmuştur (Çizelge 4); sokak aydınlatması köşe başına hesaplanır. Yıldız alanı yapaydır ve yıldızların, sokak aydınlatmasına göre ayarlanmış bir pozlamada görünebilmesi için akıları ${SCENARIO.stars.visibilityGain} kat artırılmıştır.`,
+            r`**Lighting.** There are no shadows, and inter-reflection is replaced by a small diffuse term (Table 4); street lighting is evaluated per vertex. The star field is synthetic, and its flux is raised by a factor of ${SCENARIO.stars.visibilityGain} so that stars register at an exposure set for street lighting.`
           ),
           L(
             r`**Geometri.** Çizilen kenarlar kesin eğri görüntüden $0{,}34^\circ$’ye kadar sapar (5. bölüm). Modellenen cadde, sonsuz bir sokağın 576 m’lik bir örneğidir; gözlemcinin yaklaşık 360–410 m önünde ve 65–85 m arkasında çözülerek biter. En yüksek hızlarda bu, Doppler halkasının dış bölümünde görünecek olanın bir kısmını dışarıda bırakır.`,
             r`**Geometry.** Drawn edges deviate from the exact curved image by up to $0.34^\circ$ (Section 5). The modelled avenue is a 576 m sample of an endless street; it dissolves about 360–410 m ahead of the observer and 65–85 m behind. At the highest speeds this removes part of what would otherwise appear in the outer part of the Doppler ring.`
           ),
           L(
-            r`**Gösterim.** Pozlama, ton eğrisi ve gam eşleme, on bir mertebelik parıltının bir ekranda nasıl gösterileceğine ilişkin tercihlerdir. Bir pikselin ne kadar parlak çizileceğini değiştirirler, hangi ışığı temsil ettiğini değil; pozlama düzeltmesi her zaman gösterilir.`,
-            r`**Display.** Exposure, tone curve and gamut mapping are choices about how to show eleven decades of luminance on a screen. They change how bright a pixel is drawn, never which light it stands for; the exposure correction is always displayed.`
+            r`**Gösterim.** Beyaz dengesi, pozlama, parlak bölgelerin sıkıştırılması, ton eğrisi ve gam eşleme, on bir mertebeye yayılan parıltının bir ekranda nasıl gösterileceğine ilişkin tercihlerdir (5. bölüm). Bir pikselin nasıl çizileceğini değiştirirler, hangi ışığı temsil ettiğini değil; pozlama düzeltmesi her zaman gösterilir.`,
+            r`**Display.** White balance, exposure, highlight compression, tone curve and gamut mapping are choices about how to show eleven decades of luminance on a screen (Section 5). They change how a pixel is drawn, never which light it stands for; the exposure correction is always displayed.`
           ),
           L(
             r`**Aralık.** Simülasyon $\beta = 0{,}99999$’da biter. Ötesinde nitel olarak yeni bir şey olmaz ve hiçbir sonlu adım $\beta = 1$’e ulaşmaz.`,

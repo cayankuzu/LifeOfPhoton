@@ -58,6 +58,17 @@ export const REFLECTANCE_BASIS = {
  * The last point is the model's assumption about the invisible part of a paint's
  * spectrum; it is the simplest continuation that introduces no new information.
  *
+ * It is not tied to the long-wave emissivities of scenario.ts, and the two are not
+ * consistent. For an opaque surface reflectance and emissivity add up to one at every
+ * wavelength (Kirchhoff's law); here reflected and emitted light are modelled
+ * independently, so in the far infrared a surface of red albedo 0.5 reflects 50 % and
+ * emits 92 % of a black body, and the sky emits with 0.78 while it transmits starlight
+ * and moonlight unattenuated. Of the two, the emissivity is the realistic value
+ * (building materials are nearly black at 10 µm whatever their colour); the continued
+ * reflectance is not, but the light it reflects is negligible where it matters: a
+ * blueshift large enough to bring the infrared into view (D > 3.6) makes the thermal
+ * term exceed the reflected moonlight by many orders of magnitude.
+ *
  * Writes [ρ_R, ρ_G, ρ_B] into `out`.
  */
 export function reflectanceBasis(wavelengthNm: number, out: Float64Array | number[]): void {

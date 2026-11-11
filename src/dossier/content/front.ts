@@ -17,11 +17,11 @@ export const FRONT: Pick<DossierSource, 'title' | 'subtitle' | 'abstract' | 'key
       r`At sixteen, Einstein asked what one would see when pursuing a beam of light. This work answers the question as far as physics allows: it shows, in the first person and in real time, what an observer with mass sees while travelling along a city avenue at any constant speed between rest and $\beta = 0.99999$ ($\gamma = 223.6$).`
     ),
     L(
-      r`Sahne durgun çerçevesinde tutulur. Geometri, relativistik ışık sapıncının kesin yasasıyla dönüştürülür; parlaklık ve renk, $I_\nu/\nu^3$’ün Lorentz değişmezliğinden elde edilir ve her tayf, RGB kanallarını kaydırma yaklaşıklığı yerine CIE 1931 standart gözlemcisine karşı tümlenir. Dört tür ışık ayırt edilir — bant sınırlı LED sokak aydınlatması, geniş bantlı ay ışığı, neredeyse tek renkli trafik ışıkları ve ortamın ısıl ışıması —, çünkü bunlar Doppler kaymasına farklı tepki verir.`,
-      r`The scene is kept in its rest frame. Geometry is transformed by the exact law of relativistic aberration; brightness and colour follow from the Lorentz invariance of $I_\nu/\nu^3$, with every spectrum integrated against the CIE 1931 standard observer rather than approximated by shifting RGB channels. Four kinds of light are distinguished — band-limited LED street lighting, broadband moonlight, nearly monochromatic signals and the thermal emission of the surroundings — because they respond differently to a Doppler shift.`
+      r`Sahne durgun çerçevesinde tutulur. Geometri, relativistik ışık sapıncının kesin yasasıyla dönüştürülür; parlaklık ve renk, $I_\nu/\nu^3$’ün Lorentz değişmezliğinden elde edilir ve her tayf, RGB kanallarını kaydırma yaklaşıklığı yerine CIE 1931 standart gözlemcisinin renk eşleme fonksiyonlarıyla tümlenir. Sahnede beş ışık kaynağı vardır: LED sokak aydınlatması, ay ışığı, aydınlık pencereler, trafik ışıkları ve ortamın ısıl ışıması. Bunlar, Doppler kaymasına farklı tepki veren dört tayf türüne ayrılır: bant sınırlı (LED’ler), geniş bantlı (ay ve pencere ışığı), neredeyse tek renkli (trafik ışıkları) ve kızılötesi ısıl ışıma (ortam).`,
+      r`The scene is kept in its rest frame. Geometry is transformed by the exact law of relativistic aberration; brightness and colour follow from the Lorentz invariance of $I_\nu/\nu^3$, with every spectrum integrated with the colour-matching functions of the CIE 1931 standard observer rather than approximated by shifting RGB channels. The scene has five light sources: LED street lighting, moonlight, lit windows, traffic signals and the thermal emission of the surroundings. They fall into four spectral kinds that respond differently to a Doppler shift: band-limited (the LEDs), broadband (moonlight and window light), nearly monochromatic (the signals) and thermal infrared (the surroundings).`
     ),
     L(
-      r`Buradan üç bulgu çıkar. Isıl ışığın görünür parlaklığı $D^4$ ile değil, $DT$ sıcaklığındaki bir kara cismin parıltısı gibi değişir. Doppler gökkuşağı bant sınırlı ışık için gerçektir ve nötr koni ($D = 1$) çevresinde bir halka oluşturur; yıldızlar için ise yoktur. Yaklaşık $\gamma = 2$’den sonra ileri görünüme ortamın ısıl ışıması egemen olur; $\beta > 0{,}995$ için ortam Güneş yüzeyinden daha parlaktır. Uygulama; kapalı biçimli sonuçlara, kolorimetri ve fotometri standartlarına ve bağımsız bir yeniden türetmeye karşı doğrulanmıştır; varsayımları ve sınırları açıkça belirtilmiştir.`,
+      r`Buradan üç bulgu çıkar. Isıl ışığın görünür parlaklığı $D^4$ ile değil, $DT$ sıcaklığındaki bir kara cismin parıltısı gibi değişir. Doppler gökkuşağı bant sınırlı ışık için gerçektir ve nötr koni ($D = 1$) çevresinde bir halka oluşturur; yıldızlar için ise yoktur. Yaklaşık $\gamma = 2$’den sonra ileri görünüme ortamın ısıl ışıması egemen olur; $\beta > 0{,}995$ için ortam Güneş yüzeyinden daha parlaktır. Uygulama kapalı biçimli sonuçlarla, kolorimetri ve fotometri standartlarıyla ve bağımsız bir yeniden türetmeyle karşılaştırılarak doğrulanmıştır; varsayımları ve sınırları açıkça belirtilmiştir.`,
       r`Three findings follow. The visible brightness of thermal light does not grow as $D^4$ but as the luminance of a black body at $DT$. A Doppler rainbow is real for band-limited light, where it forms a ring around the neutral cone $D = 1$, and absent for stars. And from about $\gamma = 2$ the view ahead is dominated by the thermal emission of the surroundings, which for $\beta > 0.995$ outshine the surface of the Sun. The implementation is verified against closed-form results, against colorimetric and photometric standards and against an independent re-derivation; its assumptions and limits are stated.`
     ),
   ],
@@ -79,7 +79,7 @@ export const FRONT: Pick<DossierSource, 'title' | 'subtitle' | 'abstract' | 'key
     },
     {
       symbol: r`$\theta,\ \theta'$`,
-      term: L('Hareket yönünden açı', 'Angle from the direction of motion'),
+      term: L('Hareket yönüyle yapılan açı', 'Angle from the direction of motion'),
       definition: L(
         r`S ve S′ çerçevelerinde; $\theta'$ bir kaynağın görüldüğü açıdır.`,
         r`In S and in S′; $\theta'$ is where a source is seen.`
@@ -115,7 +115,7 @@ export const FRONT: Pick<DossierSource, 'title' | 'subtitle' | 'abstract' | 'key
       symbol: r`$L_{\mathrm v}$`,
       term: L('Parıltı (luminans)', 'Luminance'),
       definition: L(
-        r`Fotopik duyarlık $V(\lambda)$ ile tartılmış ışınım parlaklığı; birimi cd m⁻².`,
+        r`Fotopik duyarlık $V(\lambda)$ ile ağırlıklandırılmış ışınım parlaklığı; birimi cd m⁻².`,
         r`Radiance weighted with the photopic sensitivity $V(\lambda)$, in cd m⁻².`
       ),
     },
@@ -139,7 +139,7 @@ export const FRONT: Pick<DossierSource, 'title' | 'subtitle' | 'abstract' | 'key
       symbol: '—',
       term: L('Işık sapıncı (aberasyon)', 'Aberration'),
       definition: L(
-        r`Bir kaynağın görünür yönünün gözlemcinin hızıyla değişmesi, (3.1) denklemi.`,
+        r`Bir kaynağın görünen yönünün gözlemcinin hızıyla değişmesi, (3.1) denklemi.`,
         r`The change of the apparent direction of a source with the velocity of the observer, Eq. (3.1).`
       ),
     },

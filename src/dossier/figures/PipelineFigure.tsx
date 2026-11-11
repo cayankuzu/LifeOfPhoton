@@ -30,7 +30,7 @@ const LABELS: Record<'tr' | 'en', { aria: string; physics: string; display: stri
       { title: 'Köşe aşaması', detail: 'sapınç; uzaklık korunur' },
       { title: 'Rasterleştirme', detail: 'derinlik ile örtme' },
       { title: 'Piksel aşaması', detail: 'pikselin ışınından D' },
-      { title: 'Tayf atlası', detail: 'her ışık türü için bakış' },
+      { title: 'Tayf atlası', detail: 'her ışık türü için okuma' },
       { title: 'Işınım parlaklığı', detail: 'katkıların toplamı' },
       { title: 'Kamera', detail: 'EV, ton eğrisi, sRGB' },
     ],

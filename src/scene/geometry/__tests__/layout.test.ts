@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { SCENARIO } from '@/physics/scenario';
 import { EMITTER } from '../../emitters';
 import {
   CARRIAGEWAY_HALF_WIDTH,
@@ -194,6 +195,13 @@ describe('traffic signals', () => {
       // red, amber, green by their dominant tint
       expect(lenses[0].colour[0]).toBeGreaterThan(lenses[0].colour[1]);
       expect(lenses[2].colour[1]).toBeGreaterThan(lenses[2].colour[0]);
+      // the aspect and the tints are the scenario's
+      expect(SCENARIO.signals.aspect).toBe('red');
+      expect(lenses.map((lens) => lens.colour)).toEqual([
+        SCENARIO.signals.glassAlbedo.red,
+        SCENARIO.signals.glassAlbedo.amber,
+        SCENARIO.signals.glassAlbedo.green,
+      ]);
     }
   });
 

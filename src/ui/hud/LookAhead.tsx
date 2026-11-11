@@ -21,7 +21,8 @@ export default function LookAhead() {
 
   useFrame(() => {
     const turned = Math.abs(telemetry.yaw) > THRESHOLD || Math.abs(telemetry.pitch) > THRESHOLD;
-    if (chip.current) chip.current.hidden = !turned;
+    // a chip that hides while it has the focus would drop the keyboard user back to the start of the page
+    if (chip.current) chip.current.hidden = !turned && !chip.current.contains(document.activeElement);
   });
 
   return (

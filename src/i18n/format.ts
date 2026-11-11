@@ -27,16 +27,33 @@ function fixedFormatter(language: Language, digits: number, grouping: boolean): 
   return formatter;
 }
 
+/**
+ * Separator of digit groups in both languages: a narrow no-break space, as the SI
+ * Brochure (9th ed., §5.4.4) and the dossier write them (299 792 458). The point and
+ * the comma of the locales would read as a decimal marker in the other language, and
+ * in Turkish "128.900 K" would stand next to "0,256°".
+ */
+export const GROUP_SEPARATOR = ' ';
+
 /** Fixed number of decimals, e.g. 7.089 → "7,089" in Turkish. */
 export function formatFixed(value: number, digits: number, language: Language, grouping = false): string {
   if (!Number.isFinite(value)) return '—';
-  return fixedFormatter(language, digits, grouping).format(value);
+  const formatter = fixedFormatter(language, digits, grouping);
+  if (!grouping) return formatter.format(value);
+  return formatter
+    .formatToParts(value)
+    .map((part) => (part.type === 'group' ? GROUP_SEPARATOR : part.value))
+    .join('');
 }
 
-/** Integer with thousands separators, e.g. 299 792 → "299.792" in Turkish. */
+/**
+ * Whole number, grouped in threes from five digits on: 299 792, but 4065 (the SI
+ * Brochure leaves a four-digit number unseparated).
+ */
 export function formatInteger(value: number, language: Language): string {
   if (!Number.isFinite(value)) return '—';
-  return fixedFormatter(language, 0, true).format(Math.round(value));
+  const rounded = Math.round(value);
+  return formatFixed(rounded, 0, language, Math.abs(rounded) >= 10_000);
 }
 
 const SUPERSCRIPT: Record<string, string> = {

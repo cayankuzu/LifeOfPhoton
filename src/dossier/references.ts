@@ -126,6 +126,15 @@ export const REFERENCES: readonly Reference[] = [
     checked: 'primary',
   },
   {
+    key: 'ciddor1996',
+    authors: 'Ciddor, P. E.',
+    year: '1996',
+    title: 'Refractive index of air: new equations for the visible and near infrared',
+    venue: 'Applied Optics 35 (9), 1566–1573',
+    doi: '10.1364/AO.35.001566',
+    checked: 'secondary',
+  },
+  {
     key: 'cie2018',
     authors: 'Commission Internationale de l’Éclairage',
     year: '2018',
@@ -151,6 +160,7 @@ export const REFERENCES: readonly Reference[] = [
     venue: 'Annalen der Physik 17 (322, no. 10), 891–921',
     doi: '10.1002/andp.19053221004',
     checked: 'primary',
+    language: 'de',
   },
   {
     key: 'einstein1949',
@@ -160,6 +170,16 @@ export const REFERENCES: readonly Reference[] = [
     venue:
       'In: Schilpp, P. A. (ed.), Albert Einstein: Philosopher-Scientist. The Library of Living Philosophers VII, Evanston, pp. 2–95',
     checked: 'secondary',
+  },
+  {
+    key: 'einstein1956',
+    authors: 'Einstein, A.',
+    year: '1956',
+    title: 'Autobiographische Skizze',
+    venue: 'In: Seelig, C. (ed.), Helle Zeit – Dunkle Zeit: In memoriam Albert Einstein. Europa Verlag, Zürich, pp. 9–17',
+    doi: '10.1007/978-3-322-84225-1_2',
+    checked: 'secondary',
+    language: 'de',
   },
   {
     key: 'en13201',
@@ -236,7 +256,7 @@ export const REFERENCES: readonly Reference[] = [
     authors: 'International Electrotechnical Commission',
     year: '1999',
     title:
-      'IEC 61966-2-1:1999 Multimedia systems and equipment — Colour measurement and management — Part 2-1: Default RGB colour space — sRGB',
+      'IEC 61966-2-1:1999 Multimedia systems and equipment — Colour measurement and management — Part 2-1: Colour management — Default RGB colour space — sRGB',
     venue: 'IEC, Geneva',
     checked: 'secondary',
   },
@@ -309,6 +329,7 @@ export const REFERENCES: readonly Reference[] = [
     venue: 'Zeitschrift für Physik 27 (1), 138–148',
     doi: '10.1007/BF01328021',
     checked: 'primary',
+    language: 'de',
   },
   {
     key: 'mallettyuksel2019',
@@ -372,6 +393,16 @@ export const REFERENCES: readonly Reference[] = [
     venue: 'Nature 371 (6492), 46–48',
     doi: '10.1038/371046a0',
     checked: 'secondary',
+  },
+  {
+    key: 'mosengeil1907',
+    authors: 'von Mosengeil, K.',
+    year: '1907',
+    title: 'Theorie der stationären Strahlung in einem gleichförmig bewegten Hohlraum',
+    venue: 'Annalen der Physik 327 (5), 867–904',
+    doi: '10.1002/andp.19073270504',
+    checked: 'secondary',
+    language: 'de',
   },
   {
     key: 'mtw1973',
@@ -514,7 +545,6 @@ export const REFERENCES: readonly Reference[] = [
     year: '1979',
     title: 'Radiative Processes in Astrophysics, Sec. 4.9',
     venue: 'John Wiley & Sons, New York',
-    doi: '10.1002/9783527618170',
     checked: 'secondary',
   },
   {
@@ -525,6 +555,7 @@ export const REFERENCES: readonly Reference[] = [
     venue: 'Zeitschrift für angewandte Mathematik und Physik 9 (5–6), 591–600',
     doi: '10.1007/BF02424777',
     checked: 'secondary',
+    language: 'de',
   },
   {
     key: 'savage2007',
@@ -598,6 +629,15 @@ export const REFERENCES: readonly Reference[] = [
     checked: 'primary',
   },
   {
+    key: 'vasavada2012',
+    authors: 'Vasavada, A. R.; Bandfield, J. L.; Greenhagen, B. T.; Hayne, P. O.; Siegler, M. A.; Williams, J.-P.; Paige, D. A.',
+    year: '2012',
+    title: 'Lunar equatorial surface temperatures and regolith properties from the Diviner Lunar Radiometer Experiment',
+    venue: 'Journal of Geophysical Research: Planets 117, E00H18',
+    doi: '10.1029/2011JE003987',
+    checked: 'secondary',
+  },
+  {
     key: 'weiskopf1999',
     authors: 'Weiskopf, D.; Kraus, U.; Ruder, H.',
     year: '1999',
@@ -626,12 +666,30 @@ export const REFERENCES: readonly Reference[] = [
     checked: 'primary',
   },
   {
+    key: 'williams2017',
+    authors: 'Williams, J.-P.; Paige, D. A.; Greenhagen, B. T.; Sefton-Nash, E.',
+    year: '2017',
+    title: 'The global surface temperatures of the Moon as measured by the Diviner Lunar Radiometer Experiment',
+    venue: 'Icarus 283, 300–325',
+    doi: '10.1016/j.icarus.2016.08.012',
+    checked: 'primary',
+  },
+  {
     key: 'williams2024',
     authors: 'Williams, D. R.',
     year: '2024',
     title: 'Earth Fact Sheet',
     venue: 'NASA Space Science Data Coordinated Archive',
     url: 'https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html',
+    checked: 'primary',
+  },
+  {
+    key: 'williams2024moon',
+    authors: 'Williams, D. R.',
+    year: '2024',
+    title: 'Moon Fact Sheet',
+    venue: 'NASA Space Science Data Coordinated Archive',
+    url: 'https://nssdc.gsfc.nasa.gov/planetary/factsheet/moonfact.html',
     checked: 'primary',
   },
   {

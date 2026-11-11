@@ -234,12 +234,12 @@ describe('dependence on speed', () => {
     }
   });
 
-  it('never jumps by more than a stop and a half between neighbouring speeds', () => {
-    // 400 equal steps of rapidity from rest to the top of the range, looking ahead. The meter is not
-    // continuous in β: when a ring of its sample directions falls below the "lit" threshold, the ring
-    // leaves the average at once, and a finer sweep does not make these steps any smaller. Measured: 0.97 EV
-    // with thermal emission and 0.78 EV without it, both near β = 0.9905. The bound leaves half a stop of
-    // headroom; a larger jump would mean that the sampling has become too coarse for the scene.
+  it('changes by less than half a stop between neighbouring speeds', () => {
+    // 400 equal steps of rapidity from rest to the top of the range, looking ahead. A sample direction that
+    // grows dark leaves the average gradually (its weight falls between two levels of luminance), so the
+    // meter is continuous; a sharp threshold would let a whole ring of the grid drop out at once and make the
+    // exposure jump by up to a stop between two neighbouring speeds, however fine the sweep. Measured: 0.25 EV
+    // with thermal emission and 0.21 EV without it, near β = 0.995, where the rapidity changes by 0.015 per step.
     const steps = 400;
     for (const thermal of [true, false]) {
       let previous = meterEv(0, { thermal });
@@ -249,7 +249,25 @@ describe('dependence on speed', () => {
         largest = Math.max(largest, Math.abs(value - previous));
         previous = value;
       }
-      expect(largest).toBeLessThan(1.5);
+      expect(largest).toBeLessThan(0.5);
+    }
+  });
+
+  it('changes by a small fraction of a stop when the camera turns a little', () => {
+    // The same at a fixed speed, turning the camera from straight ahead to straight back in steps of 0.05°.
+    // A sharp threshold made the exposure jump by up to 0.77 EV in one such step (at β = 0.99, 35.55°); measured
+    // now: 0.10 EV at most (β = 0.999).
+    for (const beta of [0.5, 0.9, 0.99, 0.999]) {
+      for (const thermal of [true, false]) {
+        let previous = meterEv(beta, { thermal });
+        let largest = 0;
+        for (let i = 1; i <= 3600; i++) {
+          const value = meterEv(beta, { yaw: i * 0.05 * DEG, thermal });
+          largest = Math.max(largest, Math.abs(value - previous));
+          previous = value;
+        }
+        expect(largest, `β = ${beta}, thermal ${thermal}`).toBeLessThan(0.15);
+      }
     }
   });
 });
@@ -351,10 +369,12 @@ describe('darkness', () => {
   });
 
   it('opens up most of the way when it looks ahead at the top of the range without thermal emission', () => {
-    // From β = 0.9999 on everything further than 10° from the direction of motion is redshifted into
-    // darkness. Of the standard field of view only the very centre is still lit, by blueshifted moonlight, so
-    // the meter opens up more than half-way to its limit (measured +1.91 and +1.96 EV) — but not all the
-    // way, because something is still lit.
+    // At β = 0.9999 everything further than about 11° from the direction of motion is too red to count as
+    // lit, at the top of the range everything beyond about 6°. Of the 63 directions sampled in the standard
+    // field of view three are then lit (the centre by blueshifted moonlight, the two next to it by the red
+    // edge of the LED ring), at the top of the range only the centre, so the meter opens up more than
+    // half-way to its limit (measured +1.91 and +1.96 EV) — but not all the way, because something is
+    // still lit.
     for (const beta of [0.9999, BETA_MAX]) {
       const correction = meterEv(beta, { thermal: false });
       expect(correction).toBeGreaterThan(EXPOSURE_MAX_EV / 2);

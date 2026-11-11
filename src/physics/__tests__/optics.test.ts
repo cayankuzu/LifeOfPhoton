@@ -11,6 +11,8 @@ import {
   deaberrateDirection,
   dopplerFromApparentAngle,
   dopplerFromRestAngle,
+  measuredDirectionInverse,
+  measuredPoint,
   neutralConeAngle,
   solidAngleFactor,
   terrellRotationAngle,
@@ -258,6 +260,37 @@ describe('single-precision conditioning at the top of the range', () => {
     }
   });
 
+  it('the per-pixel inverse of the sky shader stays accurate in float32 at every apparent angle', () => {
+    // angle between two directions, neither of which need be exactly of unit length
+    const angleBetween = (a: Vec3, b: Vec3): number => {
+      const cross = Math.hypot(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+      return Math.atan2(cross, a.x * b.x + a.y * b.y + a.z * b.z);
+    };
+    let worstAngle = 0;
+    let worstDoppler = 0;
+    for (const speed of [0, 0.5, 0.99, 0.9999, BETA_MAX]) {
+      const uniforms = boostUniforms(speed);
+      for (const apparent of [1e-6, 1e-3, 0.05, 0.5, 1.2, Math.PI / 2, 2.5, 3.1, Math.PI - 1e-4, Math.PI]) {
+        for (const azimuth of [0, 0.7, 2.9]) {
+          // a view direction as the GPU holds it: float32 components
+          const dir = {
+            x: f(Math.sin(apparent) * Math.cos(azimuth)),
+            y: f(Math.sin(apparent) * Math.sin(azimuth)),
+            z: f(-Math.cos(apparent)),
+          };
+          const exact = deaberrateDirection(dir, uniforms);
+          const single = deaberrateDirection(dir, uniforms, f);
+          worstAngle = Math.max(worstAngle, angleBetween(single.direction, exact.direction));
+          worstDoppler = Math.max(worstDoppler, Math.abs(single.doppler / exact.doppler - 1));
+        }
+      }
+    }
+    // a pixel of the ×10 lens subtends about 1e-4 rad; the error is a few ulps of float32 (measured 8e-8 rad and
+    // 1.2e-7 on these directions)
+    expect(worstAngle).toBeLessThan(5e-7);
+    expect(worstDoppler).toBeLessThan(1e-6);
+  });
+
   it('the textbook form in float32 is visibly wrong near the backward direction', () => {
     const theta = 179.9 * DEG;
     const exact = aberrate(theta, beta);
@@ -267,6 +300,35 @@ describe('single-precision conditioning at the top of the range', () => {
     expect(naiveError / DEG).toBeGreaterThan(0.2);
     // … and more than a hundred times the error of the form the shaders use
     expect(naiveError).toBeGreaterThan(100 * 2e-5);
+  });
+});
+
+describe('measured view (mirror of the GLSL)', () => {
+  it('contracts along the direction of motion by 1/γ and leaves the transverse plane alone', () => {
+    for (const beta of BETAS) {
+      const gamma = lorentzFactor(beta);
+      const q = measuredPoint({ x: 3, y: -2, z: -40 }, gamma);
+      expect(q).toEqual({ x: 3, y: -2, z: -40 / gamma });
+    }
+    // 100 m of road at β = 0.99 measure 14.1 m
+    expect(-measuredPoint({ x: 0, y: 0, z: -100 }, lorentzFactor(0.99)).z).toBeCloseTo(14.107, 3);
+  });
+
+  it('is inverted, direction by direction, by the per-pixel map of the sky shader', () => {
+    for (const beta of BETAS) {
+      const gamma = lorentzFactor(beta);
+      for (const theta of ANGLES) {
+        for (const azimuth of [0, 1.1, -2.4]) {
+          const rest = { x: Math.sin(theta) * Math.cos(azimuth), y: Math.sin(theta) * Math.sin(azimuth), z: -Math.cos(theta) };
+          const image = measuredPoint(rest, gamma);
+          const length = Math.hypot(image.x, image.y, image.z);
+          const back = measuredDirectionInverse({ x: image.x / length, y: image.y / length, z: image.z / length }, gamma);
+          expect(back.x).toBeCloseTo(rest.x, 12);
+          expect(back.y).toBeCloseTo(rest.y, 12);
+          expect(back.z).toBeCloseTo(rest.z, 12);
+        }
+      }
+    }
   });
 });
 

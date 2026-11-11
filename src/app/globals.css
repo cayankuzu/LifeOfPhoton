@@ -21,6 +21,9 @@
 
   --hairline: rgb(255 255 255 / 0.09);
   --hairline-strong: rgb(255 255 255 / 0.17);
+  /* Lines that carry information (the speed track, its marks): 3.25:1 on the panel, the
+     3:1 that WCAG 1.4.11 asks of graphics. The hairlines above only separate surfaces. */
+  --rule: #5c6470;
 
   --ink: #e9ebef;
   --ink-2: #aab2be;
@@ -101,10 +104,11 @@ body {
   color: #fff;
 }
 
-/* Scrollbars inside panels */
+/* Scrollbars inside panels. The thumb is the only sign of the reading position in the
+   dossier, so it is held to 3:1 against the panel (3.5:1) like any other graphic. */
 .scroll-thin {
   scrollbar-width: thin;
-  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  scrollbar-color: rgb(255 255 255 / 0.38) transparent;
 }
 
 .scroll-thin::-webkit-scrollbar {
@@ -113,14 +117,14 @@ body {
 }
 
 .scroll-thin::-webkit-scrollbar-thumb {
-  background: rgb(255 255 255 / 0.16);
+  background: rgb(255 255 255 / 0.38);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
 .scroll-thin::-webkit-scrollbar-thumb:hover {
-  background: rgb(255 255 255 / 0.3);
+  background: rgb(255 255 255 / 0.5);
   background-clip: padding-box;
   border: 2px solid transparent;
 }

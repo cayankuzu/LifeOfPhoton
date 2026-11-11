@@ -27,7 +27,7 @@ const LABELS = {
   tr: {
     aria: 'Sahnedeki ışık kaynaklarının durgun çerçeve tayfları ve geçerli hızda görünür banda düşen aralıklar',
     x: 'durgun çerçevede dalga boyu',
-    y: 'bağıl tayfsal ışınım',
+    y: 'bağıl tayfsal ışınım parlaklığı',
     visible: 'görünür',
     ahead: 'önden',
     behind: 'arkadan',

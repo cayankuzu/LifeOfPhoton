@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Source_Serif_4 } from 'next/font/google';
 import 'katex/dist/katex.min.css';
+import { MESSAGES } from '@/i18n/messages';
 import './globals.css';
 
 /* Interface text. latin-ext carries the Turkish letters (ğ, ı, İ, ş). */
@@ -10,9 +11,10 @@ const mono = JetBrains_Mono({ subsets: ['latin', 'latin-ext'], variable: '--font
 /* Long-form reading in the dossier. */
 const serif = Source_Serif_4({ subsets: ['latin', 'latin-ext'], variable: '--font-serif', display: 'swap' });
 
-const title = 'Life of a Photon — özel göreliliğin birinci şahıs görünümü';
+/* The page is served in Turkish; once the language of the visit is known, App.tsx sets the title in that language. */
+const title = MESSAGES.tr.app.title;
 const description =
-  'Einstein’ın 16 yaşındaki düşünce deneyi, hakemli literatüre dayanan gerçek zamanlı bir simülasyon olarak: durgun hâlden 0,99999c’ye, ışık sapıncı, Doppler kayması ve ışınım dönüşümü CIE 1931 gözlemcisi ve Planck yasasıyla hesaplanır.';
+  'Einstein’ın 16 yaşındaki düşünce deneyi, hakemli literatüre dayanan gerçek zamanlı bir simülasyon olarak: durgun hâlden 0,99999 c’ye, ışık sapıncı, Doppler kayması ve ışınım parlaklığının dönüşümü CIE 1931 gözlemcisi ve Planck yasasıyla hesaplanır.';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://life-of-photon.vercel.app'),

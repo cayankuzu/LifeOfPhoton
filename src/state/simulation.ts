@@ -37,6 +37,12 @@ export interface Settings {
   readonly dossier: string | null;
   /** Whether the instrument dock is expanded. */
   readonly dock: boolean;
+  /**
+   * Whether the single-character shortcuts (letters, digits, Space) are active. They can be
+   * switched off because speech input types them by the dozen (WCAG 2.1.4); the arrow keys,
+   * Home and Escape stay active either way.
+   */
+  readonly singleKeys: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -49,6 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   language: 'tr',
   dossier: null,
   dock: true,
+  singleKeys: true,
 };
 
 type Listener = () => void;
@@ -195,16 +202,27 @@ export function setLoadPhase(phase: LoadPhase, progress = 0, error: string | nul
   phaseListeners.forEach((listener) => listener());
 }
 
+function subscribePhase(listener: Listener): () => void {
+  phaseListeners.add(listener);
+  return () => {
+    phaseListeners.delete(listener);
+  };
+}
+
 export function useLoadPhase(): { phase: LoadPhase; progress: number; error: string | null } {
   return useSyncExternalStore(
-    (listener) => {
-      phaseListeners.add(listener);
-      return () => {
-        phaseListeners.delete(listener);
-      };
-    },
+    subscribePhase,
     () => phaseSnapshot,
     () => phaseSnapshot
+  );
+}
+
+/** Whether the scene is ready; a component that needs only this does not re-render with every step of the progress. */
+export function useSceneReady(): boolean {
+  return useSyncExternalStore(
+    subscribePhase,
+    () => phaseSnapshot.phase === 'ready',
+    () => false
   );
 }
 

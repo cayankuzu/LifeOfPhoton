@@ -119,7 +119,7 @@ export default function SpeedRail() {
 
           <div ref={railRef} className="relative min-w-0 flex-1 pb-4 pt-0.5">
             {/* ruler */}
-            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[14px] h-px bg-hairline-strong" />
+            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[14px] h-px bg-rule" />
             <div
               aria-hidden="true"
               className="pointer-events-none absolute left-0 top-[14px] h-px bg-amber-dim"
@@ -129,7 +129,7 @@ export default function SpeedRail() {
               <span
                 key={mark.label}
                 aria-hidden="true"
-                className="pointer-events-none absolute top-[10px] h-[9px] w-px bg-hairline-strong"
+                className="pointer-events-none absolute top-[10px] h-[9px] w-px bg-rule"
                 style={{ left: percent(mark.beta) }}
               />
             ))}
@@ -170,7 +170,8 @@ export default function SpeedRail() {
               }}
             />
 
-            {/* the labels of the marks double as presets */}
+            {/* The labels of the marks double as presets. Each is 16 px high; an invisible extension reaches down into
+                the padding of the panel, so that it is a 24 px target that keeps clear of the slider above it. */}
             <div className="absolute inset-x-0 bottom-0 h-4">
               {MARKS.map((mark, index) => {
                 if (!labelled.has(index)) return null;
@@ -185,7 +186,7 @@ export default function SpeedRail() {
                     title={hint}
                     aria-label={hint}
                     aria-pressed={selected}
-                    className={`pointer-events-auto absolute top-0 ${align} tabular whitespace-nowrap rounded-[3px] px-1 font-mono text-[10.5px] leading-4 transition-colors duration-150 ${
+                    className={`pointer-events-auto absolute top-0 ${align} tabular whitespace-nowrap rounded-[3px] px-1 font-mono text-[10.5px] leading-4 transition-colors duration-150 before:absolute before:left-1/2 before:top-0 before:h-6 before:w-full before:min-w-6 before:-translate-x-1/2 before:content-[''] ${
                       selected ? 'text-amber' : 'text-ink-3 hover:text-ink'
                     }`}
                     style={{ left: percent(mark.beta) }}

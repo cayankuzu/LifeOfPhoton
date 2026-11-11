@@ -11,12 +11,20 @@ import { describe, expect, it } from 'vitest';
 import type { Triple } from '@/physics/colorimetry';
 import { toDisplay } from '@/physics/display';
 import { REFERENCE_LUMINANCE_CD_M2, SCENARIO } from '@/physics/scenario';
-import { ATLAS_ROWS, ATLAS_WIDTH, sharedAtlas } from '@/physics/spectralAtlas';
+import { ATLAS_ROW, ATLAS_ROWS, ATLAS_WIDTH, blackbodyLuminanceUnits, sharedAtlas } from '@/physics/spectralAtlas';
 import { EMITTER } from '../emitters';
 import { LUMINAIRE_FACE_LUMINANCE } from '../geometry/lighting';
 import { cityFragmentShader, cityVertexShader } from '../shaders/city';
 import { skyFragmentShader, skyVertexShader } from '../shaders/sky';
-import { starFragmentShader, starVertexShader } from '../shaders/stars';
+import {
+  STAR_LN_PEAK_MAX,
+  STAR_RADIANCE_SCALE,
+  starFragmentShader,
+  starRadianceFragmentShader,
+  starRadianceVertexShader,
+  starVertexShader,
+} from '../shaders/stars';
+import { STAR_PSF_CUTOFF, STAR_PSF_STEEPNESS } from '../geometry/stars';
 import {
   FADE_AHEAD_END,
   FADE_AHEAD_START,
@@ -34,6 +42,7 @@ const PROGRAMS = {
   city: { vertex: cityVertexShader, fragment: cityFragmentShader },
   sky: { vertex: skyVertexShader, fragment: skyFragmentShader },
   stars: { vertex: starVertexShader, fragment: starFragmentShader },
+  starRadiance: { vertex: starRadianceVertexShader, fragment: starRadianceFragmentShader },
 } as const;
 
 /** Uniforms, attributes and varyings three.js declares itself for a ShaderMaterial. */
@@ -137,6 +146,7 @@ describe('shader sources', () => {
     // the block builder writes position, normal, color, aSurface (build.test.ts); the star field position, aStar
     expect([...declarations(cityVertexShader, 'attribute').keys()].sort()).toEqual(['aSurface', 'color']);
     expect([...declarations(starVertexShader, 'attribute').keys()]).toEqual(['aStar']);
+    expect([...declarations(starRadianceVertexShader, 'attribute').keys()]).toEqual(['aStar']);
     expect(declarations(skyVertexShader, 'attribute').size).toBe(0);
   });
 
@@ -148,6 +158,27 @@ describe('shader sources', () => {
     expect(/\bhash\w*\s*\(/.test(main)).toBe(false);
     expect(/\bfloor\s*\(/.test(main)).toBe(false);
     expect(/\batan\s*\(/.test(main)).toBe(false);
+  });
+
+  it('the measured view is the map of optics.ts: measuredPoint forward, measuredDirectionInverse back', () => {
+    // measuredPoint: (x, y, z/γ) at the rest distance for vertices, its direction for stars
+    expect(withoutComments(cityVertexShader).includes('vec3 measured = vec3(rel.xy, rel.z / uGamma);')).toBe(true);
+    for (const vertex of [starVertexShader, starRadianceVertexShader]) {
+      expect(withoutComments(vertex).includes('vec3 measured = normalize(vec3(rest.xy, rest.z / uGamma));')).toBe(true);
+    }
+    // measuredDirectionInverse: the normalised (x, y, γ z) of the view direction
+    expect(withoutComments(skyFragmentShader).includes('vec3 restMeasured = normalize(vec3(seen.xy, seen.z * uGamma));')).toBe(
+      true
+    );
+  });
+
+  it('the diffuse moonlight falls on a surface by the scenario’s orientation weighting', () => {
+    const match = /uSkyFill \* \(([\d.]+) \+ ([\d.]+) \* n\.y\)/.exec(withoutComments(cityFragmentShader));
+    expect(match).not.toBeNull();
+    const [mean, slope] = [Number(match?.[1]), Number(match?.[2])];
+    // all of it facing up, the scenario's share facing down
+    expect(mean + slope).toBeCloseTo(1, 12);
+    expect(mean - slope).toBeCloseTo(SCENARIO.moon.skyFillFacingDown, 12);
   });
 
   it('emitter codes are compared half-way between the integers the geometry stores', () => {
@@ -213,6 +244,8 @@ describe('scene uniforms', () => {
     // the luminaire's face sends out what the baked street lighting receives
     expect(Math.exp(uniforms.uLnLuminaire.value as number)).toBeCloseTo(LUMINAIRE_FACE_LUMINANCE, 9);
     expect(uniforms.uMoonRadius.value).toBeCloseTo((moon.angularRadiusDeg * Math.PI) / 180, 12);
+    expect(Math.exp(uniforms.uLnMoonSurfaceT.value as number)).toBeCloseTo(moon.surfaceTemperatureK, 6);
+    expect(Math.exp(uniforms.uLnMoonEmissivity.value as number)).toBeCloseTo(moon.surfaceEmissivity, 12);
   });
 
   it('point at the Moon where the scenario puts it', () => {
@@ -235,7 +268,58 @@ describe('scene uniforms', () => {
   });
 });
 
-describe('stars over the sky', () => {
+describe('stars', () => {
+  it('are drawn with the flux law and normalisation of geometry/stars.ts', () => {
+    // starLnFlux, starLnNormalisation (uLnStarNorm) and starLnOffAxis, term by term, in both ways of drawing them
+    for (const vertex of [starVertexShader, starRadianceVertexShader]) {
+      const code = withoutComments(vertex);
+      expect(code.includes('float lnFlux = aStar.x + (body.a - aStar.z) - 2.0 * lnD;')).toBe(true);
+      expect(code.includes('float cosAxis = -view.z / length(view.xyz);')).toBe(true);
+      expect(code.includes('float lnRadiance = lnFlux + uLnStarNorm - 3.0 * log(max(cosAxis, 1e-3)) + uLnExposure;')).toBe(true);
+      expect(code.includes(`vRadiance = body.rgb * exp(min(lnRadiance, ${STAR_LN_PEAK_MAX.toFixed(1)}));`)).toBe(true);
+    }
+    for (const fragment of [starFragmentShader, starRadianceFragmentShader]) {
+      const code = withoutComments(fragment);
+      expect(code.includes(`return exp(-${STAR_PSF_STEEPNESS.toFixed(1)} * dot(p, p));`)).toBe(true);
+      expect(code.includes(`if (falloff < ${STAR_PSF_CUTOFF}) discard;`)).toBe(true);
+    }
+  });
+
+  it('are summed in radiance and added to the sky before its display transform', () => {
+    const stored = withoutComments(starRadianceFragmentShader);
+    expect(stored.includes(`gl_FragColor = vec4(vRadiance * (falloff * ${STAR_RADIANCE_SCALE}), 1.0);`)).toBe(true);
+    // nothing of the display transform in the target: it holds radiance
+    expect(stored.includes('toDisplay')).toBe(false);
+    const sky = withoutComments(skyFragmentShader);
+    expect(sky.includes(`clamp(stored, vec3(-6.0e4), vec3(6.0e4)) * ${(1 / STAR_RADIANCE_SCALE).toFixed(1)}`)).toBe(true);
+    const added = sky.indexOf('radiance += starRadiance();');
+    expect(added).toBeGreaterThan(0);
+    expect(sky.indexOf('gl_FragColor = vec4(toDisplay(radiance), 1.0);')).toBeGreaterThan(added);
+    // the sky reads the target pixel by pixel
+    expect(sky.includes('texture2D(uStars, gl_FragCoord.xy * uStarsTexel)')).toBe(true);
+    expect(uniforms.uStars.value).toBeInstanceOf(THREE.Texture);
+    expect((uniforms.uStars.value as THREE.DataTexture).image.data).toEqual(new Uint8Array(4));
+  });
+
+  it('cannot overflow the half floats of the target, and stay resolved at the dark end', () => {
+    // the largest colour component of a unit-luminance black body anywhere in the atlas
+    let largest = 0;
+    for (let i = 0; i < ATLAS_WIDTH; i++) {
+      for (let channel = 0; channel < 3; channel++) {
+        largest = Math.max(largest, Math.abs(atlas.data[(ATLAS_ROW.blackbody * ATLAS_WIDTH + i) * 4 + channel]));
+      }
+    }
+    const brightest = Math.exp(STAR_LN_PEAK_MAX) * largest * STAR_RADIANCE_SCALE;
+    // ten of the brightest stars the shader can draw, in the most saturated colour of the atlas, still fit on one
+    // pixel (measured: thirteen); beyond that the sky clamps what it reads
+    expect(10 * brightest).toBeLessThan(65504);
+    expect(65504 / brightest).toBeLessThan(14);
+    // a star just visible on the display (about 1.4 × 10⁻³ in radiance) is stored above 2⁻²⁴ by a factor of 50 or more
+    expect((1.4e-3 * STAR_RADIANCE_SCALE) / 2 ** -24).toBeGreaterThan(50);
+  });
+});
+
+describe('stars over the sky, where the half-float target is not available', () => {
   it('the star shader writes the increment a star makes over the sky, not the star by itself', () => {
     const code = withoutComments(starFragmentShader);
     expect(code.includes('toDisplay(vSky + vRadiance * falloff) - toDisplay(vSky)')).toBe(true);
@@ -268,5 +352,39 @@ describe('stars over the sky', () => {
     increment([0, 0, 0], star).forEach((value, channel) => expect(value).toBeCloseTo(alone[channel], 12));
     // and it is never negative in luminance: a star cannot darken the sky
     expect(luma(increment([2, 1.5, 0.4], [0.2, 0.3, 0.9]))).toBeGreaterThan(0);
+  });
+});
+
+describe('the Moon', () => {
+  const { moon, environment } = SCENARIO;
+  // luminances in reference units, as the sky shader computes them for the disc and the sky around it
+  const reflected = (doppler: number): number =>
+    Math.exp(uniforms.uLnMoonDisc.value as number) * blackbodyLuminanceUnits(atlas, moon.colourTemperatureK * doppler);
+  const glowing = (doppler: number): number =>
+    Math.exp(uniforms.uLnMoonEmissivity.value as number) *
+    blackbodyLuminanceUnits(atlas, Math.exp(uniforms.uLnMoonSurfaceT.value as number) * doppler);
+  const sky = (doppler: number): number =>
+    environment.skyEmissivity * blackbodyLuminanceUnits(atlas, environment.temperatureK * doppler);
+
+  it('the disc reflects moonlight and glows by itself, the latter only where thermal emission is shown', () => {
+    const code = withoutComments(skyFragmentShader);
+    expect(
+      code.includes('blackbody(uLnMoonT + lnD, uLnMoonDisc) + thermal * blackbody(uLnMoonSurfaceT + lnD, uLnMoonEmissivity)')
+    ).toBe(true);
+    expect(code.includes('float thermal = uThermal * uOptical;')).toBe(true);
+  });
+
+  it('at rest it shows reflected light only; its own glow outshines that above D ≈ 5.5', () => {
+    // a 380 K surface emits nothing visible: at rest the glow is under 10⁻¹⁸ of the reflected light
+    expect(glowing(1) / reflected(1)).toBeLessThan(1e-18);
+    expect(glowing(5.3)).toBeLessThan(reflected(5.3));
+    expect(glowing(5.8)).toBeGreaterThan(reflected(5.8));
+    // the disc reflects the light of a 4100 K body and is warmer than the air: from D ≈ 8 on the glow alone is
+    // brighter than the sky's thermal emission behind it, and the ratio tends to the Rayleigh–Jeans limit
+    // ε T / (ε_sky T_ambient) = 0.95 × 380 / (0.78 × 288.15) ≈ 1.6 (measured 1.65 at D = 400)
+    for (const doppler of [8, 20, 100, 400]) expect(glowing(doppler)).toBeGreaterThan(sky(doppler));
+    const limit = (moon.surfaceEmissivity * moon.surfaceTemperatureK) / (environment.skyEmissivity * environment.temperatureK);
+    expect(glowing(400) / sky(400)).toBeGreaterThan(limit);
+    expect(glowing(400) / sky(400)).toBeLessThan(1.1 * limit);
   });
 });

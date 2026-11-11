@@ -3,12 +3,14 @@
 /**
  * γ, 1/γ, γβ and D₀ against rapidity. Rapidity is the axis on which equal distances
  * are equal boosts, so the four curves are simply cosh φ, 1/cosh φ, sinh φ and e^φ.
- * Clicking or dragging in the plot sets the speed of the simulation.
+ * Clicking or dragging in the plot sets the speed of the simulation; so do the arrow
+ * keys, one equal boost per press, and Home / End.
  */
 
 import { type KeyboardEvent, type PointerEvent, useMemo } from 'react';
 import { formatBeta, formatSignificant } from '@/i18n/format';
-import { BETA_MAX, clampBeta, kinematicState } from '@/physics/kinematics';
+import { BETA_MAX, boostBy, clampBeta, kinematicState } from '@/physics/kinematics';
+import { RAPIDITY_STEP } from '@/state/simulation';
 import { AxisBottom, AxisLeft, type FigureProps, Frame, INK, LegendItem, curve, linearScale, logScale } from './kit';
 
 const WIDTH = 640;
@@ -68,19 +70,27 @@ export default function LorentzFigure({ beta, language, onSelectBeta }: FigurePr
     onSelectBeta(clampBeta(Math.tanh(Math.max(0, x.invert(position)))));
   };
 
+  // the same equal boost per key as the speed control of the interface
   const onKeyDown = (event: KeyboardEvent<SVGRectElement>): void => {
     if (!onSelectBeta) return;
-    const step =
+    const next =
       event.key === 'ArrowRight' || event.key === 'ArrowUp'
-        ? 0.05
+        ? boostBy(state.beta, RAPIDITY_STEP)
         : event.key === 'ArrowLeft' || event.key === 'ArrowDown'
-          ? -0.05
-          : 0;
-    if (step === 0) return;
+          ? boostBy(state.beta, -RAPIDITY_STEP)
+          : event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? BETA_MAX
+              : null;
+    if (next === null) return;
     event.preventDefault();
     event.stopPropagation();
-    onSelectBeta(clampBeta(Math.tanh(Math.max(0, state.rapidity + step))));
+    onSelectBeta(clampBeta(next));
   };
+
+  const gamma = formatSignificant(state.gamma, 4, language);
+  const doppler = formatSignificant(state.dopplerAhead, 4, language);
 
   const dots: Array<{ value: number; colour: string }> = [
     { value: state.gamma, colour: INK.cryo },
@@ -89,81 +99,93 @@ export default function LorentzFigure({ beta, language, onSelectBeta }: FigurePr
     { value: state.dopplerAhead, colour: INK.amber },
   ];
 
+  const interactive = onSelectBeta !== undefined;
+
   return (
-    <Frame width={WIDTH} height={HEIGHT} label={t.aria}>
-      <AxisLeft
-        scale={y}
-        at={PLOT.left}
-        ticks={DECADES}
-        format={(value) => DECADE_LABEL[value] ?? String(value)}
-        grid={[PLOT.left, PLOT.right]}
-      />
-      <AxisBottom scale={x} at={PLOT.bottom} ticks={[0, 1, 2, 3, 4, 5, 6]} title={t.x} />
+    <Frame width={WIDTH} height={HEIGHT} label={t.aria} interactive={interactive}>
+      {/* the drawing; the control below carries the state for assistive technology */}
+      <g aria-hidden="true">
+        <AxisLeft
+          scale={y}
+          at={PLOT.left}
+          ticks={DECADES}
+          format={(value) => DECADE_LABEL[value] ?? String(value)}
+          grid={[PLOT.left, PLOT.right]}
+        />
+        <AxisBottom scale={x} at={PLOT.bottom} ticks={[0, 1, 2, 3, 4, 5, 6]} title={t.x} />
 
-      {/* β along the top */}
-      <line x1={PLOT.left} x2={PLOT.right} y1={PLOT.top} y2={PLOT.top} stroke={INK.hairlineStrong} />
-      {TOP_BETAS.map((value) => (
-        <g key={value} transform={`translate(${x(Math.atanh(value))} ${PLOT.top})`}>
-          <line y2={-4} stroke={INK.hairlineStrong} />
-          <text y={-8} textAnchor="middle" fill={INK.tertiary}>
-            {compact(value, language)}
-          </text>
-        </g>
-      ))}
-      <text x={PLOT.left - 8} y={PLOT.top - 8} textAnchor="end" fill={INK.secondary}>
-        β
-      </text>
+        {/* β along the top */}
+        <line x1={PLOT.left} x2={PLOT.right} y1={PLOT.top} y2={PLOT.top} stroke={INK.hairlineStrong} />
+        {TOP_BETAS.map((value) => (
+          <g key={value} transform={`translate(${x(Math.atanh(value))} ${PLOT.top})`}>
+            <line y2={-4} stroke={INK.hairlineStrong} />
+            <text y={-8} textAnchor="middle" fill={INK.tertiary}>
+              {compact(value, language)}
+            </text>
+          </g>
+        ))}
+        <text x={PLOT.left - 8} y={PLOT.top - 8} textAnchor="end" fill={INK.secondary}>
+          β
+        </text>
 
-      <path d={paths.proper} fill="none" stroke={INK.secondary} strokeWidth={1.2} strokeDasharray="4 3" />
-      <path d={paths.rate} fill="none" stroke={INK.violet} strokeWidth={1.6} />
-      <path d={paths.gamma} fill="none" stroke={INK.cryo} strokeWidth={1.6} />
-      <path d={paths.doppler} fill="none" stroke={INK.amber} strokeWidth={1.6} />
+        <path d={paths.proper} fill="none" stroke={INK.secondary} strokeWidth={1.2} strokeDasharray="4 3" />
+        <path d={paths.rate} fill="none" stroke={INK.violet} strokeWidth={1.6} />
+        <path d={paths.gamma} fill="none" stroke={INK.cryo} strokeWidth={1.6} />
+        <path d={paths.doppler} fill="none" stroke={INK.amber} strokeWidth={1.6} />
 
-      {/* current state */}
-      <line x1={marker} x2={marker} y1={PLOT.top} y2={PLOT.bottom} stroke={INK.amber} strokeWidth={1} strokeDasharray="2 3" />
-      {dots.map((dot, index) =>
-        dot.value >= 1e-3 && dot.value <= 1e3 ? (
-          <circle key={index} cx={marker} cy={y(dot.value)} r={3} fill={INK.well} stroke={dot.colour} strokeWidth={1.5} />
-        ) : null
+        {/* current state */}
+        <line x1={marker} x2={marker} y1={PLOT.top} y2={PLOT.bottom} stroke={INK.amber} strokeWidth={1} strokeDasharray="2 3" />
+        {dots.map((dot, index) =>
+          dot.value >= 1e-3 && dot.value <= 1e3 ? (
+            <circle key={index} cx={marker} cy={y(dot.value)} r={3} fill={INK.well} stroke={dot.colour} strokeWidth={1.5} />
+          ) : null
+        )}
+
+        <LegendItem x={PLOT.left} y={HEIGHT - 12} colour={INK.cryo}>
+          γ = {gamma}
+        </LegendItem>
+        <LegendItem x={PLOT.left + 142} y={HEIGHT - 12} colour={INK.violet}>
+          1/γ = {formatSignificant(state.clockRate, 4, language)}
+        </LegendItem>
+        <LegendItem x={PLOT.left + 296} y={HEIGHT - 12} colour={INK.secondary} dashed>
+          γβ = {formatSignificant(state.properVelocity, 4, language)}
+        </LegendItem>
+        <LegendItem x={PLOT.left + 440} y={HEIGHT - 12} colour={INK.amber}>
+          D₀ = {doppler}
+        </LegendItem>
+      </g>
+
+      {/* interaction surface. On touch it lets vertical swipes scroll the document and selects
+          only on a sideways drag or on lifting the finger, never where a swipe happens to start. */}
+      {interactive && (
+        <rect
+          x={PLOT.left}
+          y={PLOT.top}
+          width={PLOT.right - PLOT.left}
+          height={PLOT.bottom - PLOT.top}
+          fill="transparent"
+          style={{ cursor: 'crosshair', touchAction: 'pan-y' }}
+          role="slider"
+          tabIndex={0}
+          aria-label={t.slider}
+          aria-valuemin={0}
+          aria-valuemax={BETA_MAX}
+          aria-valuenow={state.beta}
+          aria-valuetext={`β = ${formatBeta(state.beta, language)}; γ = ${gamma}; D₀ = ${doppler}`}
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            if (event.pointerType !== 'touch') select(event);
+          }}
+          onPointerMove={(event) => {
+            if (event.buttons === 1) select(event);
+          }}
+          onPointerUp={(event) => {
+            // a vertical pan ends in pointercancel instead, and selects nothing
+            if (event.pointerType === 'touch') select(event);
+          }}
+          onKeyDown={onKeyDown}
+        />
       )}
-
-      <LegendItem x={PLOT.left} y={HEIGHT - 12} colour={INK.cryo}>
-        γ = {formatSignificant(state.gamma, 4, language)}
-      </LegendItem>
-      <LegendItem x={PLOT.left + 142} y={HEIGHT - 12} colour={INK.violet}>
-        1/γ = {formatSignificant(state.clockRate, 4, language)}
-      </LegendItem>
-      <LegendItem x={PLOT.left + 296} y={HEIGHT - 12} colour={INK.secondary} dashed>
-        γβ = {formatSignificant(state.properVelocity, 4, language)}
-      </LegendItem>
-      <LegendItem x={PLOT.left + 440} y={HEIGHT - 12} colour={INK.amber}>
-        D₀ = {formatSignificant(state.dopplerAhead, 4, language)}
-      </LegendItem>
-
-      {/* interaction surface */}
-      <rect
-        x={PLOT.left}
-        y={PLOT.top}
-        width={PLOT.right - PLOT.left}
-        height={PLOT.bottom - PLOT.top}
-        fill="transparent"
-        style={{ cursor: onSelectBeta ? 'crosshair' : 'default', touchAction: 'none' }}
-        role="slider"
-        tabIndex={onSelectBeta ? 0 : -1}
-        aria-label={t.slider}
-        aria-valuemin={0}
-        aria-valuemax={BETA_MAX}
-        aria-valuenow={state.beta}
-        aria-valuetext={`β = ${formatBeta(state.beta, language)}`}
-        onPointerDown={(event) => {
-          event.currentTarget.setPointerCapture(event.pointerId);
-          select(event);
-        }}
-        onPointerMove={(event) => {
-          if (event.buttons === 1) select(event);
-        }}
-        onKeyDown={onKeyDown}
-      />
     </Frame>
   );
 }

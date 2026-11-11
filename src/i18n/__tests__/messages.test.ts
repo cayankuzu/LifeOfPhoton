@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LENSES, type Language } from '@/state/simulation';
+import { LENSES, type Language, RAPIDITY_STEP } from '@/state/simulation';
+import { formatFixed } from '../format';
 import { MESSAGES, type Messages } from '../messages';
 
 const LANGUAGES: readonly Language[] = ['tr', 'en'];
@@ -190,6 +191,13 @@ describe.each(LANGUAGES)('dictionary (%s)', (language) => {
       expect(names[index]).toContain(String(lens));
       expect(lensRow?.[1]).toContain(names[index]);
     });
+  });
+
+  it('states the boost of one step as the simulation applies it', () => {
+    // both languages would be wrong alike if the constant changed: the parity check above cannot see that
+    const step = `Δφ = ${formatFixed(RAPIDITY_STEP, 3, language)}`;
+    expect(messages.speed.hint).toContain(step);
+    expect(messages.help.rows[0][1]).toContain(step);
   });
 
   it('lists no shortcut and no gesture twice', () => {
