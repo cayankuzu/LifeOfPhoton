@@ -157,11 +157,14 @@ export const SCENARIO = {
   /** The star field. */
   stars: {
     /**
-     * Stars brighter than the limiting magnitude more than 4° above the horizon: of the about
-     * 3 850 of the whole sky (src/scene/geometry/stars.ts) half are above the horizon, and 93 %
-     * of those more than 4° above it.
+     * Stars brighter than the limiting magnitude more than 4° above the horizon: the Bright Star
+     * Catalogue (Hoffleit & Warren 1991, VizieR V/50) lists 4103 entries with V ≤ 5.8 over the
+     * whole sky; half are above the horizon, and 1 − sin(atan 0.07) = 93.0 % of those more than
+     * 4° above it, 1908 (src/scene/geometry/stars.ts). This is the mean over the sky: the
+     * catalogue's stars crowd towards the Milky Way (47 % of them lie within 20° of the galactic
+     * plane, which covers 34 % of the sky), so the real number varies with latitude and time.
      */
-    count: 1800,
+    count: 1900,
     /** Faintest magnitude generated. */
     limitingMagnitude: 5.8,
     /**

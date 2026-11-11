@@ -1,18 +1,27 @@
 /**
  * A statistically realistic naked-eye sky.
  *
- * The positions are random, but the two distributions that decide how the sky
- * responds to a boost follow observation:
- *   – apparent magnitudes: the cumulative count of stars brighter than m grows as
- *     10^(0.51 m), ≈ ×3.2 per magnitude (the published whole-sky counts, 15 stars
- *     brighter than magnitude 1, 1 602 brighter than 5 and 4 800 brighter than 6,
- *     give ×3.0–3.6 per magnitude, ×3.2 on average; the 9 110 stars of the Bright
- *     Star Catalogue, Hoffleit & Warren 1991, reach magnitude 6.5). The number of
- *     stars is a separate normalisation: interpolated in log N, about 3 850 stars of
- *     the whole sky are brighter than magnitude 5.8, of which about 1 800 stand more
- *     than 4° above the horizon (SCENARIO.stars);
- *   – temperatures: the mix of spectral classes among naked-eye stars (the bright
- *     sky is dominated by hot B and A stars and by cool K giants).
+ * The positions are uniform on the sky (the real stars crowd towards the Milky
+ * Way, which is left out), but the two distributions that decide how the sky
+ * responds to a boost follow the Bright Star Catalogue, 5th revised edition
+ * (Hoffleit & Warren 1991, VizieR V/50, table V/50/catalog), counted in full on
+ * 2026-11-11 (9110 entries, 9096 with a V magnitude; the 14 without are novae,
+ * clusters and M 31 kept to preserve the numbering):
+ *   – apparent magnitudes: the catalogue lists, over the whole sky, 15 entries with
+ *     V ≤ 1, 50 with V ≤ 2, 174 with V ≤ 3, 518 with V ≤ 4, 1630 with V ≤ 5, 4103
+ *     with V ≤ 5.8 and 5080 with V ≤ 6 (8404 with V ≤ 6.5). A least-squares fit of
+ *     log₁₀ N against m over m = 2–5.8 (steps of half a magnitude) gives a slope of
+ *     0.499, with residuals of at most 0.026 dex (at m = 3); N therefore grows as
+ *     10^(0.50 m), ×3.2 per magnitude. The old slope 0.51, anchored at m = 5.8,
+ *     fell 13 % short of the catalogue at m = 3. The number of stars is the direct
+ *     count, not an interpolation: half of the 4103 entries with V ≤ 5.8 are above
+ *     the horizon and 93.0 % of those more than 4° above it, 1908, so
+ *     SCENARIO.stars.count = 1900;
+ *   – temperatures: the spectral classes of those 4103 entries (SPECTRAL_CLASSES).
+ * Caveats of the catalogue: some components of multiple stars are listed as
+ * separate entries (α Cen A and B, HR 5459 and 5460), and it covers the stars
+ * brighter than about magnitude 6.5 (its ReadMe), comfortably fainter than the
+ * limit used here.
  * Each star is a black body; its visual magnitude fixes its illuminance through
  * E = 10^(−0.4 (m + 14.18)) lux.
  */
@@ -20,19 +29,33 @@
 import { REFERENCE_LUMINANCE_CD_M2, SCENARIO } from '@/physics/scenario';
 import { type SpectralAtlas, ATLAS_ROW, sampleAtlas, temperatureCoordinate } from '@/physics/spectralAtlas';
 
-/** Fraction of naked-eye stars per spectral class and the temperature range of the class, K. */
-const SPECTRAL_CLASSES: ReadonlyArray<{ share: number; coolest: number; hottest: number }> = [
-  { share: 0.01, coolest: 30_000, hottest: 40_000 }, // O
-  { share: 0.19, coolest: 10_000, hottest: 30_000 }, // B
-  { share: 0.22, coolest: 7_500, hottest: 10_000 }, // A
-  { share: 0.14, coolest: 6_000, hottest: 7_500 }, // F
-  { share: 0.13, coolest: 5_200, hottest: 6_000 }, // G
-  { share: 0.25, coolest: 3_700, hottest: 5_200 }, // K
-  { share: 0.06, coolest: 2_600, hottest: 3_700 }, // M
+/**
+ * Entries of the Bright Star Catalogue with V ≤ 5.8 per spectral class, and the
+ * temperature range of the class, K. The class is the first capital letter of the
+ * catalogue's spectral type, which skips the lower-case prefixes some types carry
+ * (g giant, sg subgiant, d dwarf, sd subdwarf, c supergiant: "gG9" is a G star;
+ * 114 of the entries counted here carry one). Of the 4103
+ * entries 11 have no class O–M (seven carbon stars of types C and N, three S stars
+ * and the Wolf-Rayet star γ² Vel); they are left out, 0.27 % of the sky, and the
+ * shares below are taken of the remaining 4092: O 0.8 %, B 21.9 %, A 19.5 %,
+ * F 13.1 %, G 13.5 %, K 24.4 %, M 6.8 %. The bright sky is dominated by hot B and A
+ * stars and by cool K giants.
+ */
+const SPECTRAL_CLASSES: ReadonlyArray<{ entries: number; coolest: number; hottest: number }> = [
+  { entries: 31, coolest: 30_000, hottest: 40_000 }, // O
+  { entries: 896, coolest: 10_000, hottest: 30_000 }, // B
+  { entries: 798, coolest: 7_500, hottest: 10_000 }, // A
+  { entries: 536, coolest: 6_000, hottest: 7_500 }, // F
+  { entries: 554, coolest: 5_200, hottest: 6_000 }, // G
+  { entries: 1000, coolest: 3_700, hottest: 5_200 }, // K
+  { entries: 277, coolest: 2_600, hottest: 3_700 }, // M
 ];
+const CLASSIFIED_ENTRIES = SPECTRAL_CLASSES.reduce((sum, spectral) => sum + spectral.entries, 0);
 
 const BRIGHTEST_MAGNITUDE = -1.5;
-const COUNT_SLOPE = 0.51;
+
+/** Slope of log₁₀ N(≤ m) against m, fitted to the Bright Star Catalogue over m = 2–5.8 (0.499). */
+export const COUNT_SLOPE = 0.5;
 
 /**
  * Stars closer to the horizon than this (tan of the elevation, about 4°) are left
@@ -85,18 +108,19 @@ export function generateStarField(atlas: SpectralAtlas, seed = 1905): StarField 
     if (y / Math.max(horizontal, 1e-6) < HORIZON_SLOPE) continue;
     const azimuth = 2 * Math.PI * random();
 
-    // inverse of the cumulative count N(<m) ∝ 10^(0.51 m)
+    // inverse of the cumulative count N(<m) ∝ 10^(COUNT_SLOPE m)
     const magnitude = Math.max(BRIGHTEST_MAGNITUDE, limitingMagnitude + Math.log10(Math.max(random(), 1e-12)) / COUNT_SLOPE);
 
-    let pick = random();
+    // a class with the probability of its share of the catalogue; drawn on the count of entries so that the shares sum to one exactly
+    let pick = random() * CLASSIFIED_ENTRIES;
     let temperature = 5772;
     for (const spectral of SPECTRAL_CLASSES) {
-      if (pick < spectral.share) {
+      if (pick < spectral.entries) {
         // log-uniform within the class
         temperature = spectral.coolest * (spectral.hottest / spectral.coolest) ** random();
         break;
       }
-      pick -= spectral.share;
+      pick -= spectral.entries;
     }
 
     directions[made * 3] = horizontal * Math.sin(azimuth);

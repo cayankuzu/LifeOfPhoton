@@ -3,6 +3,7 @@ import { blackbodyLuminance, visibleGainOfBlackbody } from '@/physics/radiometry
 import { REFERENCE_LUMINANCE_CD_M2, SCENARIO } from '@/physics/scenario';
 import { ATLAS_ROW, sampleAtlas, sharedAtlas, temperatureCoordinate } from '@/physics/spectralAtlas';
 import {
+  COUNT_SLOPE,
   STAR_PSF_AREA,
   STAR_PSF_CUTOFF,
   STAR_PSF_STEEPNESS,
@@ -18,6 +19,57 @@ import {
 const atlas = sharedAtlas();
 const field = generateStarField(atlas);
 const { count, limitingMagnitude, visibilityGain } = SCENARIO.stars;
+
+/*
+ * The Bright Star Catalogue, 5th revised edition (Hoffleit & Warren 1991; VizieR catalogue V/50,
+ * table V/50/catalog), counted in full on 2026-11-11 through the ASU interface of CDS's VizieR
+ * mirror at the CfA, and checked a second way with the magnitude constraint applied by the server
+ * (V ≤ 1.0: 15, V ≤ 5.0: 1630, V ≤ 5.8: 4103, V ≤ 6.5: 8404). Pinned here independently of the
+ * generator, which must reproduce them.
+ */
+/** Entries of the catalogue; those with a V magnitude (the other 14 are novae, clusters and M 31). */
+const CATALOGUE_ENTRIES = 9110;
+const CATALOGUE_WITH_MAGNITUDE = 9096;
+/** Entries over the whole sky with V ≤ m, as [m, N]. */
+const CATALOGUE_AT_MOST: ReadonlyArray<readonly [number, number]> = [
+  [1, 15],
+  [2, 50],
+  [2.5, 93],
+  [3, 174],
+  [3.5, 287],
+  [4, 518],
+  [4.5, 904],
+  [5, 1630],
+  [5.5, 2887],
+  [5.8, 4103],
+  [6, 5080],
+  [6.5, 8404],
+];
+/**
+ * Entries with V ≤ 5.8 per spectral class, the class being the first capital letter of the
+ * catalogue's spectral type (so "gG9" is G), with the temperature range the generator gives the
+ * class, K. Eleven entries have no class O–M (carbon stars C and N, S stars, the Wolf-Rayet star γ² Vel).
+ */
+const CATALOGUE_CLASSES: ReadonlyArray<readonly [string, number, number, number]> = [
+  ['O', 31, 30_000, 40_000],
+  ['B', 896, 10_000, 30_000],
+  ['A', 798, 7_500, 10_000],
+  ['F', 536, 6_000, 7_500],
+  ['G', 554, 5_200, 6_000],
+  ['K', 1000, 3_700, 5_200],
+  ['M', 277, 2_600, 3_700],
+];
+const CATALOGUE_UNCLASSIFIED = 11;
+
+/** Entries with V ≤ m in the catalogue. */
+function catalogueAtMost(magnitude: number): number {
+  const entry = CATALOGUE_AT_MOST.find(([m]) => m === magnitude);
+  if (!entry) throw new Error(`no catalogue count pinned at magnitude ${magnitude}`);
+  return entry[1];
+}
+
+/** Fraction of a hemisphere more than atan(0.07), about 4°, above the horizon. */
+const ABOVE_CUT = 1 - Math.sin(Math.atan(0.07));
 
 /** Share of the stars for which `test` holds. */
 function share(test: (index: number) => boolean): number {
@@ -66,12 +118,14 @@ describe('the star field', () => {
     }
   });
 
-  it('has as many stars as the real sky above the horizon haze, down to the limiting magnitude', () => {
-    // published whole-sky counts: 1 602 stars brighter than magnitude 5, 4 800 brighter than 6; interpolated in log N
-    const wholeSky = 1602 * (4800 / 1602) ** (limitingMagnitude - 5);
-    // half of them are above the horizon, and the generator leaves out the 4° next to it
-    const aboveCut = (wholeSky / 2) * (1 - Math.sin(Math.atan(0.07)));
-    expect(Math.abs(count / aboveCut - 1)).toBeLessThan(0.05);
+  it('has as many stars as the Bright Star Catalogue above the horizon haze, down to the limiting magnitude', () => {
+    expect(limitingMagnitude).toBe(5.8);
+    // the direct count of the catalogue, not an interpolation: half of the whole sky is above the
+    // horizon, and the generator leaves out the 4° next to it (93.0 % remain): 1908
+    const aboveCut = (catalogueAtMost(limitingMagnitude) / 2) * ABOVE_CUT;
+    expect(aboveCut).toBeCloseTo(1908.2, 1);
+    // 1900 is that number rounded; the catalogue's own Poisson scatter is 1/√4103 ≈ 1.6 %
+    expect(Math.abs(count / aboveCut - 1)).toBeLessThan(0.01);
   });
 
   it('covers the sky uniformly: no preferred azimuth, uniform in the sine of the elevation', () => {
@@ -93,36 +147,74 @@ describe('the star field', () => {
     expect(sumY / count).toBeGreaterThan(0.5);
     expect(sumY / count).toBeLessThan(0.57);
     for (const quadrant of quadrants) {
-      // binomial scatter of a quarter of 1800 is about 18
+      // binomial scatter of a quarter of the 1900 stars is √(1900 · ¼ · ¾) ≈ 19
       expect(Math.abs(quadrant - count / 4)).toBeLessThan(90);
     }
   });
 
-  it('reproduces the observed number counts: about 3.2 times more stars per magnitude', () => {
+  it('pins catalogue numbers that are consistent with one another', () => {
+    expect(CATALOGUE_WITH_MAGNITUDE + 14).toBe(CATALOGUE_ENTRIES);
+    for (let k = 1; k < CATALOGUE_AT_MOST.length; k++) {
+      expect(CATALOGUE_AT_MOST[k][0]).toBeGreaterThan(CATALOGUE_AT_MOST[k - 1][0]);
+      expect(CATALOGUE_AT_MOST[k][1]).toBeGreaterThan(CATALOGUE_AT_MOST[k - 1][1]);
+    }
+    expect(catalogueAtMost(6.5)).toBeLessThan(CATALOGUE_WITH_MAGNITUDE);
+    const classified = CATALOGUE_CLASSES.reduce((sum, [, entries]) => sum + entries, 0);
+    expect(classified + CATALOGUE_UNCLASSIFIED).toBe(catalogueAtMost(5.8));
+  });
+
+  it('draws magnitudes with the slope of the catalogue: log₁₀ N(≤ m) fitted over m = 2–5.8', () => {
+    // least squares of log₁₀ N against m over the pinned counts from 2 to 5.8 gives 0.499
+    const points = CATALOGUE_AT_MOST.filter(([m]) => m >= 2 && m <= 5.8);
+    expect(points.length).toBe(9);
+    const meanM = points.reduce((sum, [m]) => sum + m, 0) / points.length;
+    const meanLog = points.reduce((sum, [, n]) => sum + Math.log10(n), 0) / points.length;
+    let sxy = 0;
+    let sxx = 0;
+    for (const [m, n] of points) {
+      sxy += (m - meanM) * (Math.log10(n) - meanLog);
+      sxx += (m - meanM) ** 2;
+    }
+    const slope = sxy / sxx;
+    expect(slope).toBeCloseTo(0.499, 3);
+    expect(Math.abs(COUNT_SLOPE - slope)).toBeLessThan(0.005);
+    // a single power law describes the catalogue to 0.026 dex (6 %, at m = 3) over this range
+    for (const [m, n] of points) expect(Math.abs(Math.log10(n) - (meanLog + slope * (m - meanM)))).toBeLessThan(0.03);
+  });
+
+  it('reproduces the cumulative counts of the catalogue from magnitude 2 to 5.8', () => {
     for (let i = 0; i < count; i++) {
       expect(field.magnitudes[i]).toBeLessThanOrEqual(limitingMagnitude + 1e-5);
       expect(field.magnitudes[i]).toBeGreaterThanOrEqual(-1.5 - 1e-5);
     }
-    // cumulative count N(<m) ∝ 10^(0.51 m): the share brighter than m is 10^(−0.51 (m_lim − m))
-    for (const fainter of [1, 2, 3]) {
-      const expected = 10 ** (-0.51 * fainter);
-      const measured = share((i) => field.magnitudes[i] < limitingMagnitude - fainter);
-      // binomial scatter: √(p(1−p)/n) ≤ 0.011; allow three standard deviations and a little more
-      expect(Math.abs(measured - expected)).toBeLessThan(0.04);
+    const whole = catalogueAtMost(limitingMagnitude);
+    for (const [m, entries] of CATALOGUE_AT_MOST.filter(([magnitude]) => magnitude >= 2 && magnitude < limitingMagnitude)) {
+      // the catalogue's share of entries with V ≤ m, scaled to the stars generated
+      const expected = (count * entries) / whole;
+      const measured = share((i) => field.magnitudes[i] <= m) * count;
+      // two Poisson samples of the same sky, the generated one and the catalogue (174 entries at m = 3
+      // scatter by 7.6 % themselves): three standard deviations of their difference
+      const sigma = expected * Math.sqrt(1 / expected + 1 / entries);
+      expect(Math.abs(measured - expected), `V ≤ ${m}: ${measured} generated, ${expected.toFixed(1)} expected`).toBeLessThan(
+        3 * sigma
+      );
     }
-    // a handful of first-magnitude stars, as in the real sky above the horizon
-    const bright = share((i) => field.magnitudes[i] < 1.5) * count;
-    expect(bright).toBeGreaterThan(3);
-    expect(bright).toBeLessThan(40);
+    // the brightest: 15 entries of the whole sky with V ≤ 1, i.e. about 7 above the cut
+    const firstMagnitude = share((i) => field.magnitudes[i] <= 1) * count;
+    const expectedFirst = (catalogueAtMost(1) / 2) * ABOVE_CUT;
+    expect(Math.abs(firstMagnitude - expectedFirst)).toBeLessThan(3 * Math.sqrt(expectedFirst) + 1);
   });
 
-  it('mixes spectral classes as the naked-eye sky does: mostly B–A stars and K giants', () => {
+  it('mixes spectral classes in the shares of the catalogue: mostly B–A stars and K giants', () => {
     const between = (low: number, high: number): number =>
       share((i) => field.temperatures[i] >= low && field.temperatures[i] < high);
-    // three standard deviations of a binomial share at n = 1800 are about 0.03
-    expect(Math.abs(between(10_000, 30_000) - 0.19)).toBeLessThan(0.035); // B
-    expect(Math.abs(between(7_500, 10_000) - 0.22)).toBeLessThan(0.035); // A
-    expect(Math.abs(between(3_700, 5_200) - 0.25)).toBeLessThan(0.035); // K
+    const classified = CATALOGUE_CLASSES.reduce((sum, [, entries]) => sum + entries, 0);
+    for (const [name, entries, coolest, hottest] of CATALOGUE_CLASSES) {
+      const expected = entries / classified;
+      // three standard deviations of a binomial share: 0.029 for B at n = 1900, 0.006 for O
+      const tolerance = 3 * Math.sqrt((expected * (1 - expected)) / count);
+      expect(Math.abs(between(coolest, hottest) - expected), `class ${name}`).toBeLessThan(tolerance);
+    }
     expect(between(2_600, 40_000 + 1)).toBeCloseTo(1, 12);
     // hot and cool stars are both well represented: this is what makes the boosted sky change colour
     expect(between(7_500, 40_001)).toBeGreaterThan(0.35);
