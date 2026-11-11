@@ -1,0 +1,13 @@
+# Build output and caches
+.next
+out
+coverage
+*.tsbuildinfo
+
+# Dependencies and generated files
+node_modules
+package-lock.json
+next-env.d.ts
+
+# Static assets: binary models and images
+public
