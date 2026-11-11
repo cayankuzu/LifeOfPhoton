@@ -8,7 +8,8 @@
  *
  * The same holds for the single-character shortcuts: a reader who switches them off
  * (speech input types them by the dozen) must not find them on again at the next visit.
- * Neither preference is part of a shared link.
+ * The same again for the panel "Why does it look like this?": open by default, and once closed
+ * it stays closed at later visits. None of these preferences is part of a shared link.
  *
  * The coach line ("roll the wheel to accelerate") is shown until the first deliberate input
  * and then never again.
@@ -18,6 +19,7 @@ import { type Language, updateSettings } from './simulation';
 
 const STORAGE_LANGUAGE = 'life-of-a-photon.language';
 const STORAGE_SINGLE_KEYS = 'life-of-a-photon.single-keys';
+const STORAGE_EXPLAINER = 'life-of-a-photon.explainer';
 const STORAGE_COACHED = 'life-of-a-photon.coached';
 
 /** Reads a stored value; storage may be unavailable (private mode, blocked site data). */
@@ -60,6 +62,18 @@ export function storedSingleKeys(): boolean | null {
 export function chooseSingleKeys(on: boolean): void {
   updateSettings({ singleKeys: on });
   write(STORAGE_SINGLE_KEYS, on ? 'on' : 'off');
+}
+
+/** Whether the reader opened or closed the panel "Why does it look like this?" on an earlier visit, if they did. */
+export function storedExplainer(): boolean | null {
+  const stored = read(STORAGE_EXPLAINER);
+  return stored === 'on' ? true : stored === 'off' ? false : null;
+}
+
+/** Opens or closes the panel "Why does it look like this?" and remembers the choice. */
+export function chooseExplainer(on: boolean): void {
+  updateSettings({ explainer: on });
+  write(STORAGE_EXPLAINER, on ? 'on' : 'off');
 }
 
 /** Dismissed in this visit: the coach line stays away even where the browser cannot store that. */

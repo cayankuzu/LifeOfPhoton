@@ -27,6 +27,12 @@ export const CHUNK_COUNT = 16;
 export const CHUNKS_BEHIND = 3;
 export const VARIANT_COUNT = 6;
 
+/**
+ * Spacing of the measuring grid drawn on the ground in the measured view, m of rest length along
+ * the avenue. The shader draws it and the panel "Why does it look like this?" names it.
+ */
+export const MEASURING_GRID_M = 10;
+
 /** Height of the driving surface, m (the road model's kerb strips rise to 0.20 m). */
 export const ROAD_SURFACE_Y = 0.1;
 

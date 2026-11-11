@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { boostBy } from '@/physics/kinematics';
+import { storedExplainer } from '@/state/preferences';
 import { DEFAULT_SETTINGS, RAPIDITY_STEP, type Settings, getSettings, look, updateSettings } from '@/state/simulation';
 import { type KeyScope, PRESETS, runShortcut } from '../shortcuts';
 
@@ -17,7 +18,7 @@ function after(key: string, scope: KeyScope = FREE, from: Partial<Settings> = {}
 }
 
 /** One key of every kind the simulation answers to. */
-const LETTERS_DIGITS_SPACE = ['w', 's', 'a', ' ', 'm', 't', 'g', 'l', 'f', 'r', 'd', '0', '3', '5'];
+const LETTERS_DIGITS_SPACE = ['w', 's', 'a', ' ', 'm', 't', 'g', 'l', 'f', 'r', 'd', 'e', '0', '3', '5'];
 const NAMED = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home'];
 
 describe('keyboard shortcuts', () => {
@@ -48,6 +49,28 @@ describe('keyboard shortcuts', () => {
     look.yaw = 0;
     expect(press('ArrowLeft')).toBe(true);
     expect(look.yaw).toBeGreaterThan(0);
+  });
+
+  it('open and close the panel “Why does it look like this?” and remember the choice', () => {
+    const items = new Map<string, string>();
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => items.get(key) ?? null,
+        setItem: (key: string, value: string) => items.set(key, value),
+      },
+    });
+    try {
+      expect(after('e').explainer).toBe(false);
+      expect(storedExplainer()).toBe(false);
+      expect(after('E', FREE, { explainer: false }).explainer).toBe(true);
+      expect(storedExplainer()).toBe(true);
+      // a switch: holding the key does not flip it at the repeat rate
+      updateSettings({ ...DEFAULT_SETTINGS });
+      expect(press('e', FREE, true)).toBe(false);
+      expect(getSettings().explainer).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('tell the browser to skip its default only for keys they used', () => {

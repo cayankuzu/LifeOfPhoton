@@ -36,7 +36,35 @@ const CALLS = new Map<string, Call>([
   ['regime.extreme', [(m) => m.regime.extreme('9.61°', '0.810°'), ['9.61°', '0.810°']]],
   ['regime.limit', [(m) => m.regime.limit('0.256°', '223.6'), ['0.256°', 'γ = 223.6']]],
   ['regime.measured', [(m) => m.regime.measured('44.7 cm'), ['44.7 cm']]],
+  ['explain.readMoreAbout', [(m) => m.explain.readMoreAbout('Title'), ['Title']]],
+  ['explain.announce', [(m) => m.explain.announce(['First', 'Second']), ['First; Second.']]],
+  ['explain.items.slow.body', [(m) => m.explain.items.slow.body('0.5'), ['0.5']]],
+  ['explain.items.colours.body', [(m) => m.explain.items.colours.body('green', '511.1 nm'), ['green', '(511.1 nm)']]],
+  ['explain.items.lamps.body', [(m) => m.explain.items.lamps.body('blue'), ['blue']]],
+  ['explain.items.brightness.body', [(m) => m.explain.items.brightness.body('15'), ['15']]],
+  ['explain.items.camera.opens', [(m) => m.explain.items.camera.opens('+3.0'), ['(+3.0 EV)']]],
+  ['explain.items.camera.closes', [(m) => m.explain.items.camera.closes('−2.4'), ['(−2.4 EV)']]],
+  ['explain.items.crowding.beside.body', [(m) => m.explain.items.crowding.beside.body('30.0°'), ['30.0°']]],
+  ['explain.items.crowding.circle.body', [(m) => m.explain.items.crowding.circle.body('8.11°'), ['8.11°']]],
+  ['explain.items.shapes.body', [(m) => m.explain.items.shapes.body('3.7'), ['3.7']]],
+  ['explain.items.measured.rest', [(m) => m.explain.items.measured.rest('10'), ['10']]],
+  ['explain.items.measured.main', [(m) => m.explain.items.measured.main('2.00', '50.00 m'), ['2.00', '50.00 m', '100']]],
+  ['explain.items.clocks.body', [(m) => m.explain.items.clocks.body('2.00'), ['2.00']]],
+  [
+    'explain.items.heatGlow.body',
+    [(m) => m.explain.items.heatGlow.body('red', 'like a coil', '802', '15'), ['red', 'like a coil', '802 °C', '15 °C']],
+  ],
+  ['explain.items.moon.reflected.body', [(m) => m.explain.items.moon.reflected.body('15'), ['15']]],
+  ['explain.items.lens.title', [(m) => m.explain.items.lens.title('10'), ['×10']]],
+  ['explain.items.lens.body', [(m) => m.explain.items.lens.body('10'), ['10']]],
+  ['explain.items.speedOfLight.body', [(m) => m.explain.items.speedOfLight.body('300 000'), ['300 000 km']]],
 ]);
+
+/**
+ * Fragments that are set inside a sentence of the explainer. One of them may open with a proper
+ * noun in one language only ("Güneş kadar olmasa da" / "though less than the Sun").
+ */
+const INSIDE_A_SENTENCE = /^explain\.(glowColours|glowLikeness)\./;
 
 /** All the text a dictionary can produce: its strings and the result of each representative call. */
 function texts(messages: Messages): Array<{ readonly path: string; readonly text: string }> {
@@ -104,7 +132,7 @@ describe('the two dictionaries', () => {
       const other = english.get(path) ?? '';
       const context = `${path}: "${text}" / "${other}"`;
       // labels are capitalised and notes are not; a text may open with a number in one language only
-      if (opening(text) !== 'neither' && opening(other) !== 'neither') {
+      if (opening(text) !== 'neither' && opening(other) !== 'neither' && !INSIDE_A_SENTENCE.test(path)) {
         expect(opening(text), context).toBe(opening(other));
       }
       expect(text.endsWith('.'), context).toBe(other.endsWith('.'));

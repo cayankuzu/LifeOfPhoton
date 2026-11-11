@@ -16,6 +16,7 @@
 
 import { SCENARIO } from '@/physics/scenario';
 import { EMITTER } from '../emitters';
+import { MEASURING_GRID_M } from '../geometry/layout';
 import { ATLAS_SAMPLING, BOOST_MATH, COMMON_UNIFORMS, DISPLAY_TRANSFORM, glslFloat } from './chunks';
 
 /** The diffuse moonlight a surface receives, as a share of uSkyFill: linear in n.y, 1 facing up (scenario.ts). */
@@ -135,9 +136,9 @@ export const cityFragmentShader = /* glsl */ `
       }
     }
 
-    // --- measuring grid (measured view only): a line every 10 m of REST length along the avenue
+    // --- measuring grid (measured view only): a line every MEASURING_GRID_M of REST length along the avenue
     if (uGrid > 0.5 && n.y > 0.9) {
-      float s = (uOdometer + along) / 10.0;
+      float s = (uOdometer + along) / ${glslFloat(MEASURING_GRID_M)};
       float line = 1.0 - smoothstep(0.0, 1.5, abs(fract(s - 0.5) - 0.5) / max(fwidth(s), 1e-5));
       float major = 1.0 - smoothstep(0.0, 1.5, abs(fract(s / 5.0 - 0.5) - 0.5) / max(fwidth(s / 5.0), 1e-5));
       radiance += vec3(0.95, 0.62, 0.12) * exp(uLnExposure) * (0.22 * line + 0.5 * major);

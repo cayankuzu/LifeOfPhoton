@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { encodeFragment } from '../fragment';
-import { chooseLanguage, chooseSingleKeys, storedLanguage, storedSingleKeys } from '../preferences';
+import {
+  chooseExplainer,
+  chooseLanguage,
+  chooseSingleKeys,
+  storedExplainer,
+  storedLanguage,
+  storedSingleKeys,
+} from '../preferences';
 import { DEFAULT_SETTINGS, getSettings, updateSettings } from '../simulation';
 
 /** A Storage held in memory, which can be told to refuse every access as a private window may. */
@@ -46,6 +53,7 @@ describe('preferences of the reader', () => {
   it('remember nothing until the reader chooses', () => {
     expect(storedLanguage()).toBeNull();
     expect(storedSingleKeys()).toBeNull();
+    expect(storedExplainer()).toBeNull();
   });
 
   it('switch the language and remember it as the reader’s choice', () => {
@@ -71,25 +79,40 @@ describe('preferences of the reader', () => {
     expect(storedSingleKeys()).toBe(true);
   });
 
+  it('open and close the panel “Why does it look like this?” and remember both states', () => {
+    expect(getSettings().explainer).toBe(true);
+    chooseExplainer(false);
+    expect(getSettings().explainer).toBe(false);
+    expect(storedExplainer()).toBe(false);
+    chooseExplainer(true);
+    expect(getSettings().explainer).toBe(true);
+    expect(storedExplainer()).toBe(true);
+  });
+
   it('ignore stored values they did not write', () => {
     storage.setItem('life-of-a-photon.language', 'de');
     storage.setItem('life-of-a-photon.single-keys', 'true');
+    storage.setItem('life-of-a-photon.explainer', 'false');
     expect(storedLanguage()).toBeNull();
     expect(storedSingleKeys()).toBeNull();
+    expect(storedExplainer()).toBeNull();
   });
 
   it('keep working when the browser refuses storage', () => {
     vi.stubGlobal('window', { localStorage: memoryStorage(true) });
     expect(storedLanguage()).toBeNull();
     expect(storedSingleKeys()).toBeNull();
+    expect(storedExplainer()).toBeNull();
     // the choice still applies to this visit
     expect(() => chooseLanguage('en')).not.toThrow();
     expect(() => chooseSingleKeys(false)).not.toThrow();
-    expect(getSettings()).toMatchObject({ language: 'en', singleKeys: false });
+    expect(() => chooseExplainer(false)).not.toThrow();
+    expect(getSettings()).toMatchObject({ language: 'en', singleKeys: false, explainer: false });
   });
 
   it('are not part of a shared link, apart from the language of the visit', () => {
     chooseSingleKeys(false);
+    chooseExplainer(false);
     expect(encodeFragment(getSettings())).toBe(encodeFragment(DEFAULT_SETTINGS));
   });
 });

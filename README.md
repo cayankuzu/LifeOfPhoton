@@ -38,6 +38,8 @@ Gözlemci cadde boyunca, durgun hâlden $\beta = 0{,}99999$ ($\gamma = 223{,}6$)
 - Kılavuz katmanı (_Kılavuz_): hareket yönü, nötr koni ve yan düzlemin görüldüğü çember; görüntünün içine değil, üzerine çizilir.
 - Mercek (×1, ×3, ×10), ısıl ışıma katmanını açıp kapatan anahtar ve duraklatma.
 
+**Neden böyle görünüyor?** Ölçerlerin yanında (telefonda üst çubuğun altında tek satır olarak) duran küçük bir panel, görüntünün o anda neden öyle göründüğünü fizikçi olmayan bir okura, örneğin meraklı bir dördüncü sınıf öğrencisine, iki ile dört kısa maddede sade bir dille anlatır: renklerin neden kaydığını, lambaların neden karardığını, her şeyin neden öne toplandığını, caddenin neden kendiliğinden parladığını, saatin neden yavaş işlediğini. Maddeler o anki hızdan, görünümden ve bakış yönünden seçilir (`src/ui/explain.ts`); her eşik uygulamanın kendi fizik fonksiyonlarından çözülür, böylece hiçbir madde ekranda olmayan bir şeyi görünüyor diye anlatmaz. Hız değişirken panel titremez: liste ancak yarım saniye aynı kaldıktan sonra değişir. Her maddenin altındaki bağlantı bilimsel analizi o etkiyi işleyen bölümde açar. Panel varsayılan olarak açıktır; üst çubuktaki _Neden?_ düğmesiyle ya da `E` tuşuyla kapanır ve bu seçim tarayıcıda saklanır.
+
 **Bilimsel analiz.** Sahnenin yanında açılan, makale düzeninde dizilmiş bir yan paneldir (_Bilimsel analiz_). On bölümden oluşur: düşünce deneyi, gözlemcinin kinematiği, hareketli gözlemcinin optiği, parlaklık ve renk, yöntem, gözlem kılavuzu, yedi yanılgı, deneysel kanıt, yazılımın doğrulanması ve modelin sınırları; ayrıca simgeler ve terimler dizini ile açıklamalı bir kaynakça içerir. Sayısal çizelgeleri görüntüleyicinin kullandığı fonksiyonlarla üretilir, şekilleri geçerli hızı işaretler ve “Sahnede göster” düğmeleri simülasyonu metinde tartışılan duruma getirir: hız, görünüm, ısıl ışıma, mercek ve bakış yönü, daha önce hangi düğmeye basılmış olursa olsun, birlikte ayarlanır. Formüller MathML olarak da işlenir; böylece ekran okuyucular onları okuyabilir.
 
 ### 2. Bilimsel temel
@@ -196,11 +198,13 @@ src/
 ├── state/
 │   ├── simulation.ts     ayar deposu, telemetri, bakış yönü
 │   ├── fragment.ts       deneyin durumu, URL parçası olarak
-│   └── preferences.ts    okurun seçtiği dil ve tek tuşlu kısayollar (tarayıcıda saklanır)
+│   └── preferences.ts    okurun seçtiği dil, tek tuşlu kısayollar ve açıklama paneli (tarayıcıda saklanır)
 ├── i18n/                 format.ts (dile göre sayı biçimi), messages.ts (arayüz metinleri, Türkçe ve İngilizce)
 ├── ui/                   App.tsx (bileşim, klavye, URL ve dil), shortcuts.ts (klavye kısayolları),
+│                         explain.ts (“Neden böyle görünüyor?” panelinin seçim kuralı; saf fonksiyonlar),
 │                         DossierFrame.tsx (analiz yüklenirken ve yüklenemezse), hooks.ts, primitives.tsx,
-│                         hud/ (ölçerler; Loading.tsx ve poster.jpg: açılış ekranı), __tests__/
+│                         hud/ (ölçerler; Explainer.tsx: açıklama paneli; Loading.tsx ve poster.jpg: açılış ekranı),
+│                         __tests__/
 └── dossier/              bilimsel analiz
     ├── content/          veri olarak metin; iki dil yan yana
     ├── figures/          etkileşimli SVG şekilleri
@@ -233,7 +237,7 @@ Fizik, saf fonksiyonlardan oluşan ayrı bir kütüphanededir ve otomatik bir te
 | Yıldızlar: akı $G_T(D)/D^2$ çarpanıyla değişir; nokta yayılım fonksiyonunun tümlevi normalleştirmenin varsaydığı katı açıya eşittir ve yıldızın piksel ızgarasında nereye düştüğüne pek bağlı değildir; optik eksenle $\psi$ açısı yapan bir pikselin katı açısı $\cos^3\psi$ çarpanıyla küçülür; sayıları, kadir dağılımları ve tayf sınıflarının payları, istatistiksel saçılım içinde Parlak Yıldız Kataloğu’ndaki sayımlarla uyuşur (Hoffleit ve Warren 1991). Ölçülen görünüm: hareket doğrultusundaki uzunluklar $1/\gamma$ oranında kısalır; piksel başına ters dönüşüm onu geri alır. | Yıldızların titremesi, yanlış parlaklık ya da yoğunluk; ölçülen görünümde yanlış büzülme.   |
 | Analiz metni: her atıf kaynakçada vardır, kaynakçadaki her kaynak anılır, her şekle ve çizelgeye metinde numarasıyla değinilir, her formül derlenir ve iki dil aynı sayıları verir.                                                                                                                                                                                                                                                                                                                                                                                                           | Kopuk atıflar, bozuk formüller, ayrışan çeviriler.                                          |
 
-Bunlara ek olarak sahne testleri model dosyalarının kendisini okur (armatürün ışık yüzü, bina camları ve sinyal merceklerinin yeri dosyalarla karşılaştırılır) ve sokak aydınlatmasının fotometrik tasarımını denetler; böylece bir modelin değiştirilmesi koddaki sayıları sessizce geçersiz kılamaz. Testler kodun yanındaki `__tests__` klasörlerindedir: `src/physics`, `src/scene`, `src/scene/geometry`, `src/state`, `src/i18n`, `src/ui`, `src/ui/hud` ve `src/dossier` altında.
+Bunlara ek olarak sahne testleri model dosyalarının kendisini okur (armatürün ışık yüzü, bina camları ve sinyal merceklerinin yeri dosyalarla karşılaştırılır) ve sokak aydınlatmasının fotometrik tasarımını denetler; böylece bir modelin değiştirilmesi koddaki sayıları sessizce geçersiz kılamaz. Açıklama panelinin testleri (`src/ui/__tests__/explain.test.ts`) eşikleri sabit sayılara değil fizik fonksiyonlarına karşı denetler: lamba ışığının ışıklılığının %1’ine düştüğü Doppler çarpanları, kırmızı trafik ışığı örneğinin görünür bantta kalması, yan düzlemin görüntünün yarı eksenlerine girdiği hızlar, ısıl parıltının kamerada görünür olduğu düzey, Ay’ın kendi ısısıyla parladığı ve parıltının Güneş yüzeyini geçtiği yerler; renk adları görüntüleyicinin çizdiği renk tonlarıyla karşılaştırılır. Hızın, görünümün, ısıl ışımanın, bakış yönünün, merceğin ve en-boy oranının bütün denenen birleşimlerinde hiçbir maddenin koşulu sağlanmadan seçilmediği, hız titrediğinde listenin gidip gelmediği, metinlerin kısa kaldığı, iki dilin aynı sayıları verdiği ve sözlükteki her metne bir durumdan ulaşıldığı sınanır. Testler kodun yanındaki `__tests__` klasörlerindedir: `src/physics`, `src/scene`, `src/scene/geometry`, `src/state`, `src/i18n`, `src/ui`, `src/ui/hud` ve `src/dossier` altında.
 
 ```sh
 npm test                                              # bütün takım, bir kez
@@ -282,7 +286,7 @@ Sürekli tümleştirme iş akışı (`.github/workflows/ci.yml`) aynı denetimle
 
 #### Denetimler
 
-Ekrandaki denetimler: _Görülen_ / _Ölçülen_ görünüm seçimi, _Isıl ışıma_, _Kılavuz_, _Mercek_, duraklatma, _Bilimsel analiz_, _Kısayollar_ ve dil düğmesi (üst çubuk); _Hız_ sürgüsü, yavaşlatma ve hızlandırma düğmeleri ile hazır hızlar (alt şerit).
+Ekrandaki denetimler: _Görülen_ / _Ölçülen_ görünüm seçimi, _Isıl ışıma_, _Kılavuz_, _Mercek_, duraklatma, _Neden?_ (açıklama paneli), _Bilimsel analiz_, _Kısayollar_ ve dil düğmesi (üst çubuk); _Hız_ sürgüsü, yavaşlatma ve hızlandırma düğmeleri ile hazır hızlar (alt şerit).
 
 | Tuş              | Eylem                                                           |
 | ---------------- | --------------------------------------------------------------- |
@@ -299,9 +303,10 @@ Ekrandaki denetimler: _Görülen_ / _Ölçülen_ görünüm seçimi, _Isıl ış
 | `F` ya da `Home` | İleri bak.                                                      |
 | `R`              | Saatleri sıfırla.                                               |
 | `D`              | Bilimsel analizi aç / kapat.                                    |
+| `E`              | _Neden böyle görünüyor?_ panelini aç / kapat.                   |
 | `Esc`            | Kısayol listesini, o kapalıysa bilimsel analizi kapat.          |
 
-Kısayollar, odak bir metin alanındayken ya da Ctrl, Alt veya Meta tuşu basılıyken çalışmaz; odaktaki hız sürgüsü yalnızca ok, Home/End ve Page tuşlarını kendine ayırır (ok tuşları orada da aynı itmeyi verir); odak analizin içindeyken tuşlar okumaya aittir, odaktaki bir düğmenin üzerinde `Boşluk` ise o düğmeyi etkinleştirir. Sahne yüklenirken ve analiz ekranın tamamını kapladığında yalnızca `Esc` çalışır. Kısayol listesindeki _Tek tuşlu kısayollar_ anahtarı, harf, rakam ve boşluk tuşlarını kısayol olmaktan çıkarır (WCAG 2.1.4; konuşarak yazanlar için); ok tuşları, `Home` ve `Esc` çalışmayı sürdürür. Bu seçim tarayıcıda saklanır, bağlantılara girmez.
+Kısayollar, odak bir metin alanındayken ya da Ctrl, Alt veya Meta tuşu basılıyken çalışmaz; odaktaki hız sürgüsü yalnızca ok, Home/End ve Page tuşlarını kendine ayırır (ok tuşları orada da aynı itmeyi verir); odak analizin içindeyken tuşlar okumaya aittir, odaktaki bir düğmenin üzerinde `Boşluk` ise o düğmeyi etkinleştirir. Sahne yüklenirken ve analiz ekranın tamamını kapladığında yalnızca `Esc` çalışır. Kısayol listesindeki _Tek tuşlu kısayollar_ anahtarı, harf, rakam ve boşluk tuşlarını kısayol olmaktan çıkarır (WCAG 2.1.4; konuşarak yazanlar için); ok tuşları, `Home` ve `Esc` çalışmayı sürdürür. Bu seçim de, açıklama panelinin açık ya da kapalı olması da tarayıcıda saklanır, bağlantılara girmez.
 
 | Hareket  | Eylem                                                                                                     |
 | -------- | --------------------------------------------------------------------------------------------------------- |
@@ -327,9 +332,9 @@ Deneyin durumu URL parçasında (`#` sonrası bölüm) tutulur; böylece her gö
 #### Erişilebilirlik
 
 - **Azaltılmış hareket.** `prefers-reduced-motion: reduce` tercihinde simülasyon duraklatılmış olarak, cadde hareketsizken başlar; arayüz geçişleri de bastırılır.
-- **Klavye.** Bütün denetimler yerel düğmeler ve bir yerel sürgüdür; klavyeyle ulaşılır ve kullanılır. Bir atlama bağlantısı doğrudan denetimlere götürür, odak her zaman görünür, hız denetimi değerini β ve γ olarak bildirir. Analiz ve kısayol listesi açıldıklarında odağı alır, kapandıklarında geri verir ve `Esc` ile kapanır. Analiz ekranın tamamını kapladığında (1024 pikselden dar pencerelerde) modal bir iletişim kutusudur; arkasındaki sahneye ne odakla ne de kısayollarla ulaşılabilir. Tek tuşlu kısayollar kapatılabilir (bkz. Denetimler).
+- **Klavye.** Bütün denetimler yerel düğmeler ve bir yerel sürgüdür; klavyeyle ulaşılır ve kullanılır. Bir atlama bağlantısı doğrudan denetimlere götürür, odak her zaman görünür, hız denetimi değerini β ve γ olarak bildirir. Analiz ve kısayol listesi açıldıklarında odağı alır, kapandıklarında geri verir ve `Esc` ile kapanır. Açıklama paneli kendi düğmesiyle kapatıldığında odak üst çubuktaki _Neden?_ düğmesine döner; o düğme durumunu (`aria-pressed`) ve denetlediği paneli (`aria-controls`) bildirir. Analiz ekranın tamamını kapladığında (1024 pikselden dar pencerelerde) modal bir iletişim kutusudur; arkasındaki sahneye ne odakla ne de kısayollarla ulaşılabilir. Tek tuşlu kısayollar kapatılabilir (bkz. Denetimler).
 - **Dil.** Türkçe ve İngilizce arasında her an geçilebilir. Başlangıç dili sırasıyla bağlantıdan, kayıtlı seçimden ve tarayıcının dilinden alınır; belgenin dil özniteliği buna göre ayarlanır ve sayılar dile uyar (Türkçede ondalık virgül).
-- **Ekran okuyucular.** Tuval yardımcı teknolojilerden gizlenir; ölçer panelindeki canlı cümle geçerli hızın görünüme ne yaptığını bildirir, yükleme durumu ve hatalar duyurulur. Sayfanın görünmeyen bir ana başlığı vardır, belgenin başlığı arayüz diliyle değişir ve analizdeki formüller MathML olarak da işlenir.
+- **Ekran okuyucular.** Tuval yardımcı teknolojilerden gizlenir; ölçer panelindeki canlı cümle geçerli hızın görünüme ne yaptığını bildirir, yükleme durumu ve hatalar duyurulur. Açıklama paneli adlandırılmış bir bölgedir; yeni bir maddeler kümesinin başlıkları, liste yarım saniye değişmeden kaldıktan sonra ve yalnızca kümedeki maddeler değiştiğinde bir kez, kibarca duyurulur (bir metindeki sayının değişmesi ve sayfa açılırken gelen ilk liste duyurulmaz); metinlerin kendisi bölgeye girildiğinde okunur. Sayfanın görünmeyen bir ana başlığı vardır, belgenin başlığı arayüz diliyle değişir ve analizdeki formüller MathML olarak da işlenir.
 - **Sahne gösterilemezse.** WebGL 2 yoksa ya da sahne yüklenemezse bilimsel analiz yine açılabilir; analiz yüklenemezse bir hata iletisi ve yeniden deneme düğmesi gösterilir.
 
 ### 9. Modelin sınırları
@@ -419,6 +424,8 @@ Comparing the two at the same speed shows how little the image resembles the mea
 - Instrument dock (_Instruments_): proper time $\tau$ and street time $t$; the measured length of 100 m of road; the angle at which the transverse plane ($\theta = 90^\circ$) is seen; the half-angle of the neutral cone ($D = 1$); the wavelength and band at which 555 nm reference light lands ahead and behind; the apparent temperature of the 288 K surroundings ahead; the exposure correction in EV; a strip of the electromagnetic spectrum from 1 nm to 1 mm; one live sentence on what the current speed does to the view.
 - Guide layer (_Guides_): the direction of motion, the neutral cone and the circle on which the transverse plane is seen; drawn over the image, never into it.
 - A lens (×1, ×3, ×10), a switch for the thermal emission layer, and pause.
+
+**Why does it look like this?** A small panel beside the instruments (on a phone, one line under the top bar) tells a reader who is not a physicist, a curious nine-year-old for instance, in two to four short items and plain words why the picture looks the way it does at this moment: why the colours shift, why the lamps go dark, why everything gathers ahead, why the street glows by itself, why your clock runs slow. The items are chosen from the current speed, view and direction of looking (`src/ui/explain.ts`); every threshold is solved from the application’s own physics functions, so that no item calls something visible that is not on the screen. The panel does not flicker while the speed changes: its list changes only after it has stayed the same for half a second. The link under each item opens the dossier at the section that treats the effect. The panel is open by default; the _Why?_ button in the top bar or the `E` key closes it, and the choice is kept by the browser.
 
 **The dossier.** A side sheet that opens beside the scene and is typeset as a paper (_Scientific dossier_). It has ten sections: the thought experiment, kinematics of the observer, the optics of a moving observer, brightness and colour, method, observation guide, seven misconceptions, experimental evidence, verification of the software and limits of the model; it also contains a glossary of symbols and terms and an annotated bibliography. Its numerical tables are generated with the functions the renderer uses, its figures mark the current speed, and its “Show in the scene” buttons set the simulation to the state under discussion: the speed, the view, the thermal emission, the lens and the view direction are set together, whatever button was pressed before. The formulas are rendered as MathML as well, so that screen readers can read them.
 
@@ -578,11 +585,14 @@ src/
 ├── state/
 │   ├── simulation.ts     settings store, telemetry, view direction
 │   ├── fragment.ts       the state of the experiment as a URL fragment
-│   └── preferences.ts    the language and single-key shortcuts as the reader chose them (kept by the browser)
+│   └── preferences.ts    the language, the single-key shortcuts and the explainer panel as the reader chose
+│                         them (kept by the browser)
 ├── i18n/                 format.ts (number formatting per language), messages.ts (interface strings, Turkish and English)
 ├── ui/                   App.tsx (composition, keyboard, URL and language), shortcuts.ts (keyboard shortcuts),
+│                         explain.ts (the selection rule of the “Why does it look like this?” panel; pure functions),
 │                         DossierFrame.tsx (while the dossier loads or fails), hooks.ts, primitives.tsx,
-│                         hud/ (instruments; Loading.tsx and poster.jpg: the start-up screen), __tests__/
+│                         hud/ (instruments; Explainer.tsx: the explainer panel; Loading.tsx and poster.jpg: the
+│                         start-up screen), __tests__/
 └── dossier/              the scientific dossier
     ├── content/          the text as data; both languages side by side
     ├── figures/          interactive SVG figures
@@ -615,7 +625,7 @@ The physics lives in a separate library of pure functions that is exercised by a
 | Stars: the flux changes by the factor $G_T(D)/D^2$; the integral of the point-spread function equals the solid angle the normalisation assumes and hardly depends on where the star falls on the pixel grid; a pixel at the angle $\psi$ from the optical axis subtends a solid angle smaller by the factor $\cos^3\psi$; their number, their distribution in magnitude and the shares of the spectral classes agree, within the statistical scatter, with counts made in the Bright Star Catalogue (Hoffleit & Warren 1991). Measured view: lengths along the motion contract by $1/\gamma$, and the per-pixel inverse undoes it. | Flickering stars, wrong brightness or density; a wrong contraction in the measured view. |
 | The text of the dossier: every citation exists in the bibliography, every entry of the bibliography is cited, every figure and table is referred to by number in the text, every formula compiles, and both languages state the same numbers.                                                                                                                                                                                                                                                                                                                                                                                      | Dangling citations, broken formulas, diverging translations.                             |
 
-In addition, the scene tests read the model files themselves (the position of the luminaire’s light face, of the window glass of the buildings and of the signal lenses is compared with the files) and check the photometric design of the street lighting, so that replacing a model cannot silently invalidate numbers in the code. The tests live next to the code in `__tests__` folders, under `src/physics`, `src/scene`, `src/scene/geometry`, `src/state`, `src/i18n`, `src/ui`, `src/ui/hud` and `src/dossier`.
+In addition, the scene tests read the model files themselves (the position of the luminaire’s light face, of the window glass of the buildings and of the signal lenses is compared with the files) and check the photometric design of the street lighting, so that replacing a model cannot silently invalidate numbers in the code. The tests of the explainer panel (`src/ui/__tests__/explain.test.ts`) check its thresholds against the physics functions rather than against literals: the Doppler factors at which the lamp light falls to 1 % of its luminance, the red traffic light of the example staying in the visible band, the speeds at which the transverse plane enters the half-axes of the view, the level at which the thermal glow shows through the camera, where the Moon glows by its own warmth and where the glow outshines the surface of the Sun; the colour names are compared with the hues the renderer draws. Over every combination tried of speed, view, thermal emission, direction of looking, lens and aspect ratio, they check that no item is selected unless its condition holds, that the list does not flip back and forth while the speed jitters, that the texts stay short, that both languages give the same numbers and that every text of the dictionary is reached from some state. The tests live next to the code in `__tests__` folders, under `src/physics`, `src/scene`, `src/scene/geometry`, `src/state`, `src/i18n`, `src/ui`, `src/ui/hud` and `src/dossier`.
 
 ```sh
 npm test                                              # the whole suite, once
@@ -664,7 +674,7 @@ The continuous-integration workflow (`.github/workflows/ci.yml`) runs the same c
 
 #### Controls
 
-On-screen controls: the _Seen_ / _Measured_ view switch, _Thermal emission_, _Guides_, _Lens_, pause, _Scientific dossier_, _Shortcuts_ and the language button (top bar); the _Speed_ slider, the slower and faster buttons and the preset speeds (bottom rail).
+On-screen controls: the _Seen_ / _Measured_ view switch, _Thermal emission_, _Guides_, _Lens_, pause, _Why?_ (the explainer panel), _Scientific dossier_, _Shortcuts_ and the language button (top bar); the _Speed_ slider, the slower and faster buttons and the preset speeds (bottom rail).
 
 | Key           | Action                                                           |
 | ------------- | ---------------------------------------------------------------- |
@@ -681,9 +691,10 @@ On-screen controls: the _Seen_ / _Measured_ view switch, _Thermal emission_, _Gu
 | `F` or `Home` | Look ahead.                                                      |
 | `R`           | Reset the clocks.                                                |
 | `D`           | Open / close the dossier.                                        |
+| `E`           | Open / close the _Why does it look like this?_ panel.            |
 | `Esc`         | Close the shortcut sheet, or else the dossier.                   |
 
-The shortcuts are inactive while a text field has the focus or while Ctrl, Alt or Meta is held; a focused speed slider keeps only the arrow, Home/End and Page keys for itself (the arrows give the same boost there); while the focus is inside the dossier the keys belong to reading, and `Space` on a focused button activates that button. While the scene is loading, and while the dossier covers the whole screen, only `Esc` works. The _Single-key shortcuts_ switch in the shortcut sheet stops the letter, digit and space keys from acting as shortcuts (WCAG 2.1.4, for readers who type by speech); the arrow keys, `Home` and `Esc` keep working. The choice is kept by the browser and is not part of links.
+The shortcuts are inactive while a text field has the focus or while Ctrl, Alt or Meta is held; a focused speed slider keeps only the arrow, Home/End and Page keys for itself (the arrows give the same boost there); while the focus is inside the dossier the keys belong to reading, and `Space` on a focused button activates that button. While the scene is loading, and while the dossier covers the whole screen, only `Esc` works. The _Single-key shortcuts_ switch in the shortcut sheet stops the letter, digit and space keys from acting as shortcuts (WCAG 2.1.4, for readers who type by speech); the arrow keys, `Home` and `Esc` keep working. This choice, like whether the explainer panel is open, is kept by the browser and is not part of links.
 
 | Gesture      | Action                                                                                                                      |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------- |
@@ -709,9 +720,9 @@ Example: `#b=0.99&t=0&l=en` opens the avenue at 0.99 c with the thermal emission
 #### Accessibility
 
 - **Reduced motion.** With the preference `prefers-reduced-motion: reduce` the simulation starts paused, with the avenue standing still; interface transitions are suppressed as well.
-- **Keyboard.** All controls are native buttons and one native slider; they can be reached and operated from the keyboard. A skip link leads straight to the controls, the focus is always visible, and the speed control announces its value as β and γ. The dossier and the shortcut sheet take the focus when they open, return it when they close, and close with `Esc`. Where the dossier covers the whole screen (windows narrower than 1024 pixels) it is a modal dialog; the scene behind it can be reached neither by the focus nor by the shortcuts. Single-key shortcuts can be switched off (see Controls).
+- **Keyboard.** All controls are native buttons and one native slider; they can be reached and operated from the keyboard. A skip link leads straight to the controls, the focus is always visible, and the speed control announces its value as β and γ. The dossier and the shortcut sheet take the focus when they open, return it when they close, and close with `Esc`. When the explainer panel is closed with its own button, the focus returns to the _Why?_ button in the top bar, which reports its state (`aria-pressed`) and the panel it controls (`aria-controls`). Where the dossier covers the whole screen (windows narrower than 1024 pixels) it is a modal dialog; the scene behind it can be reached neither by the focus nor by the shortcuts. Single-key shortcuts can be switched off (see Controls).
 - **Language.** Turkish and English can be switched at any time. The initial language is taken, in this order, from the link, from the stored choice and from the language of the browser; the language attribute of the document is set accordingly and numbers follow the language (decimal comma in Turkish).
-- **Screen readers.** The canvas is hidden from assistive technology; a live sentence on the instrument dock reports what the current speed does to the view, and the loading state and failures are announced. The page has a main heading that is not displayed, the title of the document follows the language of the interface, and the formulas of the dossier are rendered as MathML as well.
+- **Screen readers.** The canvas is hidden from assistive technology; a live sentence on the instrument dock reports what the current speed does to the view, and the loading state and failures are announced. The explainer panel is a named region; the titles of a new set of items are announced politely, once, after the list has stayed the same for half a second and only when the set of items changes (a number changing inside a text is not announced, nor is the first list after the page opens); the texts themselves are read when the reader moves into the region. The page has a main heading that is not displayed, the title of the document follows the language of the interface, and the formulas of the dossier are rendered as MathML as well.
 - **When the scene cannot be shown.** Without WebGL 2, or when the scene fails to load, the dossier can still be opened; if the dossier itself fails to load, an error message with a retry button is shown.
 
 ### 9. Limits of the model

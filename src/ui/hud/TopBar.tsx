@@ -1,11 +1,12 @@
 'use client';
 
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
-import { BookOpen, Crosshair, Keyboard, Pause, Play, Telescope, Thermometer } from 'lucide-react';
-import { chooseLanguage, chooseSingleKeys } from '@/state/preferences';
+import { BookOpen, Crosshair, Keyboard, Lightbulb, Pause, Play, Telescope, Thermometer } from 'lucide-react';
+import { chooseExplainer, chooseLanguage, chooseSingleKeys } from '@/state/preferences';
 import { LENSES, type Language, type ViewMode, updateSettings, useSettings } from '@/state/simulation';
 import { useMessages } from '../hooks';
 import { Button, Divider, IconButton, Kbd, Panel, Segmented, Toggle } from '../primitives';
+import { EXPLAINER_ID, EXPLAINER_TOGGLE_ID } from './Explainer';
 import { useHudTier } from './tier';
 
 /**
@@ -103,6 +104,7 @@ export default function TopBar() {
   const lens = useSettings((state) => state.lens);
   const paused = useSettings((state) => state.paused);
   const dossierOpen = useSettings((state) => state.dossier !== null);
+  const explainer = useSettings((state) => state.explainer);
   const [help, setHelp] = useState(false);
   const helpTrigger = useRef<HTMLButtonElement>(null);
   const closeHelp = useCallback(() => setHelp(false), []);
@@ -159,6 +161,17 @@ export default function TopBar() {
           {paused ? <Play className="h-3.5 w-3.5" aria-hidden="true" /> : <Pause className="h-3.5 w-3.5" aria-hidden="true" />}
         </IconButton>
         <Divider />
+        {/* the two explanations side by side: plain words first, then the scientific dossier */}
+        <Toggle
+          id={EXPLAINER_TOGGLE_ID}
+          pressed={explainer}
+          onChange={chooseExplainer}
+          hint={t.explain.toggleHint}
+          controls={EXPLAINER_ID}
+        >
+          <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
+          {label(t.explain.toggle)}
+        </Toggle>
         <Button
           onClick={() => updateSettings({ dossier: dossierOpen ? null : 'abstract' })}
           hint={t.controls.dossierHint}

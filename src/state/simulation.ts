@@ -43,6 +43,11 @@ export interface Settings {
    * Home and Escape stay active either way.
    */
   readonly singleKeys: boolean;
+  /**
+   * Whether the panel "Why does it look like this?" is open. A preference of the reader,
+   * remembered by the browser and not part of a shared link (like the single-key switch).
+   */
+  readonly explainer: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -56,6 +61,7 @@ export const DEFAULT_SETTINGS: Settings = {
   dossier: null,
   dock: true,
   singleKeys: true,
+  explainer: true,
 };
 
 type Listener = () => void;
@@ -142,6 +148,8 @@ export interface Telemetry {
   pitch: number;
   /** Current vertical field of view, rad. */
   fieldOfView: number;
+  /** Width over height of the view (what the exposure meter is given). */
+  aspect: number;
   /** Smoothed frame rate. */
   fps: number;
   /** Triangles submitted per frame. */
@@ -161,6 +169,7 @@ export const telemetry: Telemetry = {
   yaw: 0,
   pitch: 0,
   fieldOfView: 1,
+  aspect: 16 / 9,
   fps: 60,
   triangles: 0,
   phase: 'loading',

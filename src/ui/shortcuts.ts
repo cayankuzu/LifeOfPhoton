@@ -5,6 +5,7 @@
  */
 
 import { BETA_MAX, boostBy } from '@/physics/kinematics';
+import { chooseExplainer } from '@/state/preferences';
 import { LENSES, RAPIDITY_STEP, type Settings, lookAhead, resetClocks, turnBy, updateSettings } from '@/state/simulation';
 
 /** Velocities on the digit keys 0–5. */
@@ -93,6 +94,10 @@ export function runShortcut(press: KeyPress, settings: Settings, scope: KeyScope
       return true;
     case 'd':
       updateSettings({ dossier: settings.dossier === null ? 'abstract' : null });
+      return true;
+    case 'e':
+      // the panel "Why does it look like this?"; a choice of the reader, remembered as the button's is
+      chooseExplainer(!settings.explainer);
       return true;
     default: {
       const digit = /^[0-9]$/.test(key) ? Number(key) : -1;

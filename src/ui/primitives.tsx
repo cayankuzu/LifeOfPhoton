@@ -76,6 +76,8 @@ export function Toggle({
   hint,
   describedBy,
   className,
+  id,
+  controls,
 }: {
   readonly pressed: boolean;
   readonly onChange: (next: boolean) => void;
@@ -84,11 +86,16 @@ export function Toggle({
   /** Id of a visible note that explains the switch. */
   readonly describedBy?: string;
   readonly className?: string;
+  readonly id?: string;
+  /** Id of the element the switch shows and hides. */
+  readonly controls?: string;
 }) {
   return (
     <button
       type="button"
+      id={id}
       aria-pressed={pressed}
+      aria-controls={controls}
       aria-describedby={describedBy}
       title={hint}
       onClick={() => onChange(!pressed)}

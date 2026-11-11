@@ -3,7 +3,14 @@
 import dynamic from 'next/dynamic';
 import { type RefObject, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { decodeFragment, encodeFragment, isExperimentFragment } from '@/state/fragment';
-import { dismissCoach, isCoached, storedLanguage, storedSingleKeys, subscribeCoached } from '@/state/preferences';
+import {
+  dismissCoach,
+  isCoached,
+  storedExplainer,
+  storedLanguage,
+  storedSingleKeys,
+  subscribeCoached,
+} from '@/state/preferences';
 import {
   type Language,
   type Settings,
@@ -18,6 +25,7 @@ import {
 import { DossierBoundary, DossierLoading, SHEET_COVERS_QUERY } from './DossierFrame';
 import { useMediaQuery, useMessages } from './hooks';
 import Guides from './hud/Guides';
+import Explainer from './hud/Explainer';
 import InstrumentDock from './hud/InstrumentDock';
 import Loading from './hud/Loading';
 import LookAhead from './hud/LookAhead';
@@ -110,6 +118,8 @@ export default function App() {
       ...fromUrl,
       language: initialLanguage(fromUrl.language),
       ...(storedSingleKeys() === false ? { singleKeys: false } : {}),
+      // the panel "Why does it look like this?" is open unless the reader closed it on an earlier visit
+      ...(storedExplainer() === false ? { explainer: false } : {}),
       // people who ask for less motion start with the avenue standing still
       ...(reduceMotion ? { paused: true } : {}),
       // on small screens the instruments start collapsed so that the view stays open
@@ -214,9 +224,12 @@ export default function App() {
         <HudTierProvider target={hud} revision={dossierOpen}>
           <div ref={hud} className="pointer-events-none absolute inset-0 z-10 flex flex-col gap-3 p-3 sm:p-4">
             <TopBar />
+            {/* on a phone there is no room beside the dock: the panel is one line under the top bar */}
+            <Explainer placement="top" />
 
             <div className="relative flex min-h-0 flex-1 items-end justify-between gap-3">
               <InstrumentDock />
+              <Explainer placement="row" />
               <LookAhead />
             </div>
 

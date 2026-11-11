@@ -324,12 +324,13 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
     }
 
     // --- exposure
+    const aspect = size.width / Math.max(size.height, 1);
     const metered = meterLnExposure(atlas, {
       beta,
       yaw: s.yaw,
       pitch: s.pitch,
       fieldOfView,
-      aspect: size.width / Math.max(size.height, 1),
+      aspect,
       optical: s.optical > 0.5,
       thermal: settings.thermal,
     });
@@ -342,6 +343,7 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
     telemetry.yaw = s.yaw;
     telemetry.pitch = s.pitch;
     telemetry.fieldOfView = fieldOfView;
+    telemetry.aspect = aspect;
     telemetry.triangles = gl.info.render.triangles;
 
     // --- stars: a point-spread function of constant size in device pixels; flux → radiance through the solid

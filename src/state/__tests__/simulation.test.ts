@@ -36,6 +36,7 @@ const EVERYTHING_CHANGED: Settings = {
   dossier: 'optics',
   dock: false,
   singleKeys: false,
+  explainer: false,
 };
 
 /** Subscriptions made by a test; they are removed after it even if it fails half-way. */
