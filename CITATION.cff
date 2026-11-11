@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: If you use this software, please cite it using the metadata from this file.
+type: software
+title: Life of a Photon
+abstract: A first-person, physically based visualisation of what an observer with mass sees while travelling along a night-time city avenue at any constant speed from rest to 0.99999 c, with relativistic aberration, Doppler shift and the transformation of radiance computed spectrally in real time, accompanied by a bilingual (Turkish and English) scientific dossier inside the application.
+authors:
+  - name: cayankuzu
+repository-code: https://github.com/cayankuzu/LifeOfPhoton
+version: 1.0.0
+date-released: 2026-11-11
+keywords:
+  - special relativity
+  - relativistic aberration
+  - Doppler effect
+  - Terrell rotation
+  - Lorentz contraction
+  - transformation of radiance
+  - colorimetry
+  - real-time rendering
+  - WebGL
