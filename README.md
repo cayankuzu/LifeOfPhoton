@@ -183,6 +183,7 @@ src/
 │   ├── Simulation.tsx    kare döngüsü: itme değişkenleri, hareket, kamera, pozlama, telemetri
 │   ├── uniforms.ts       bütün malzemelerin paylaştığı değişkenler; atlasın grafik işlemcideki kopyası
 │   ├── emitters.ts       ışık kaynağı türlerinin kodları
+│   ├── resolution.ts     kare hızına göre uyarlanan çözünürlük
 │   ├── geometry/         layout.ts (modellerin yerleşimi), palette.ts (ışık kaynağını belirten palet renkleri),
 │   │                     build.ts (ağa indirgeme, renk işleme, blok kurma), subdivide.ts (uyarlamalı alt bölme),
 │   │                     lighting.ts (sokak aydınlatması), stars.ts (yıldız alanı), __tests__/
@@ -190,7 +191,8 @@ src/
 │                         city.ts, sky.ts, stars.ts
 ├── state/
 │   ├── simulation.ts     ayar deposu, telemetri, bakış yönü
-│   └── fragment.ts       deneyin durumu, URL parçası olarak
+│   ├── fragment.ts       deneyin durumu, URL parçası olarak
+│   └── preferences.ts    okurun seçtiği dil (tarayıcıda saklanır)
 ├── i18n/                 format.ts (dile göre sayı biçimi), messages.ts (arayüz metinleri, Türkçe ve İngilizce)
 ├── ui/                   App.tsx (bileşim, klavye, URL ve dil), hooks.ts, primitives.tsx, hud/ (ölçerler)
 └── dossier/              bilimsel analiz
@@ -342,7 +344,7 @@ Işık sapıncı, Doppler çarpanı ve ışınım parlaklığının dönüşüm�
 ### 11. Bilinen eksikler ve sonraki adımlar
 
 - **Uygulama çatısı.** Next.js 14 bakım aşamasındadır; desteklenen bir ana sürüme geçiş yapılacak işler arasındadır.
-- **Başarım.** Yalnızca tek bir makinede ölçülmüştür: tümleşik grafik işlemcili bir bilgisayarda, 1600 × 900 piksellik bir görünümde (4× çoklu örnekleme, yaklaşık yarım milyon üçgen) durgun hâlden 0,866 c hızına kadar ekranın 60 Hz’lik yenileme hızı korunur. Daha yüksek hızlar ve başka aygıtlar ölçülmemiştir. Görüntüleyici kare hızı düştüğünde çözünürlüğünü azaltır; bu davranışın kendisi ölçülerek belgelenmemiştir.
+- **Başarım.** Yalnızca tek bir makinede, tümleşik grafik işlemcili bir bilgisayarda ölçülmüştür (4× çoklu örnekleme, yaklaşık yarım milyon üçgen). 1600 × 900 piksellik bir pencerede, tam çözünürlükte, durgun hâlden 0,866 c hızına kadar ekranın 60 Hz’lik yenileme hızı korunur. Aynı makinede pencere açmadan (başsız tarayıcıda, 1440 × 900) yapılan ölçümde görüntüleyici çözünürlüğünü piksel oranının 0,6 katına indirir ve durgun hâlden aralığın üst ucuna kadar saniyede 47–57 kare çizer (karelerin %95’i 34 ms’nin altında). Kare hızı 42’nin altına düştüğünde çözünürlük azaltılır, 57’nin üstünde kaldığında yavaşça geri yükseltilir (`src/scene/resolution.ts`). Başka aygıtlar ölçülmemiştir.
 - **Ay ışığının renk sıcaklığı.** 4100 K değeri için belirsizliğiyle birlikte birincil bir kaynak bulunamamıştır.
 
 ### 12. Seçilmiş kaynaklar
@@ -549,6 +551,7 @@ src/
 │   ├── Simulation.tsx    frame loop: boost uniforms, motion, camera, exposure, telemetry
 │   ├── uniforms.ts       uniforms shared by all materials; copy of the atlas on the graphics processor
 │   ├── emitters.ts       codes of the kinds of light source
+│   ├── resolution.ts     resolution that adapts to the frame rate
 │   ├── geometry/         layout.ts (placement of the models), palette.ts (palette colours that mark light sources),
 │   │                     build.ts (flattening, colour baking, block assembly), subdivide.ts (adaptive subdivision),
 │   │                     lighting.ts (street lighting), stars.ts (star field), __tests__/
@@ -556,7 +559,8 @@ src/
 │                         city.ts, sky.ts, stars.ts
 ├── state/
 │   ├── simulation.ts     settings store, telemetry, view direction
-│   └── fragment.ts       the state of the experiment as a URL fragment
+│   ├── fragment.ts       the state of the experiment as a URL fragment
+│   └── preferences.ts    the language the reader chose (kept by the browser)
 ├── i18n/                 format.ts (number formatting per language), messages.ts (interface strings, Turkish and English)
 ├── ui/                   App.tsx (composition, keyboard, URL and language), hooks.ts, primitives.tsx, hud/ (instruments)
 └── dossier/              the scientific dossier
@@ -708,7 +712,7 @@ The aberration, the Doppler factor and the transformation of radiance are exact.
 ### 11. Known follow-ups
 
 - **Application framework.** Next.js 14 is in maintenance; moving to a supported major version is a follow-up.
-- **Performance.** Measured on one machine only: on a computer with an integrated graphics processor, in a view of 1600 × 900 pixels (4× multisampling, about half a million triangles), the display’s refresh rate of 60 Hz is held from rest up to 0.866 c. Higher speeds and other devices have not been measured. The renderer lowers its resolution when the frame rate drops; that behaviour itself has not been measured and documented.
+- **Performance.** Measured on one machine only, a computer with an integrated graphics processor (4× multisampling, about half a million triangles). In a window of 1600 × 900 pixels, at full resolution, the display’s refresh rate of 60 Hz is held from rest up to 0.866 c. Measured on the same machine without a window (headless browser, 1440 × 900), the renderer lowers its resolution to 0.6 of the pixel ratio and draws 47–57 frames per second from rest to the top of the range (95 % of the frames within 34 ms). The resolution is lowered when the frame rate falls below 42 and raised again, slowly, while it stays above 57 (`src/scene/resolution.ts`). Other devices have not been measured.
 - **Colour temperature of moonlight.** No primary source with an uncertainty was found for the value of 4100 K.
 
 ### 12. Selected references

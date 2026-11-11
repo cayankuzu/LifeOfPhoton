@@ -6,6 +6,7 @@ import { useProgress } from '@react-three/drei';
 import { SCENARIO } from '@/physics/scenario';
 import { boostByWheel, lookAhead, setLoadPhase, telemetry, turnBy } from '@/state/simulation';
 import Simulation from './Simulation';
+import { preferredPixelRatio } from './resolution';
 
 /** Reports failures while loading or building the scene instead of leaving a black canvas. */
 class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -44,6 +45,10 @@ function supportsWebGL2(): boolean {
 export default function UrbanScene() {
   const surface = useRef<HTMLDivElement | null>(null);
   const [supported, setSupported] = useState<boolean | null>(null);
+  // The resolution the scene is drawn at is state of this component and reaches the canvas as
+  // a prop: a value set behind the canvas's back is lost the next time the canvas renders.
+  const [pixelRatio, setPixelRatio] = useState(1);
+  useEffect(() => setPixelRatio(preferredPixelRatio(window.devicePixelRatio)), []);
 
   useEffect(() => {
     const ok = supportsWebGL2();
@@ -106,7 +111,7 @@ export default function UrbanScene() {
         <Canvas
           gl={{ antialias: true, alpha: false, stencil: false, powerPreference: 'high-performance' }}
           flat
-          dpr={1}
+          dpr={pixelRatio}
           camera={{ fov: SCENARIO.camera.fieldOfViewDeg, near: 0.1, far: 1500, position: [0, 1.85, 0] }}
           onCreated={({ gl }) => {
             // let the browser restore a lost context instead of leaving a dead canvas
@@ -115,7 +120,7 @@ export default function UrbanScene() {
         >
           <SceneBoundary>
             <Suspense fallback={<DownloadProgress />}>
-              <Simulation />
+              <Simulation pixelRatio={pixelRatio} onPixelRatio={setPixelRatio} />
             </Suspense>
           </SceneBoundary>
         </Canvas>

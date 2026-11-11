@@ -27,6 +27,7 @@ import {
 } from './geometry/build';
 import { type ModelPath, CHUNK_COUNT, CHUNK_LENGTH, MODEL_PATHS, VARIANT_COUNT, modelRole } from './geometry/layout';
 import { generateStarField } from './geometry/stars';
+import { adaptResolution, createResolutionState, preferredPixelRatio } from './resolution';
 import { cityFragmentShader, cityVertexShader } from './shaders/city';
 import { skyFragmentShader, skyVertexShader } from './shaders/sky';
 import { starFragmentShader, starVertexShader } from './shaders/stars';
@@ -49,6 +50,9 @@ const LENS_RESPONSE = 0.22;
 /** The eye adapts to brightness faster than to darkness. */
 const EXPOSURE_RESPONSE_DOWN = 0.35;
 const EXPOSURE_RESPONSE_UP = 1.1;
+
+/** Time after the avenue has appeared during which the frame rate is not yet judged, s. */
+const RESOLUTION_GRACE = 2;
 
 /** Diameter of the stellar point-spread function, CSS pixels. */
 const STAR_SIZE = 2.6;
@@ -115,11 +119,16 @@ function useBlocks(scenes: ReadonlyArray<THREE.Object3D>): BlockGeometry[][] | n
   return blocks;
 }
 
-export default function Simulation() {
+interface SimulationProps {
+  /** Device pixel ratio the canvas is drawn at, and the way to ask for another (see resolution.ts). */
+  readonly pixelRatio: number;
+  readonly onPixelRatio: (ratio: number) => void;
+}
+
+export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps) {
   const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera;
   const gl = useThree((state) => state.gl);
   const size = useThree((state) => state.size);
-  const setDpr = useThree((state) => state.setDpr);
 
   const gltfs = useGLTF(MODEL_PATHS as unknown as string[]);
   const scenes = useMemo(() => gltfs.map((gltf) => gltf.scene), [gltfs]);
@@ -192,14 +201,15 @@ export default function Simulation() {
     travel: 13,
     fpsWindow: 0,
     fpsFrames: 0,
-    slowSeconds: 0,
-    fastSeconds: 0,
-    dpr: Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 1.5),
+    // the frame rate is judged only from this time on, s (building the avenue stalls the first frames)
+    adaptFrom: Number.POSITIVE_INFINITY,
   });
+  const resolution = useRef(createResolutionState());
 
+  // Once the avenue is on screen, give the frame rate a moment to settle before judging it.
   useEffect(() => {
-    setDpr(state.current.dpr);
-  }, [setDpr]);
+    if (blocks) state.current.adaptFrom = performance.now() / 1000 + RESOLUTION_GRACE;
+  }, [blocks]);
 
   // The ends of the model dissolve by sample coverage where the framebuffer is multisampled.
   useEffect(() => {
@@ -290,10 +300,10 @@ export default function Simulation() {
     u.uLnExposure.value = BASE_LN_EXPOSURE + s.lnExposure;
 
     // --- stars: constant point-spread function in pixels; flux → luminance through its solid angle
-    const pixelRatio = gl.getPixelRatio();
-    const radiusPixels = (STAR_SIZE * pixelRatio) / 2;
-    const pixelAngle = (2 * Math.tan(fieldOfView / 2)) / Math.max(size.height * pixelRatio, 1);
-    u.uPointSize.value = STAR_SIZE * pixelRatio;
+    const drawnRatio = gl.getPixelRatio();
+    const radiusPixels = (STAR_SIZE * drawnRatio) / 2;
+    const pixelAngle = (2 * Math.tan(fieldOfView / 2)) / Math.max(size.height * drawnRatio, 1);
+    u.uPointSize.value = STAR_SIZE * drawnRatio;
     u.uLnStarNorm.value = -Math.log(STAR_PSF_AREA * radiusPixels * radiusPixels * pixelAngle * pixelAngle);
 
     // --- telemetry
@@ -310,17 +320,11 @@ export default function Simulation() {
     if (s.fpsWindow >= 0.5) {
       const fps = s.fpsFrames / s.fpsWindow;
       telemetry.fps = fps;
-      s.slowSeconds = fps < 42 ? s.slowSeconds + s.fpsWindow : 0;
-      s.fastSeconds = fps > 57 ? s.fastSeconds + s.fpsWindow : 0;
-      const ceiling = Math.min(window.devicePixelRatio || 1, 1.5);
-      if (s.slowSeconds > 1.5 && s.dpr > 0.6) {
-        s.dpr = Math.max(0.6, s.dpr - 0.2);
-        s.slowSeconds = 0;
-        setDpr(s.dpr);
-      } else if (s.fastSeconds > 6 && s.dpr < ceiling) {
-        s.dpr = Math.min(ceiling, s.dpr + 0.1);
-        s.fastSeconds = 0;
-        setDpr(s.dpr);
+      const now = performance.now() / 1000;
+      if (now >= s.adaptFrom) {
+        const ceiling = preferredPixelRatio(window.devicePixelRatio);
+        const next = adaptResolution(resolution.current, pixelRatio, fps, s.fpsWindow, now, ceiling);
+        if (next !== pixelRatio) onPixelRatio(next);
       }
       s.fpsWindow = 0;
       s.fpsFrames = 0;
