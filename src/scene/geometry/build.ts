@@ -38,12 +38,13 @@ const STRIDE = 12;
  * `minEdge` stops the subdivision next to the path. It must not override the
  * angular rule where there is geometry: nothing in the avenue comes closer to the
  * observer's path than 1.45 m (checked against the model files by the asset
- * test), and maxAngle × 1.45 m = 0.29 m.
+ * test), so the shortest edge the angular rule ever asks for is maxAngle × 1.45 m.
  */
 export const NEAREST_GEOMETRY = 1.45;
+const MAX_ANGLE = 0.19;
 export const TESSELLATION = {
-  maxAngle: 0.2,
-  minEdge: 0.2 * NEAREST_GEOMETRY,
+  maxAngle: MAX_ANGLE,
+  minEdge: MAX_ANGLE * NEAREST_GEOMETRY,
   axisHeight: SCENARIO.camera.eyeHeight + ROAD_SURFACE_Y,
 } as const;
 

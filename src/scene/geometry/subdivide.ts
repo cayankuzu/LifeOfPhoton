@@ -30,7 +30,11 @@ export interface SubdivisionOptions {
    * length / minDistance, however close it lies to the observer's path.
    */
   readonly minDistance?: number;
-  /** Safety limits. */
+  /**
+   * Safety limits. Both end the refinement between two passes, never inside one: a
+   * pass that stopped half-way would leave a triangle split and its neighbour not,
+   * and open a crack.
+   */
   readonly maxPasses?: number;
   readonly maxTriangles?: number;
 }
@@ -55,6 +59,30 @@ export function edgeLimit(ax: number, ay: number, bx: number, by: number, option
   return Math.min(options.maxEdge, Math.max(options.minEdge, options.maxAngle * distance));
 }
 
+/** Number of triangles a pass over the soup would produce: every edge over its limit adds one. */
+function trianglesAfterPass(source: Float32Array, triangles: number, stride: number, options: SubdivisionOptions): number {
+  let total = 0;
+  for (let t = 0; t < triangles; t++) {
+    const i0 = t * 3 * stride;
+    const i1 = i0 + stride;
+    const i2 = i1 + stride;
+    const x0 = source[i0],
+      y0 = source[i0 + 1],
+      z0 = source[i0 + 2];
+    const x1 = source[i1],
+      y1 = source[i1 + 1],
+      z1 = source[i1 + 2];
+    const x2 = source[i2],
+      y2 = source[i2 + 1],
+      z2 = source[i2 + 2];
+    total += 1;
+    if (Math.hypot(x1 - x0, y1 - y0, z1 - z0) > edgeLimit(x0, y0, x1, y1, options)) total++;
+    if (Math.hypot(x2 - x1, y2 - y1, z2 - z1) > edgeLimit(x1, y1, x2, y2, options)) total++;
+    if (Math.hypot(x0 - x2, y0 - y2, z0 - z2) > edgeLimit(x2, y2, x0, y0, options)) total++;
+  }
+  return total;
+}
+
 /**
  * Subdivides the soup in place until every edge satisfies the rule. All vertex
  * attributes are interpolated linearly; attributes that must stay constant across
@@ -68,8 +96,10 @@ export function subdivideAdaptive(soup: TriangleSoup, options: SubdivisionOption
   for (let pass = 0; pass < maxPasses; pass++) {
     const source = soup.data;
     const triangles = soup.count / 3;
+    // A pass at most quadruples the soup; only when that could pass the budget is its size counted
+    if (triangles * 4 > maxTriangles && trianglesAfterPass(source, triangles, stride, options) > maxTriangles) break;
     // worst case every triangle becomes four
-    let out = new Float32Array(Math.min(triangles * 4, maxTriangles + 4) * 3 * stride);
+    let out = new Float32Array(Math.min(triangles * 4, maxTriangles) * 3 * stride);
     let cursor = 0;
     let splitAny = false;
 
@@ -111,10 +141,9 @@ export function subdivideAdaptive(soup: TriangleSoup, options: SubdivisionOption
         y2 = source[i2 + 1],
         z2 = source[i2 + 2];
 
-      const budgetLeft = cursor / (3 * stride) + (triangles - t) * 1 < maxTriangles;
-      const s01 = budgetLeft && Math.hypot(x1 - x0, y1 - y0, z1 - z0) > edgeLimit(x0, y0, x1, y1, options);
-      const s12 = budgetLeft && Math.hypot(x2 - x1, y2 - y1, z2 - z1) > edgeLimit(x1, y1, x2, y2, options);
-      const s20 = budgetLeft && Math.hypot(x0 - x2, y0 - y2, z0 - z2) > edgeLimit(x2, y2, x0, y0, options);
+      const s01 = Math.hypot(x1 - x0, y1 - y0, z1 - z0) > edgeLimit(x0, y0, x1, y1, options);
+      const s12 = Math.hypot(x2 - x1, y2 - y1, z2 - z1) > edgeLimit(x1, y1, x2, y2, options);
+      const s20 = Math.hypot(x0 - x2, y0 - y2, z0 - z2) > edgeLimit(x2, y2, x0, y0, options);
       const splits = (s01 ? 1 : 0) + (s12 ? 1 : 0) + (s20 ? 1 : 0);
 
       if (splits === 0) {

@@ -190,7 +190,7 @@ describe('aberration of a straight edge', () => {
   it('a short edge never deviates by more than the curvature bound', () => {
     const SAMPLES = 64;
     // The sagitta formula κ·s′²/8 is the short-arc limit: the next term of its expansion is a relative
-    // (5/48)·s′² at most. Images up to 0.2 rad long are tested, for which that is 0.42 % (measured: 0.31 %).
+    // (5/48)·s′² at most. Images up to 0.2 rad long are tested, for which that is 0.42 % (measured: 0.11 %).
     const LONGEST_IMAGE = 0.2;
     const TOLERANCE = 0.005;
     // Rounding floor of an angle measured between unit vectors, for edges whose bound is all but zero.
@@ -258,17 +258,21 @@ describe('aberration of a straight edge', () => {
 // ---------------------------------------------------------------------------
 
 /**
- * Smallest Doppler factor at which anything can be seen: below it the street-lit scene has less than 1 %
- * of its rest luminance, and thermal emission only appears for D > 1.
+ * Smallest Doppler factor at which anything is drawn brightly enough to be seen. Surfaces lit by the
+ * street LEDs are below 1 % of their rest luminance from D = 0.69 down, but a lit window (a 2856 K black
+ * body) fades more slowly: when the meter has opened up by 3 EV it is still sRGB (41, 7, 0) at D = 0.55
+ * and (8, 1, 0) at D = 0.5. Thermal emission of the surroundings only appears for D > 1.
  */
-const VISIBLE_DOPPLER = 0.69;
+const VISIBLE_DOPPLER = 0.5;
 
 /**
  * Bound on the error of a drawn edge wherever anything is visible: 6 mrad (0.34°), the figure quoted in
  * the dossier (src/dossier/content/method.ts, the paragraph on the geodesic curvature). The scan below
- * finds at most 5.1 mrad at 0.5 c, √3/2 c and from 0.99 c upwards, and a flat maximum of 5.7 mrad between
- * 0.94 c and 0.97 c. The worst edge is the same at every speed: close to the path, at right angles to
- * both the path and the line of sight, behind the observer and at or near the edge of visibility.
+ * finds 2.4 mrad at 0.5 c, 4.6 mrad at √3/2 c, a flat maximum of 5.5 mrad around 0.97 c, 5.1 mrad at
+ * 0.99 c and less beyond (1.2 mrad at the top of the range). The worst edge is of the same kind at every
+ * speed: behind the observer, at right angles to both the path and the line of sight, and from 0.96 c
+ * upwards on the edge of visibility. Its distance from the path is anything between 1.7 m and 29 m,
+ * because the rule keeps the angle an edge subtends the same at every distance.
  */
 const MAX_ERROR = 6e-3;
 
@@ -299,7 +303,7 @@ const AHEAD = distancesAhead();
  * Doppler cones on which the edge midpoint is placed in addition to the grid. The first is the edge of
  * visibility, where the error is largest at high speed: it has to be sampled exactly.
  */
-const DOPPLER_CONES = [VISIBLE_DOPPLER, 0.72, 0.76, 0.8, 0.85, 0.9, 0.95, 1.0, 1.25, 1.6];
+const DOPPLER_CONES = [VISIBLE_DOPPLER, 0.55, 0.6, 0.65, 0.69, 0.72, 0.76, 0.8, 0.85, 0.9, 0.95, 1.0, 1.25, 1.6];
 
 /**
  * Edge directions: the three axes, the face and space diagonals, and a Fibonacci hemisphere in between
@@ -403,9 +407,9 @@ function worstOf(cases: readonly WorstCase[]): WorstCase {
 }
 
 describe('error of the drawn edges', () => {
-  // The round speeds of the dossier, and the neighbourhood of 0.95 c: the error does not peak at one of
-  // the round values but in a flat maximum between 0.94 c and 0.97 c.
-  const SPEEDS = [0.5, Math.sqrt(3) / 2, 0.9, 0.94, 0.95, 0.96, 0.97, 0.99, 0.999, 0.9999, BETA_MAX];
+  // The round speeds of the dossier, and the neighbourhood of 0.97 c: the error does not peak at one of
+  // the round values but in a flat maximum between 0.95 c and 0.98 c.
+  const SPEEDS = [0.5, Math.sqrt(3) / 2, 0.9, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99, 0.999, 0.9999, BETA_MAX];
 
   // The scan is the expensive part of this file, so each speed is scanned once for all the tests.
   const scans = new Map<number, WorstCase[]>();
@@ -448,8 +452,8 @@ describe('error of the drawn edges', () => {
       const coarse = worstOf(scan(beta, byDistanceAlone));
       expect(coarse.ahead).toBeLessThan(0);
       expect(coarse.level).toBeGreaterThan(0);
-      // Measured: 38 mrad (2.2°), 65 mrad (3.7°) and 0.49 rad (28°) at the three speeds. That is 2.9,
-      // 4.9 and 37 times the bound, and 5.1, 15 and 195 times the error of the actual rule at that speed.
+      // Measured: 65 mrad (3.7°), 115 mrad (6.6°) and 0.66 rad (38°) at the three speeds. That is 11,
+      // 19 and 110 times the bound, and 19, 56 and 560 times the error of the actual rule at that speed.
       expect(coarse.deviation).toBeGreaterThan(5 * MAX_ERROR);
       expect(coarse.deviation).toBeGreaterThan(5 * actual.deviation);
     }

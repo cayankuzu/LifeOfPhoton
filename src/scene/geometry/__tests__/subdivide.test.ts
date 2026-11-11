@@ -541,11 +541,15 @@ describe('subdivideAdaptive: the rule', () => {
       const ground = soupOf(quad([x, 0, 0], [x + 4, 0, 0], [x + 4, 0, 12], [x, 0, 12]));
       return subdivided(ground, { ...RULE, maxEdge: 14 }).count / 3;
     });
+    // right under the path the piece needs well over a thousand triangles …
+    expect(counts[0]).toBeGreaterThan(1000);
+    // … fewer the further away it lies, until nothing is left to split …
     for (let i = 1; i < counts.length; i++) {
       if (counts[i - 1] > 2) expect(counts[i]).toBeLessThan(counts[i - 1]);
       else expect(counts[i]).toBe(2);
     }
-    // 64 m away even the 12.6 m diagonal subtends less than 0.2 rad: the two triangles are left alone
+    // … 64 m away even the 12.6 m diagonal subtends less than 0.2 rad: the two triangles are left alone
+    expect(counts[counts.length - 2]).toBe(2);
     expect(counts[counts.length - 1]).toBe(2);
   });
 
@@ -691,10 +695,14 @@ describe('subdivideAdaptive: safety limits', () => {
     const unlimited = subdivided(input, RULE);
     for (const maxTriangles of [16, 100, 500, 5000]) {
       const soup = subdivided(input, { ...RULE, maxTriangles });
-      // the split that reaches the budget turns one triangle into at most four
-      expect(soup.count / 3).toBeLessThanOrEqual(maxTriangles + 3);
+      // the budget ends the refinement between two passes: the pass that would exceed it is not begun
+      expect(soup.count / 3).toBeLessThanOrEqual(maxTriangles);
       // what there is, is still the whole surface
       expectSameSurface(input, soup);
+    }
+    // and it is still free of cracks, because no pass was left half done
+    for (const maxTriangles of [50, 200, 800]) {
+      expectWatertight(subdivided(soupOf(BOX_BESIDE_THE_ROAD), { ...RULE, maxTriangles }));
     }
     // a budget that is not needed changes nothing
     const roomy = subdivided(input, { ...RULE, maxTriangles: 2 * (unlimited.count / 3) });
