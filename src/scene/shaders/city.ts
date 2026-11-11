@@ -137,7 +137,10 @@ export const cityFragmentShader = /* glsl */ `
       radiance += vec3(0.95, 0.62, 0.12) * exp(uLnExposure) * (0.22 * line + 0.5 * major);
     }
 
-    // with multisampling the dissolve is carried by the sample coverage (alpha to coverage)
-    gl_FragColor = vec4(toDisplay(radiance), uCoverage < 0.5 ? 1.0 : clamp(keep + (grain - 0.5) * 0.25, 0.0, 1.0));
+    // With multisampling the dissolve is carried by the sample coverage (alpha to coverage). Outside the
+    // two dissolving ends the alpha must be exactly one: anything less drops samples and leaves a grain
+    // on every surface.
+    float alpha = (uCoverage < 0.5 || keep >= 1.0) ? 1.0 : clamp(keep + (grain - 0.5) * 0.25, 0.0, 1.0);
+    gl_FragColor = vec4(toDisplay(radiance), alpha);
   }
 `;
