@@ -210,6 +210,10 @@ describe('formatSignificant', () => {
     expect(formatSignificant(9.996e6, 3, 'en')).toBe('1.00 × 10⁷');
     expect(formatSignificant(9.996e6, 3, 'tr')).toBe('1,00 × 10⁷');
     expect(formatSignificant(9.99996e22, 4, 'en')).toBe('1.000 × 10²³');
+    // an integer is rounded to the figures asked for, not printed in full
+    expect(formatSignificant(3514.86, 2, 'en')).toBe('3500');
+    expect(formatSignificant(1301.55, 2, 'tr')).toBe('1300');
+    expect(formatSignificant(299_792.458, 4, 'en')).toBe('299,800');
     // the case the dossier prints: 1 − β at the top of the range, to two figures
     expect(formatSignificant(9.999999999954e-6, 2, 'en')).toBe('1.0 × 10⁻⁵');
   });
@@ -388,7 +392,7 @@ describe('formatWavelength', () => {
     // from 1 pm to 1 m in steps of half a per cent, and the neighbourhood of every change of unit
     const samples: number[] = [];
     for (let nanometres = 1e-3; nanometres <= 1e9; nanometres *= 1.005) samples.push(nanometres);
-    for (const step of [1, 1e3, 1e6, 1e9]) samples.push(0.9994 * step, 0.9996 * step, 0.99996 * step);
+    for (const step of [1, 1e3, 1e6, 1e9]) samples.push(0.9994 * step, 0.9996 * step, 0.99994 * step, 0.99996 * step);
     for (const nanometres of samples) {
       for (const language of LANGUAGES) {
         const { value, unit } = formatWavelength(nanometres, language);
@@ -396,7 +400,7 @@ describe('formatWavelength', () => {
         const context = `${nanometres} nm reads "${value} ${unit}"`;
         // no "1000 nm" while there is a larger unit, and no early change that would waste a figure
         expect(shown, context).toBeLessThan(1000);
-        expect(shown, context).toBeGreaterThanOrEqual(0.999);
+        expect(shown, context).toBeGreaterThanOrEqual(1);
         // four significant figures: half a unit of the fourth, relative to a reading of at least 1.000
         const metres = nanometres * 1e-9;
         expect(Math.abs(shown * metresPer[unit] - metres) / metres, context).toBeLessThan(5.01e-4);
@@ -412,17 +416,21 @@ describe('formatTemperature', () => {
     expect(formatTemperature(499.6, 'tr')).toBe('500');
   });
 
-  it('keeps at least three significant figures from 1000 K upwards', () => {
+  it('shows four significant figures from 1000 K upwards, rounded and not merely cut', () => {
     // the 288 K surroundings seen head-on at 0.99 c and at the top of the range, then a stellar core
     for (const kelvin of [1000, 4062.7, 128_795, 1.5e7]) {
       for (const language of LANGUAGES) {
         const text = formatTemperature(kelvin, language);
-        // half a unit of the third figure is at most 0.5 % of the value
-        expect(Math.abs(readBack(text, language) - kelvin) / kelvin, text).toBeLessThanOrEqual(0.005);
+        // half a unit of the fourth figure is at most 0.05 % of the value
+        expect(Math.abs(readBack(text, language) - kelvin) / kelvin, text).toBeLessThanOrEqual(0.0005);
       }
     }
-    expect(formatTemperature(1.5e7, 'en')).toBe('1.50 × 10⁷');
-    expect(formatTemperature(1.5e7, 'tr')).toBe('1,50 × 10⁷');
+    expect(formatTemperature(1.5e7, 'en')).toBe('1.500 × 10⁷');
+    expect(formatTemperature(1.5e7, 'tr')).toBe('1,500 × 10⁷');
+    // what the instrument shows for the surroundings ahead at 0.99 c and at the top of the range
+    expect(formatTemperature(4064.86, 'en')).toBe('4065');
+    expect(formatTemperature(128_864, 'en')).toBe('128,900');
+    expect(formatTemperature(128_864, 'tr')).toBe('128.900');
   });
 });
 
@@ -448,6 +456,16 @@ describe('formatLength', () => {
     expect(formatLength(1, 'en')).toEqual({ value: '1.000', unit: 'm' });
     expect(formatLength(999, 'en')).toEqual({ value: '999.0', unit: 'm' });
     expect(formatLength(1000, 'en')).toEqual({ value: '1.000', unit: 'km' });
+  });
+
+  it('chooses the unit for the value as it is shown: no "100 cm", "1000 m" or "10.0 mm" just below a step', () => {
+    // the 100 m of road at γ = 100.001 measures 0.99999 m
+    expect(formatLength(0.99999, 'en')).toEqual({ value: '1.000', unit: 'm' });
+    expect(formatLength(0.9996, 'en')).toEqual({ value: '0.9996', unit: 'm' });
+    expect(formatLength(0.994, 'en')).toEqual({ value: '99.4', unit: 'cm' });
+    expect(formatLength(999.96, 'en')).toEqual({ value: '1.000', unit: 'km' });
+    expect(formatLength(0.009996, 'en')).toEqual({ value: '1.00', unit: 'cm' });
+    expect(formatLength(0.00994, 'en')).toEqual({ value: '9.94', unit: 'mm' });
   });
 
   it('chooses the unit of a negative length by its magnitude', () => {
@@ -570,10 +588,9 @@ describe('every formatter', () => {
   });
 
   it('shows a dash for a value that is not a finite number', () => {
-    // The stopwatch is not in this list: it reads zero instead (see formatClock). Nor is
-    // formatExposure, which puts its sign in front of the dash.
-    const dashed = READOUTS.filter(({ name }) => name !== 'formatClock' && name !== 'formatExposure');
-    expect(dashed).toHaveLength(READOUTS.length - 2);
+    // The stopwatch is not in this list: it reads zero instead (see formatClock).
+    const dashed = READOUTS.filter(({ name }) => name !== 'formatClock');
+    expect(dashed).toHaveLength(READOUTS.length - 1);
     for (const { name, format } of dashed) {
       for (const value of NOT_FINITE) {
         for (const language of LANGUAGES) expect(format(value, language), `${name}(${value})`).toBe(EM_DASH);
@@ -581,5 +598,27 @@ describe('every formatter', () => {
     }
     // a wavelength without a value keeps the unit of the reference light
     expect(formatWavelength(Number.NaN, 'en')).toEqual({ value: EM_DASH, unit: 'nm' });
+  });
+});
+
+describe('steps of precision', () => {
+  it('are taken on the value as it is shown, so that no read-out gains a figure by rounding up', () => {
+    // Lorentz factor: three decimals below 10, two below 100, one above
+    expect(formatGamma(9.9994, 'en')).toBe('9.999');
+    expect(formatGamma(9.9996, 'en')).toBe('10.00');
+    expect(formatGamma(99.994, 'en')).toBe('99.99');
+    expect(formatGamma(99.996, 'en')).toBe('100.0');
+    // angles: three decimals below 1°, two below 10°, one above
+    expect(formatAngle(0.9994, 'en')).toBe('0.999°');
+    expect(formatAngle(0.9996, 'en')).toBe('1.00°');
+    expect(formatAngle(9.994, 'en')).toBe('9.99°');
+    expect(formatAngle(9.996, 'en')).toBe('10.0°');
+    expect(formatAngle(-9.996, 'tr')).toBe('-10,0°');
+    // wavelengths: the reference light at the speed where it reaches one micrometre
+    expect(formatWavelength(999.94, 'en')).toEqual({ value: '999.9', unit: 'nm' });
+    expect(formatWavelength(999.96, 'en')).toEqual({ value: '1.000', unit: 'µm' });
+    // the exposure read-out shows a bare dash when it has no value
+    expect(formatExposure(Number.NaN, 'en')).toBe('—');
+    expect(formatExposure(Number.NEGATIVE_INFINITY, 'tr')).toBe('—');
   });
 });

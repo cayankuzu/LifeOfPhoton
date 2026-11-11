@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BETA_MAX } from '@/physics/kinematics';
+import { BETA_MAX, boostBy } from '@/physics/kinematics';
 import {
   DEFAULT_SETTINGS,
   LOOK_PITCH_LIMIT,
+  RAPIDITY_STEP,
   type Settings,
+  boostByWheel,
   getSettings,
   look,
   lookAhead,
+  nearestTurn,
   notifyFrame,
   onFrame,
   resetClocks,
@@ -360,5 +363,96 @@ describe('setLoadPhase', () => {
     // progress and error belong to the phase just entered: they do not linger into the next one
     setLoadPhase('ready');
     expect(telemetry).toMatchObject({ phase: 'ready', progress: 0, error: null });
+  });
+});
+
+describe('nearestTurn', () => {
+  const DEG = Math.PI / 180;
+
+  it('leaves a target within half a turn where it is', () => {
+    for (const [current, target] of [
+      [0, 1],
+      [-2, 1],
+      [3, 0.5],
+      [-3.1, -0.2],
+    ]) {
+      expect(nearestTurn(current, target)).toBeCloseTo(target, 12);
+    }
+  });
+
+  it('follows a target that has wrapped past straight behind the short way round', () => {
+    // looking 165° to the left, one more 15° step wraps the target to −180°: 15° further, not 345° back
+    expect(nearestTurn(165 * DEG, -180 * DEG)).toBeCloseTo(180 * DEG, 12);
+    expect(nearestTurn(170 * DEG, -175 * DEG)).toBeCloseTo(185 * DEG, 12);
+    expect(nearestTurn(-170 * DEG, 175 * DEG)).toBeCloseTo(-185 * DEG, 12);
+  });
+
+  it('never asks for more than half a turn, and always names the same direction as the target', () => {
+    for (let current = -Math.PI; current <= Math.PI; current += 0.37) {
+      for (let target = -Math.PI; target <= Math.PI; target += 0.29) {
+        const goal = nearestTurn(current, target);
+        expect(Math.abs(goal - current)).toBeLessThanOrEqual(Math.PI + 1e-12);
+        expect(Math.cos(goal)).toBeCloseTo(Math.cos(target), 12);
+        expect(Math.sin(goal)).toBeCloseTo(Math.sin(target), 12);
+      }
+    }
+  });
+
+  it('twelve 15° turns to the left sweep the camera steadily: no step is longer than the turn asked for', () => {
+    let camera = 0;
+    for (let press = 1; press <= 26; press++) {
+      turnBy(15 * DEG, 0);
+      const goal = nearestTurn(camera, look.yaw);
+      expect(Math.abs(goal - camera)).toBeCloseTo(15 * DEG, 9);
+      // the camera arrives, and is kept within ±π like the target
+      camera = goal > Math.PI ? goal - 2 * Math.PI : goal < -Math.PI ? goal + 2 * Math.PI : goal;
+    }
+  });
+});
+
+describe('boostByWheel', () => {
+  /** What the function reads of a wheel event. */
+  const wheel = (deltaY: number, extra: Partial<WheelEvent> = {}): WheelEvent & { prevented: boolean } => {
+    const event = {
+      deltaY,
+      deltaMode: 0,
+      ctrlKey: false,
+      prevented: false,
+      preventDefault() {
+        event.prevented = true;
+      },
+      ...extra,
+    };
+    return event as unknown as WheelEvent & { prevented: boolean };
+  };
+
+  it('one notch away from the user is one boost forward, one notch back undoes it', () => {
+    const away = wheel(-100);
+    boostByWheel(away);
+    expect(away.prevented).toBe(true);
+    expect(getSettings().beta).toBeCloseTo(Math.tanh(RAPIDITY_STEP), 12);
+    boostByWheel(wheel(100));
+    expect(getSettings().beta).toBeCloseTo(0, 12);
+  });
+
+  it('is the same boost at every speed, in rapidity', () => {
+    updateSettings({ beta: 0.99 });
+    boostByWheel(wheel(-100));
+    expect(getSettings().beta).toBeCloseTo(boostBy(0.99, RAPIDITY_STEP), 12);
+  });
+
+  it('reads lines and pages as pixels and never applies more than three notches at once', () => {
+    boostByWheel(wheel(-3, { deltaMode: 1 }));
+    expect(getSettings().beta).toBeCloseTo(Math.tanh(0.99 * RAPIDITY_STEP), 12);
+    updateSettings({ beta: 0 });
+    boostByWheel(wheel(-100000));
+    expect(getSettings().beta).toBeCloseTo(Math.tanh(3 * RAPIDITY_STEP), 12);
+  });
+
+  it('leaves ctrl + wheel to the browser: that is its zoom, and what a trackpad pinch sends', () => {
+    const pinch = wheel(-100, { ctrlKey: true });
+    boostByWheel(pinch);
+    expect(pinch.prevented).toBe(false);
+    expect(getSettings().beta).toBe(0);
   });
 });

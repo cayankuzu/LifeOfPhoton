@@ -23,6 +23,19 @@ export type SharedState = Pick<Settings, 'beta' | 'view' | 'thermal' | 'guides' 
 /** Significant figures of β kept in a link: enough to tell 0.99999 from the limit. */
 const BETA_FIGURES = 7;
 
+/** The keys a fragment may carry. */
+const KEYS = ['b', 'v', 't', 'g', 'z', 'l'] as const;
+
+/**
+ * Whether a fragment describes an experiment at all. An in-page anchor such as
+ * "#controls" or "#reference-einstein1905" does not, and must not be read as "every
+ * setting at its default".
+ */
+export function isExperimentFragment(fragment: string): boolean {
+  const params = new URLSearchParams(fragment.replace(/^#/, ''));
+  return KEYS.some((key) => params.has(key));
+}
+
 /** Reads a fragment (with or without the leading "#"). Anything malformed falls back to the default. */
 export function decodeFragment(fragment: string): SharedState {
   const params = new URLSearchParams(fragment.replace(/^#/, ''));

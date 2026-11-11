@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { BETA_MAX, boostBy } from '@/physics/kinematics';
-import { decodeFragment, encodeFragment } from '@/state/fragment';
+import { decodeFragment, encodeFragment, isExperimentFragment } from '@/state/fragment';
 import {
   LENSES,
   type Language,
@@ -55,8 +55,18 @@ function initialLanguage(fromUrl: Language | undefined): Language {
   return navigator.language.toLowerCase().startsWith('tr') ? 'tr' : 'en';
 }
 
-function isTyping(target: EventTarget | null): boolean {
+/** Keys a focused slider uses itself. */
+const SLIDER_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
+
+/** Keys that act for as long as they are held. Everything else is a switch and acts once per press. */
+const CONTINUOUS_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 's', 'a']);
+
+/** Whether the key belongs to the element that has the focus rather than to the simulation. */
+function belongsToFocus(event: KeyboardEvent): boolean {
+  const target = event.target;
   if (!(target instanceof HTMLElement)) return false;
+  // a slider keeps its own keys only: after dragging the speed, M or Space must still work
+  if (target instanceof HTMLInputElement && target.type === 'range') return SLIDER_KEYS.has(event.key);
   return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
 
@@ -98,7 +108,9 @@ export default function App() {
     };
     const unsubscribe = subscribeSettings(sync);
     // a link pasted into an open tab changes only the fragment: follow it
-    const follow = (): void => updateSettings(decodeFragment(window.location.hash));
+    const follow = (): void => {
+      if (isExperimentFragment(window.location.hash)) updateSettings(decodeFragment(window.location.hash));
+    };
     window.addEventListener('hashchange', follow);
     return () => {
       unsubscribe();
@@ -141,7 +153,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
-      if (isTyping(event.target)) return;
+      if (belongsToFocus(event)) return;
       const settings = getSettings();
       const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
 
@@ -151,6 +163,9 @@ export default function App() {
       }
       // inside the dossier the keys belong to reading, not to flying
       if (event.target instanceof HTMLElement && event.target.closest('[data-dossier]')) return;
+
+      // holding a switch down must not flip it at the keyboard's repeat rate
+      if (event.repeat && !CONTINUOUS_KEYS.has(key)) return;
 
       switch (key) {
         case 'ArrowUp':
@@ -214,6 +229,11 @@ export default function App() {
     <main className="relative h-dvh w-screen overflow-hidden">
       <a
         href="#controls"
+        onClick={(event) => {
+          // move the focus without touching the address bar, which holds the state of the experiment
+          event.preventDefault();
+          document.querySelector<HTMLElement>('#controls button, #controls [tabindex="0"]')?.focus();
+        }}
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded focus:bg-panel focus:px-3 focus:py-2 focus:text-[13px]"
       >
         {t.app.skipToControls}

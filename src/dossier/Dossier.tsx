@@ -361,7 +361,12 @@ export function DossierDocument({ language, beta }: { readonly language: Languag
         </h3>
         <ol className="m-0 mt-4 list-none space-y-2.5 p-0 font-sans text-[12.5px] leading-relaxed">
           {cited.map((reference) => (
-            <li key={reference.key} id={'reference-' + reference.key} className="flex scroll-mt-4 gap-3">
+            <li
+              key={reference.key}
+              id={'reference-' + reference.key}
+              tabIndex={-1}
+              className="-mx-2 flex scroll-mt-4 gap-3 rounded px-2 py-0.5 outline-none focus:bg-raised"
+            >
               <span className="tabular w-6 shrink-0 text-right text-ink-3">{context.citationNumber.get(reference.key)}.</span>
               <span className="min-w-0">
                 <span className="text-ink">{reference.authors}</span> ({reference.year}). {reference.title}.{' '}
@@ -428,12 +433,13 @@ export default function Dossier() {
   const target = useSettings((state) => state.dossier);
   const beta = useSettings((state) => state.beta);
   const t = MESSAGES[language];
-  const sheet = useRef<HTMLElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
 
-  // take the focus on opening and give it back on closing
+  // Take the focus on opening and give it back on closing. The focus goes to the element
+  // that scrolls: keyboard scrolling starts at the focused element and looks upwards only.
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    sheet.current?.focus();
+    scroller.current?.focus({ preventScroll: true });
     return () => previous?.focus();
   }, []);
 
@@ -445,8 +451,6 @@ export default function Dossier() {
 
   return (
     <aside
-      ref={sheet}
-      tabIndex={-1}
       role="dialog"
       aria-modal="false"
       aria-labelledby="dossier-title"
@@ -459,7 +463,13 @@ export default function Dossier() {
           <X className="h-4 w-4" aria-hidden="true" />
         </IconButton>
       </header>
-      <div className="scroll-thin min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div
+        ref={scroller}
+        tabIndex={0}
+        role="document"
+        aria-labelledby="dossier-title"
+        className="scroll-thin min-h-0 flex-1 overflow-y-auto overscroll-contain outline-offset-[-2px]"
+      >
         <DossierDocument language={language} beta={beta} />
       </div>
     </aside>

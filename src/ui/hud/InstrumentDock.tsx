@@ -29,6 +29,9 @@ import { setText, useFrame, useMessages } from '../hooks';
 import { IconButton, Panel } from '../primitives';
 import SpectrumStrip from './SpectrumStrip';
 
+/** How long the sentence about the current speed has to stay the same before it is announced, ms. */
+const ANNOUNCE_AFTER_MS = 500;
+
 const DEGREES = 180 / Math.PI;
 
 /** One instrument: what it is on the left, its reading on the right; the note explains it on hover and to screen readers. */
@@ -57,6 +60,9 @@ export default function InstrumentDock() {
   const optical = useSettings((state) => state.view === 'seen');
 
   const regime = useRef<HTMLParagraphElement>(null);
+  // what assistive technology hears: the same sentence, but only once it has stopped changing
+  const announced = useRef<HTMLParagraphElement>(null);
+  const settling = useRef({ text: '', since: 0 });
   const tau = useRef<HTMLSpanElement>(null);
   const street = useRef<HTMLSpanElement>(null);
   const road = useRef<HTMLSpanElement>(null);
@@ -90,6 +96,10 @@ export default function InstrumentDock() {
     else if (k.beta < 0.9995) sentence = t.regime.extreme(formatAngle(coneDeg, language), formatAngle(transverseDeg, language));
     else sentence = t.regime.limit(formatAngle(transverseDeg, language), formatGamma(k.gamma, language));
     setText(regime.current, sentence);
+    // While the speed eases the sentence changes every frame; a live region must not.
+    const now = performance.now();
+    if (sentence !== settling.current.text) settling.current = { text: sentence, since: now };
+    else if (now - settling.current.since > ANNOUNCE_AFTER_MS) setText(announced.current, sentence);
 
     setText(tau.current, formatClock(telemetry.properTime, language));
     setText(street.current, formatClock(telemetry.earthTime, language));
@@ -130,8 +140,9 @@ export default function InstrumentDock() {
       <p
         ref={regime}
         className="m-0 min-h-[3.4rem] border-t border-hairline px-3 py-2 text-[12px] leading-[1.45] text-ink-2"
-        aria-live="polite"
+        aria-hidden="true"
       />
+      <p ref={announced} className="sr-only" aria-live="polite" />
 
       {open && (
         <div className="scroll-thin max-h-[26rem] min-h-0 overflow-y-auto border-t border-hairline px-3 pb-2.5">

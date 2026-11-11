@@ -16,7 +16,7 @@ import { meterLnExposure } from '@/physics/exposure';
 import { BETA_MAX, lorentzFactor } from '@/physics/kinematics';
 import { SCENARIO } from '@/physics/scenario';
 import { sharedAtlas } from '@/physics/spectralAtlas';
-import { getSettings, look, notifyFrame, setLoadPhase, telemetry } from '@/state/simulation';
+import { getSettings, look, nearestTurn, notifyFrame, setLoadPhase, telemetry } from '@/state/simulation';
 import {
   type BlockGeometry,
   type PreparedModel,
@@ -260,7 +260,10 @@ export default function Simulation() {
     u.uOdometer.value = s.travel % GRID_PERIOD;
 
     // --- camera: free look and lens
-    s.yaw = ease(s.yaw, look.yaw, dt, LOOK_RESPONSE);
+    // the shorter way round when the target has crossed "straight behind" (see nearestTurn)
+    s.yaw = ease(s.yaw, nearestTurn(s.yaw, look.yaw), dt, LOOK_RESPONSE);
+    if (s.yaw > Math.PI) s.yaw -= 2 * Math.PI;
+    else if (s.yaw < -Math.PI) s.yaw += 2 * Math.PI;
     s.pitch = ease(s.pitch, look.pitch, dt, LOOK_RESPONSE);
     s.zoom = Math.exp(ease(Math.log(s.zoom), Math.log(settings.lens), dt, LENS_RESPONSE));
     const baseHalf = Math.tan(THREE.MathUtils.degToRad(SCENARIO.camera.fieldOfViewDeg) / 2);

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { BETA_MAX, controlToBeta, lorentzFactor } from '@/physics/kinematics';
-import { type SharedState, decodeFragment, encodeFragment } from '../fragment';
+import { type SharedState, decodeFragment, encodeFragment, isExperimentFragment } from '../fragment';
 import {
   DEFAULT_SETTINGS,
   LENSES,
@@ -295,6 +295,29 @@ describe('a link', () => {
       const back = decodeFragment(encodeFragment({ ...DEFAULT_SETTINGS, beta })).beta;
       expect(back, `β = ${beta}`).toBeLessThanOrEqual(BETA_MAX);
       expect(Math.abs(lorentzFactor(back) / lorentzFactor(beta) - 1), `β = ${beta}`).toBeLessThan(0.003);
+    }
+  });
+});
+
+describe('isExperimentFragment', () => {
+  it('tells a link to an experiment from an in-page anchor', () => {
+    // The page has anchors of its own (the skip link, the citations of the dossier).
+    // Following one fires hashchange; read as an experiment it would mean "everything
+    // at its default" and put the observer back to rest.
+    for (const anchor of ['', '#', '#controls', '#reference-einstein1905', 'dossier-method', '#x=1&y=2']) {
+      expect(isExperimentFragment(anchor), anchor).toBe(false);
+    }
+    for (const link of ['#b=0.99', 'b=0.5&v=measured', '#z=3', '#l=tr', '#t=0', '#g=0', '#v=measured', '#b=']) {
+      expect(isExperimentFragment(link), link).toBe(true);
+    }
+  });
+
+  it('accepts every fragment the application writes itself', () => {
+    for (const beta of [0, 0.5, BETA_MAX]) {
+      for (const view of ['seen', 'measured'] as const) {
+        const fragment = encodeFragment({ ...DEFAULT_SETTINGS, beta, view });
+        expect(isExperimentFragment(fragment), fragment).toBe(true);
+      }
     }
   });
 });

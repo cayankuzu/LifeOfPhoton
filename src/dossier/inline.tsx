@@ -67,6 +67,13 @@ const PATTERNS: ReadonlyArray<{
                     href={`#reference-${citation}`}
                     title={describeReference(reference)}
                     className="tabular text-cryo underline-offset-2 hover:underline"
+                    onClick={(event) => {
+                      // go to the entry without changing the address bar, which holds the state of the experiment
+                      event.preventDefault();
+                      const entry = document.getElementById(`reference-${citation}`);
+                      entry?.scrollIntoView({ block: 'center' });
+                      entry?.focus({ preventScroll: true });
+                    }}
                   >
                     {number}
                   </a>

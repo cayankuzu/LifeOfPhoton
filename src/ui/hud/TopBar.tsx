@@ -17,7 +17,10 @@ function HelpSheet({ onClose }: { readonly onClose: () => void }) {
       if (event.key === 'Escape') onClose();
     };
     const onPointer = (event: PointerEvent): void => {
-      if (sheet.current && event.target instanceof Node && !sheet.current.contains(event.target)) onClose();
+      if (!(event.target instanceof Element) || sheet.current?.contains(event.target)) return;
+      // the button that opened the sheet toggles it itself; closing here would let its click reopen it
+      if (event.target.closest('[data-help-trigger]')) return;
+      onClose();
     };
     window.addEventListener('keydown', onKey);
     window.addEventListener('pointerdown', onPointer, true);
@@ -32,7 +35,7 @@ function HelpSheet({ onClose }: { readonly onClose: () => void }) {
       ref={sheet}
       role="dialog"
       aria-label={t.help.title}
-      className="absolute right-0 top-[calc(100%+8px)] z-20 w-[min(21rem,calc(100vw-1.5rem))] p-3"
+      className="scroll-thin absolute right-0 top-[calc(100%+8px)] z-20 max-h-[calc(100dvh-5.5rem)] w-[min(21rem,calc(100vw-1.5rem))] overflow-y-auto p-3"
     >
       <p className="label mb-2">{t.help.title}</p>
       <dl className="m-0 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 text-[12px] text-ink-2">
@@ -127,7 +130,7 @@ export default function TopBar() {
           <BookOpen className="h-3.5 w-3.5 text-amber" aria-hidden="true" />
           {tier === 'narrow' ? <span className="sr-only">{t.controls.dossier}</span> : <span>{t.controls.dossier}</span>}
         </Button>
-        <IconButton label={t.controls.help} aria-expanded={help} onClick={() => setHelp((open) => !open)}>
+        <IconButton label={t.controls.help} aria-expanded={help} data-help-trigger onClick={() => setHelp((open) => !open)}>
           <Keyboard className="h-3.5 w-3.5" aria-hidden="true" />
         </IconButton>
         <Button

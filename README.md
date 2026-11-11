@@ -235,7 +235,7 @@ $$
 \frac{\gamma\beta\sin\theta'}{8D}\delta^{2}
 $$
 
-kadar ayrılır. Geometri bu nedenle, hiçbir kenar gözlemcinin yoluna olan uzaklığının 0,2 katını aşmayana dek alt bölünür; kural yalnızca kenarın kendisine bağlı olduğundan komşu üçgenler arasında çatlak açılamaz. Gözlemcinin önündeki bloklar uzaklıkla birlikte daha kaba sürümleriyle değiştirilir, yandaki ve arkadaki bloklar ise her zaman tam kuralı korur. Ortaya çıkan hata, modellenen hacim içinde görülebilecek kadar parlak olan her yerde ölçüldüğünde en çok 6 mrad (0,34°) olur; bu, standart mercekle 900 piksel yüksekliğindeki bir görüntüde yaklaşık dört pikseldir.
+kadar ayrılır. Geometri bu nedenle, hiçbir kenar gözlemcinin yoluna olan uzaklığının 0,19 katını aşmayana dek alt bölünür; kural yalnızca kenarın kendisine bağlı olduğundan komşu üçgenler arasında çatlak açılamaz. Gözlemcinin önündeki bloklar uzaklıkla birlikte daha kaba sürümleriyle değiştirilir, yandaki ve arkadaki bloklar ise her zaman tam kuralı korur. Ortaya çıkan hata, modellenen hacim içinde görülebilecek kadar parlak olan her yerde ölçüldüğünde en çok 6 mrad (0,34°) olur; bu, standart mercekle 900 piksel yüksekliğindeki bir görüntüde yaklaşık dört pikseldir.
 
 **Bağımsız yeniden türetme ve kaynakça denetimi.** Testlerden bağımsız olarak, analizin 2–4. bölümlerindeki bütün formüller, görüntüleyici yazılmadan önce foton dört-momentumunun dönüşümünden ve faz uzayı yoğunluğunun değişmezliğinden yeniden türetilmiş ve sayısal olarak denetlenmiştir. Bu denetim ilk taslaktaki birkaç sayısal değeri düzeltmiş; Doppler çarpanının piksel başına hesaplanmasına ve köşe dönüşümünün tek duyarlıkta güvenli biçimine yol açmıştır. Kaynakça Crossref ve yayıncı kayıtlarıyla karşılaştırılmıştır; her kaynak için, kaynağın kendisinin okunup okunmadığı kayıtlıdır (`src/dossier/references.ts`, `checked` alanı).
 
@@ -289,7 +289,7 @@ Ekrandaki denetimler: _Görülen_ / _Ölçülen_ görünüm seçimi, _Isıl ış
 | `D`              | Bilimsel analizi aç / kapat.                                    |
 | `Esc`            | Bilimsel analizi kapat.                                         |
 
-Kısayollar, odak bir form alanındayken (hız sürgüsü dâhil) ya da Ctrl, Alt veya Meta tuşu basılıyken çalışmaz; odak analizin içindeyken tuşlar okumaya aittir, odaktaki bir düğmenin üzerinde `Boşluk` ise o düğmeyi etkinleştirir.
+Kısayollar, odak bir metin alanındayken ya da Ctrl, Alt veya Meta tuşu basılıyken çalışmaz; odaktaki hız sürgüsü yalnızca ok, Home/End ve Page tuşlarını kendine ayırır (ok tuşları orada da aynı itmeyi verir); odak analizin içindeyken tuşlar okumaya aittir, odaktaki bir düğmenin üzerinde `Boşluk` ise o düğmeyi etkinleştirir.
 
 | Hareket  | Eylem                                                                                                     |
 | -------- | --------------------------------------------------------------------------------------------------------- |
@@ -601,7 +601,7 @@ $$
 \frac{\gamma\beta\sin\theta'}{8D}\delta^{2}
 $$
 
-The geometry is therefore subdivided until no edge exceeds 0.2 times its distance from the observer’s path; the rule depends on the edge alone and so cannot open a crack between neighbouring triangles. Blocks ahead of the observer are replaced by coarser versions with distance, whereas blocks beside and behind always keep the full rule. The resulting error, measured throughout the modelled volume wherever anything is bright enough to be seen, is at most 6 mrad (0.34°), about four pixels with the standard lens on a view 900 pixels high.
+The geometry is therefore subdivided until no edge exceeds 0.19 times its distance from the observer’s path; the rule depends on the edge alone and so cannot open a crack between neighbouring triangles. Blocks ahead of the observer are replaced by coarser versions with distance, whereas blocks beside and behind always keep the full rule. The resulting error, measured throughout the modelled volume wherever anything is bright enough to be seen, is at most 6 mrad (0.34°), about four pixels with the standard lens on a view 900 pixels high.
 
 **Independent re-derivation and check of the bibliography.** Independently of the tests, every formula of Sections 2–4 of the dossier was re-derived from the transformation of the photon four-momentum and from the invariance of the phase-space density, and checked numerically, before the renderer was written. That audit corrected several numerical values of the first draft and led to the per-pixel evaluation of the Doppler factor and to the single-precision-safe form of the vertex transform. The bibliography was checked against Crossref and the publishers’ records; for each entry it is recorded whether the source itself was read (`src/dossier/references.ts`, field `checked`).
 
@@ -655,7 +655,7 @@ On-screen controls: the _Seen_ / _Measured_ view switch, _Thermal emission_, _Gu
 | `D`           | Open / close the dossier.                                        |
 | `Esc`         | Close the dossier.                                               |
 
-The shortcuts are inactive while a form field (including the speed slider) has the focus or while Ctrl, Alt or Meta is held; while the focus is inside the dossier the keys belong to reading, and `Space` on a focused button activates that button.
+The shortcuts are inactive while a text field has the focus or while Ctrl, Alt or Meta is held; a focused speed slider keeps only the arrow, Home/End and Page keys for itself (the arrows give the same boost there); while the focus is inside the dossier the keys belong to reading, and `Space` on a focused button activates that button.
 
 | Gesture      | Action                                                                                                                      |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------- |

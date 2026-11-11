@@ -9,19 +9,19 @@
  * hairline ruler whose labels double as presets.
  */
 
-import { type RefObject, useMemo, useRef, useState } from 'react';
+import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { formatBeta, formatFixed, formatGamma, formatInteger } from '@/i18n/format';
 import { SPEED_OF_LIGHT } from '@/physics/constants';
 import { betaToControl, boostBy, controlToBeta, kinematicState } from '@/physics/kinematics';
-import { telemetry, updateSettings, useSettings } from '@/state/simulation';
+import { RAPIDITY_STEP, boostByWheel, telemetry, updateSettings, useSettings } from '@/state/simulation';
 import { setText, useFrame, useMessages } from '../hooks';
 import { IconButton, Panel } from '../primitives';
 import { MARKS, fittingLabels } from './speedMarks';
 import { useElementWidth, useHudTier } from './tier';
 
 /** Boost applied by the − / + buttons and the arrow keys, in rapidity. */
-export const KEY_RAPIDITY_STEP = 0.045;
+export const KEY_RAPIDITY_STEP = RAPIDITY_STEP;
 
 /** Position of a velocity along the rail as a CSS percentage, rounded so that server and client markup agree. */
 const percent = (beta: number): string => `${(betaToControl(beta) * 100).toFixed(3)}%`;
@@ -75,6 +75,14 @@ export default function SpeedRail() {
   const [railWidth, setRailWidth] = useState(0);
   useElementWidth(railRef, setRailWidth, tier);
   const labelled = useMemo(() => fittingLabels(railWidth), [railWidth]);
+
+  // the wheel works over the rail as it does over the scene
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    rail.addEventListener('wheel', boostByWheel, { passive: false });
+    return () => rail.removeEventListener('wheel', boostByWheel);
+  }, []);
 
   // The read-out follows the velocity the simulation is actually at (it eases towards the target).
   useFrame(() => {
@@ -147,6 +155,19 @@ export default function SpeedRail() {
               }
               title={t.speed.hint}
               onChange={(event) => updateSettings({ beta: controlToBeta(Number(event.target.value)) })}
+              onKeyDown={(event) => {
+                // An arrow key is one boost, as everywhere else. The native step of the track would be
+                // 6 × 10⁻⁶ c at rest: hundreds of presses to get anywhere, none of them audible.
+                const direction =
+                  event.key === 'ArrowUp' || event.key === 'ArrowRight'
+                    ? 1
+                    : event.key === 'ArrowDown' || event.key === 'ArrowLeft'
+                      ? -1
+                      : 0;
+                if (direction === 0 || event.ctrlKey || event.metaKey || event.altKey) return;
+                event.preventDefault();
+                updateSettings({ beta: boostBy(target, direction * KEY_RAPIDITY_STEP) });
+              }}
             />
 
             {/* the labels of the marks double as presets */}

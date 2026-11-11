@@ -12,7 +12,7 @@
  */
 
 import { useSyncExternalStore } from 'react';
-import { clampBeta } from '@/physics/kinematics';
+import { boostBy, clampBeta } from '@/physics/kinematics';
 
 export type ViewMode = 'seen' | 'measured';
 export type Language = 'tr' | 'en';
@@ -56,6 +56,13 @@ type Listener = () => void;
 let settings: Settings = DEFAULT_SETTINGS;
 const listeners = new Set<Listener>();
 
+/**
+ * The boost of one step of the speed control, in rapidity: one arrow key, one notch of
+ * the wheel, one press of the − / + buttons. Equal steps of rapidity are equal Lorentz
+ * boosts, which is what makes the control usable from rest to the top of the range.
+ */
+export const RAPIDITY_STEP = 0.045;
+
 export function getSettings(): Settings {
   return settings;
 }
@@ -74,6 +81,20 @@ export function updateSettings(patch: Partial<Settings> | ((current: Settings) =
   if (!changed) return;
   settings = next;
   listeners.forEach((listener) => listener());
+}
+
+/**
+ * Wheel over the scene or the speed rail: every notch is the same boost. Has to be
+ * registered as a non-passive listener.
+ */
+export function boostByWheel(event: WheelEvent): void {
+  // ctrl + wheel is the browser's zoom, and what a trackpad pinch sends: it is not ours
+  if (event.ctrlKey) return;
+  event.preventDefault();
+  const pixels = event.deltaMode === 1 ? event.deltaY * 33 : event.deltaMode === 2 ? event.deltaY * 400 : event.deltaY;
+  const notches = Math.max(-3, Math.min(3, pixels / 100));
+  // rolling the wheel away from you pushes the throttle forward
+  updateSettings({ beta: boostBy(settings.beta, -notches * RAPIDITY_STEP) });
 }
 
 export function subscribeSettings(listener: Listener): () => void {
@@ -206,6 +227,17 @@ export function turnBy(deltaYaw: number, deltaPitch: number): void {
   if (yaw < -Math.PI) yaw += 2 * Math.PI;
   look.yaw = yaw;
   look.pitch = Math.min(LOOK_PITCH_LIMIT, Math.max(-LOOK_PITCH_LIMIT, look.pitch + deltaPitch));
+}
+
+/**
+ * The angle equivalent to `target` (modulo a full turn) that lies nearest to
+ * `current`. The target yaw is kept within ±π, so turning past "straight behind"
+ * makes it jump by 2π; a camera that eases towards this value instead follows the
+ * shorter way round and does not whip through the forward view.
+ */
+export function nearestTurn(current: number, target: number): number {
+  const turn = target - current;
+  return current + turn - 2 * Math.PI * Math.round(turn / (2 * Math.PI));
 }
 
 export function lookAhead(): void {

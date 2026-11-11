@@ -61,8 +61,9 @@ function superscript(exponent: number): string {
 }
 
 /**
- * `significant` significant figures. Values between 10⁻³ and 10⁶ are written out;
- * anything else as mantissa × 10ⁿ.
+ * `significant` significant figures: the value is rounded to that many figures
+ * (3515 to two figures is 3500, not 3515). Values between 10⁻³ and 10⁶ are written
+ * out; anything else as mantissa × 10ⁿ.
  */
 export function formatSignificant(value: number, significant: number, language: Language): string {
   if (!Number.isFinite(value)) return '—';
@@ -75,7 +76,7 @@ export function formatSignificant(value: number, significant: number, language: 
     return `${formatFixed(Number(mantissa), Math.max(0, significant - 1), language)} × 10${superscript(magnitude)}`;
   }
   const digits = Math.max(0, significant - 1 - magnitude);
-  return formatFixed(value, digits, language, magnitude >= 4);
+  return formatFixed(Number(`${mantissa}e${exponent}`), digits, language, magnitude >= 4);
 }
 
 /**
@@ -90,10 +91,13 @@ export function formatBeta(beta: number, language: Language): string {
   return formatFixed(beta, digits, language);
 }
 
-/** Lorentz factor: three decimals up to 10, then fewer. */
+/**
+ * Lorentz factor: three decimals up to 10, then fewer. The step is taken on the value
+ * as it will be shown, so that 9.9996 reads 10.00 and not 10.000.
+ */
 export function formatGamma(gamma: number, language: Language): string {
-  if (gamma < 10) return formatFixed(gamma, 3, language);
-  if (gamma < 100) return formatFixed(gamma, 2, language);
+  if (Number(gamma.toFixed(3)) < 10) return formatFixed(gamma, 3, language);
+  if (Number(gamma.toFixed(2)) < 100) return formatFixed(gamma, 2, language);
   return formatFixed(gamma, 1, language);
 }
 
@@ -101,7 +105,8 @@ export function formatGamma(gamma: number, language: Language): string {
 export function formatAngle(degrees: number, language: Language): string {
   if (!Number.isFinite(degrees)) return '—';
   const magnitude = Math.abs(degrees);
-  const digits = magnitude >= 10 ? 1 : magnitude >= 1 ? 2 : 3;
+  // decided on the value as it will be shown: 0.9996° reads 1.00°, not 1.000°
+  const digits = Number(magnitude.toFixed(3)) < 1 ? 3 : Number(magnitude.toFixed(2)) < 10 ? 2 : 1;
   return `${formatFixed(degrees, digits, language)}°`;
 }
 
@@ -121,20 +126,27 @@ export function formatWavelength(nanometres: number, language: Language): Quanti
     [1e-3, 'mm'],
     [1, 'm'],
   ];
+  // The unit is chosen for the value as it will be shown, to four figures: 999.94 nm
+  // reads 999.9 nm and 999.96 nm reads 1.000 µm, never 0.9999 µm or 1000 nm.
+  const shown = Number(metres.toExponential(3));
   let chosen = steps[0];
-  for (const step of steps) if (metres >= step[0] * 0.9995) chosen = step;
-  return { value: formatSignificant(metres / chosen[0], 4, language), unit: chosen[1] };
+  for (const step of steps) if (Math.abs(shown) >= step[0]) chosen = step;
+  return { value: formatSignificant(shown / chosen[0], 4, language), unit: chosen[1] };
 }
 
-/** Temperature in kelvin, three significant figures above 1000 K. */
+/** Temperature in kelvin: whole kelvins below 1000 K, four significant figures above. */
 export function formatTemperature(kelvin: number, language: Language): string {
   if (!Number.isFinite(kelvin)) return '—';
-  return kelvin < 1000 ? formatFixed(kelvin, 0, language) : formatSignificant(kelvin, 3, language);
+  return kelvin < 1000 ? formatFixed(kelvin, 0, language) : formatSignificant(kelvin, 4, language);
 }
 
-/** Length in metres with a sensible unit (mm, cm, m, km). */
+/**
+ * Length in metres with a sensible unit (mm, cm, m, km). The unit is chosen for the
+ * value rounded to the three figures of the smallest units, so that a length a hair
+ * below a step reads 1.00 cm, 1.000 m or 1.000 km rather than 10.0 mm, 100 cm or 1000 m.
+ */
 export function formatLength(metres: number, language: Language): Quantity {
-  const magnitude = Math.abs(metres);
+  const magnitude = Math.abs(Number(metres.toExponential(2)));
   if (magnitude >= 1000) return { value: formatSignificant(metres / 1000, 4, language), unit: 'km' };
   if (magnitude >= 1) return { value: formatSignificant(metres, 4, language), unit: 'm' };
   if (magnitude >= 0.01) return { value: formatSignificant(metres * 100, 3, language), unit: 'cm' };
@@ -154,6 +166,7 @@ export function formatClock(seconds: number, language: Language): string {
 
 /** Exposure value with an explicit sign, e.g. "−4.7 EV". */
 export function formatExposure(ev: number, language: Language): string {
+  if (!Number.isFinite(ev)) return '—';
   const rounded = Math.round(ev * 10) / 10;
   const sign = rounded > 0 ? '+' : rounded < 0 ? '−' : '±';
   return `${sign}${formatFixed(Math.abs(rounded), 1, language)}`;
