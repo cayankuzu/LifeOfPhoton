@@ -111,7 +111,7 @@ export default function InstrumentDock() {
   });
 
   return (
-    <Panel className="flex w-[18rem] max-w-full flex-col" aria-label={t.dock.title}>
+    <Panel className="flex max-h-full min-h-0 w-[18rem] max-w-full flex-col" aria-label={t.dock.title}>
       <div className="flex items-center justify-between gap-2 py-1 pl-3 pr-1">
         <h2 className="label m-0">{t.dock.title}</h2>
         <IconButton
@@ -134,7 +134,7 @@ export default function InstrumentDock() {
       />
 
       {open && (
-        <div className="scroll-thin max-h-[min(52vh,26rem)] overflow-y-auto border-t border-hairline px-3 pb-2.5">
+        <div className="scroll-thin max-h-[26rem] min-h-0 overflow-y-auto border-t border-hairline px-3 pb-2.5">
           <dl className="m-0">
             <Row label={t.dock.properTime} note={t.dock.rate}>
               <span className="inline-flex items-center gap-1">
