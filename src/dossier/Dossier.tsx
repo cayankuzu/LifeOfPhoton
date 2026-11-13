@@ -13,6 +13,7 @@ import { ArrowUpRight, Play, X } from 'lucide-react';
 import { MESSAGES } from '@/i18n/messages';
 import { type Language, type Settings, look, lookAhead, updateSettings, useSettings } from '@/state/simulation';
 import { SHEET_COVERS_QUERY } from '@/ui/DossierFrame';
+import { entryProps } from '@/ui/inventory';
 import { IconButton } from '@/ui/primitives';
 import { DOSSIER } from './content';
 import { FIGURES } from './figures';
@@ -532,8 +533,13 @@ export default function Dossier({ modal = false }: { readonly modal?: boolean })
       aria-labelledby="dossier-title"
       data-dossier
       className="fixed inset-y-0 right-0 z-20 flex w-full flex-col border-l border-hairline bg-panel shadow-[-24px_0_48px_rgb(0_0_0/0.45)] outline-none lg:w-[min(46rem,52vw)]"
+      {...entryProps('dossierSheet')}
     >
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline py-2 pl-5 pr-2">
+      {/* the sheet's own tooltip answers at its heading only, not over the text */}
+      <header
+        className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline py-2 pl-5 pr-2"
+        data-explain-handle=""
+      >
         <p className="label m-0">{t.dossier.title}</p>
         <IconButton label={t.controls.close} hint="Esc" onClick={() => updateSettings({ dossier: null })}>
           <X className="h-4 w-4" aria-hidden="true" />

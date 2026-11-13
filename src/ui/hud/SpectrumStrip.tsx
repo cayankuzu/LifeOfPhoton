@@ -13,6 +13,7 @@ import { VISIBLE_MAX_NM, VISIBLE_MIN_NM, spectralSwatch } from '@/physics/bands'
 import { headOnDopplerFactor } from '@/physics/kinematics';
 import { telemetry } from '@/state/simulation';
 import { useFrame, useMessages } from '../hooks';
+import { entryProps } from '../inventory';
 
 const WIDTH = 288;
 const HEIGHT = 58;
@@ -106,14 +107,14 @@ export default function SpectrumStrip() {
         ))}
 
         {/* ahead: blueshifted, drawn above the axis */}
-        <g ref={aheadRef}>
+        <g ref={aheadRef} {...entryProps('spectrumMarkers')}>
           <path d={`M0 ${AXIS_Y - 5} l-3.2 -5.5 h6.4 z`} fill="var(--ink)" />
           <text y={AXIS_Y - 13} textAnchor="middle" fill="var(--ink)">
             {t.dock.ahead}
           </text>
         </g>
         {/* behind: redshifted, drawn below the axis */}
-        <g ref={behindRef}>
+        <g ref={behindRef} {...entryProps('spectrumMarkers')}>
           <path d={`M0 ${AXIS_Y + 5} l-3.2 5.5 h6.4 z`} fill="var(--ink-2)" />
           <text y={AXIS_Y + 19} textAnchor="middle" fill="var(--ink-2)">
             {t.dock.behind}

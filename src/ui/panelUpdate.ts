@@ -16,7 +16,8 @@
  *
  * The first list is shown at once. A screen reader hears the titles of a list only when its set
  * of items differs from the one it heard last and has stayed the same for ANNOUNCE_SETTLE_MS:
- * a list that only passes by is not read out.
+ * a list that only passes by is not read out. The set it hears is that of the items that open by
+ * themselves; the view "Now" lists the others below them by their titles (describeList).
  *
  * (Until this module the panel waited until the whole list, numbers included, had stayed the same
  * for half a second. While the speed eased, was dragged or a key was held, the numbers changed at
@@ -88,7 +89,11 @@ export function updatePanel(state: PanelUpdate, now: number, structure: string, 
   return { show, announce };
 }
 
-/** A list as the panel shows it: the names of its texts, the texts, its structure (texts in order) and its set of items. */
+/**
+ * A list as the panel shows it: the names of its texts, the texts, its structure (texts in order,
+ * and where the items that open by themselves end) and the set of the items that open by themselves,
+ * which are the ones a screen reader hears.
+ */
 export interface DescribedList {
   readonly ids: readonly string[];
   readonly texts: readonly ExplainText[];
@@ -96,13 +101,24 @@ export interface DescribedList {
   readonly keys: string;
 }
 
-export function describeList(items: readonly ExplainItem[], language: Language, guides: boolean): DescribedList {
+/**
+ * Describes a list of which the first `lead` items open by themselves (the view "Now" shows the
+ * others below them, by their titles only). Without `lead` every item does.
+ */
+export function describeList(
+  items: readonly ExplainItem[],
+  language: Language,
+  guides: boolean,
+  lead = items.length
+): DescribedList {
   const ids = items.map(explainTextId);
+  const rest = ids.slice(lead);
   return {
     ids,
     texts: items.map((item) => renderExplainItem(item, language, guides)),
-    structure: ids.join(),
+    structure: rest.length > 0 ? `${ids.slice(0, lead).join()}|${rest.join()}` : ids.join(),
     keys: items
+      .slice(0, lead)
       .map((item) => item.key)
       .sort()
       .join(),

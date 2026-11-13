@@ -26,6 +26,7 @@ import { neutralConeAngle, transversePlaneApparentAngle } from '@/physics/optics
 import { SCENARIO } from '@/physics/scenario';
 import { getSettings, resetClocks, telemetry, updateSettings, useSettings } from '@/state/simulation';
 import { setText, useFrame, useMessages } from '../hooks';
+import { entryProps, type InventoryId } from '../inventory';
 import { IconButton, Panel } from '../primitives';
 import SpectrumStrip from './SpectrumStrip';
 
@@ -34,13 +35,18 @@ const ANNOUNCE_AFTER_MS = 500;
 
 const DEGREES = 180 / Math.PI;
 
-/** One instrument: what it is on the left, its reading on the right; the note explains it on hover and to screen readers. */
+/**
+ * One instrument: what it is on the left, its reading on the right. Its entry in the inventory explains it
+ * (the tooltip of the interface, and aria-describedby); the note is a line of that tooltip and is read with the label.
+ */
 function Row({
+  entry,
   label,
   note,
   band,
   children,
 }: {
+  readonly entry: InventoryId;
   readonly label: ReactNode;
   readonly note?: string;
   /** A name beside the value; where room is short it gives way first, never the label or the value. */
@@ -50,7 +56,8 @@ function Row({
   return (
     <div
       className={`grid ${band ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)_auto]'} items-baseline gap-x-3 border-t border-hairline py-[5px] first:border-t-0`}
-      title={note}
+      {...entryProps(entry)}
+      data-explain-hint={note}
     >
       <dt className={`text-[11.5px] leading-4 text-ink-2 ${band ? 'whitespace-nowrap' : 'min-w-0 truncate'}`}>
         {label}
@@ -143,8 +150,14 @@ export default function InstrumentDock() {
 
   return (
     // a landmark of its own: a name on a generic element would be ignored
-    <Panel className="flex max-h-full min-h-0 w-[19rem] max-w-full flex-col" role="region" aria-labelledby="dock-title">
-      <div className="flex items-center justify-between gap-2 py-1 pl-3 pr-1">
+    <Panel
+      className="flex max-h-full min-h-0 w-[19rem] max-w-full flex-col"
+      role="region"
+      aria-labelledby="dock-title"
+      {...entryProps('dock')}
+    >
+      {/* the panel's own tooltip answers at its heading only */}
+      <div className="flex items-center justify-between gap-2 py-1 pl-3 pr-1" data-explain-handle="">
         <h2 id="dock-title" className="label m-0">
           {t.dock.title}
         </h2>
@@ -152,6 +165,7 @@ export default function InstrumentDock() {
           label={open ? t.controls.collapse : t.controls.expand}
           aria-expanded={open}
           onClick={() => updateSettings({ dock: !open })}
+          entry="collapse"
         >
           {open ? (
             <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
@@ -165,52 +179,61 @@ export default function InstrumentDock() {
         ref={regime}
         className="m-0 min-h-[3.4rem] border-t border-hairline px-3 py-2 text-[12px] leading-[1.45] text-ink-2"
         aria-hidden="true"
+        {...entryProps('sentence')}
       />
       <p ref={announced} className="sr-only" aria-live="polite" />
 
       {open && (
         <div className="scroll-thin max-h-[26rem] min-h-0 overflow-y-auto border-t border-hairline px-3 pb-2.5">
           <dl className="m-0">
-            <Row label={t.dock.properTime} note={t.dock.rate}>
+            <Row entry="properTime" label={t.dock.properTime}>
               <span className="inline-flex items-center gap-1">
-                <IconButton label={t.controls.resetClocks} onClick={resetClocks} className="-my-1.5 h-6 w-6">
+                <IconButton
+                  label={t.controls.resetClocks}
+                  onClick={resetClocks}
+                  className="-my-1.5 h-6 w-6"
+                  entry="resetClocks"
+                  explainKey="R"
+                >
                   <RotateCcw className="h-3 w-3" aria-hidden="true" />
                 </IconButton>
                 <span ref={tau} className={`${VALUE} text-violet`} />
               </span>
             </Row>
-            <Row label={t.dock.streetTime}>
+            <Row entry="streetTime" label={t.dock.streetTime}>
               <span ref={street} className={VALUE} />
             </Row>
-            <Row label={t.dock.road} note={t.dock.roadNote}>
+            <Row entry="road100" label={t.dock.road} note={t.dock.roadNote}>
               <span ref={road} className={`${VALUE} text-cryo`} />
               <span ref={roadUnit} className={UNIT} />
             </Row>
             {optical && (
               <>
-                <Row label={t.dock.transverse} note={t.dock.transverseNote}>
+                <Row entry="transverse" label={t.dock.transverse} note={t.dock.transverseNote}>
                   <span ref={transverse} className={VALUE} />
                 </Row>
-                <Row label={t.dock.neutralCone} note={t.dock.neutralConeNote}>
+                <Row entry="neutralCone" label={t.dock.neutralCone} note={t.dock.neutralConeNote}>
                   <span ref={cone} className={VALUE} />
                 </Row>
                 <Row
+                  entry="ahead555"
                   label={`${t.dock.reference} · ${t.dock.ahead}`}
                   band={<span ref={aheadBand} className="mr-2 min-w-0 truncate text-[10.5px] text-ink-3" />}
                 >
                   <span ref={aheadValue} className={VALUE} />
                 </Row>
                 <Row
+                  entry="behind555"
                   label={`${t.dock.reference} · ${t.dock.behind}`}
                   band={<span ref={behindBand} className="mr-2 min-w-0 truncate text-[10.5px] text-ink-3" />}
                 >
                   <span ref={behindValue} className={VALUE} />
                 </Row>
-                <Row label={`${t.dock.ambient} · ${t.dock.ahead}`} note={t.dock.ambientNote}>
+                <Row entry="ambient" label={`${t.dock.ambient} · ${t.dock.ahead}`} note={t.dock.ambientNote}>
                   <span ref={ambient} className={VALUE} />
                   <span className={UNIT}>K</span>
                 </Row>
-                <Row label={t.dock.exposure} note={t.dock.exposureNote}>
+                <Row entry="exposure" label={t.dock.exposure} note={t.dock.exposureNote}>
                   <span ref={exposure} className={VALUE} />
                   <span className={UNIT}>EV</span>
                 </Row>
@@ -218,7 +241,7 @@ export default function InstrumentDock() {
             )}
           </dl>
           {optical && (
-            <div className="mt-1 border-t border-hairline pt-2">
+            <div className="mt-1 border-t border-hairline pt-2" {...entryProps('spectrum')}>
               <p className="label mb-1.5">{t.dock.spectrum}</p>
               <SpectrumStrip />
             </div>

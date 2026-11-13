@@ -16,6 +16,7 @@ import { SPEED_OF_LIGHT } from '@/physics/constants';
 import { betaToControl, boostBy, controlToBeta, kinematicState } from '@/physics/kinematics';
 import { RAPIDITY_STEP, boostByWheel, telemetry, updateSettings, useSettings } from '@/state/simulation';
 import { setText, useFrame, useMessages } from '../hooks';
+import { describedById, entryProps, type InventoryId } from '../inventory';
 import { IconButton, Panel } from '../primitives';
 import { MARKS, fittingLabels } from './speedMarks';
 import { useElementWidth, useHudTier } from './tier';
@@ -27,6 +28,7 @@ export const KEY_RAPIDITY_STEP = RAPIDITY_STEP;
 const percent = (beta: number): string => `${(betaToControl(beta) * 100).toFixed(3)}%`;
 
 function Readout({
+  entry,
   symbol,
   label,
   unit,
@@ -34,6 +36,7 @@ function Readout({
   valueRef,
   large,
 }: {
+  readonly entry: InventoryId;
   readonly symbol: string;
   readonly label: string;
   readonly unit?: string;
@@ -42,7 +45,7 @@ function Readout({
   readonly large?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1" title={label}>
+    <div className="flex min-w-0 flex-col gap-1" {...entryProps(entry)}>
       <span className="label">
         <span className="font-serif text-[12px] italic tracking-normal text-ink-2">{symbol}</span>
         <span className="sr-only"> {label}</span>
@@ -104,16 +107,23 @@ export default function SpeedRail() {
       <div className={tier === 'wide' ? 'flex items-end gap-6' : 'flex flex-col gap-3'}>
         {/* primary read-out */}
         <div className={`flex items-end ${roomy ? 'gap-6' : 'gap-4'}`}>
-          <Readout symbol="β = v/c" label={t.readout.velocity} tone="text-amber" valueRef={betaRef} large />
-          {roomy && <Readout symbol="v" label={t.readout.velocity} unit="km/s" tone="text-ink" valueRef={speedRef} />}
-          <Readout symbol="γ" label={t.readout.lorentz} tone="text-cryo" valueRef={gammaRef} />
-          <Readout symbol="dτ/dt" label={t.readout.clockRate} tone="text-violet" valueRef={rateRef} />
-          {roomy && <Readout symbol="D₀" label={t.readout.dopplerAhead} tone="text-ink" valueRef={dopplerRef} />}
+          <Readout entry="beta" symbol="β = v/c" label={t.readout.velocity} tone="text-amber" valueRef={betaRef} large />
+          {roomy && (
+            <Readout entry="speed" symbol="v" label={t.readout.velocity} unit="km/s" tone="text-ink" valueRef={speedRef} />
+          )}
+          <Readout entry="gamma" symbol="γ" label={t.readout.lorentz} tone="text-cryo" valueRef={gammaRef} />
+          <Readout entry="clockRate" symbol="dτ/dt" label={t.readout.clockRate} tone="text-violet" valueRef={rateRef} />
+          {roomy && <Readout entry="doppler" symbol="D₀" label={t.readout.dopplerAhead} tone="text-ink" valueRef={dopplerRef} />}
         </div>
 
         {/* throttle */}
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <IconButton label={t.speed.slower} onClick={() => updateSettings({ beta: boostBy(target, -KEY_RAPIDITY_STEP) })}>
+          <IconButton
+            label={t.speed.slower}
+            onClick={() => updateSettings({ beta: boostBy(target, -KEY_RAPIDITY_STEP) })}
+            entry="steps"
+            explainKey="↑ ↓"
+          >
             <Minus className="h-3.5 w-3.5" aria-hidden="true" />
           </IconButton>
 
@@ -153,7 +163,8 @@ export default function SpeedRail() {
                   ? t.speed.rest
                   : t.speed.valueText(formatBeta(target, language), formatGamma(targetState.gamma, language))
               }
-              title={t.speed.hint}
+              {...entryProps('slider')}
+              data-explain-hint={t.speed.hint}
               onChange={(event) => updateSettings({ beta: controlToBeta(Number(event.target.value)) })}
               onKeyDown={(event) => {
                 // An arrow key is one boost, as everywhere else. The native step of the track would be
@@ -172,7 +183,7 @@ export default function SpeedRail() {
 
             {/* The labels of the marks double as presets. Each is 16 px high; an invisible extension reaches down into
                 the padding of the panel, so that it is a 24 px target that keeps clear of the slider above it. */}
-            <div className="absolute inset-x-0 bottom-0 h-4">
+            <div className="absolute inset-x-0 bottom-0 h-4" {...entryProps('presets')} data-explain-key="0 – 5">
               {MARKS.map((mark, index) => {
                 if (!labelled.has(index)) return null;
                 const selected = Math.abs(position - betaToControl(mark.beta)) < 0.004;
@@ -183,8 +194,9 @@ export default function SpeedRail() {
                     key={mark.label}
                     type="button"
                     onClick={() => updateSettings({ beta: mark.beta })}
-                    title={hint}
                     aria-label={hint}
+                    aria-describedby={describedById('presets')}
+                    data-explain-hint={hint}
                     aria-pressed={selected}
                     className={`pointer-events-auto absolute top-0 ${align} tabular whitespace-nowrap rounded-[3px] px-1 font-mono text-[10.5px] leading-4 transition-colors duration-150 before:absolute before:left-1/2 before:top-0 before:h-6 before:w-full before:min-w-6 before:-translate-x-1/2 before:content-[''] ${
                       selected ? 'text-amber' : 'text-ink-3 hover:text-ink'
@@ -198,7 +210,12 @@ export default function SpeedRail() {
             </div>
           </div>
 
-          <IconButton label={t.speed.faster} onClick={() => updateSettings({ beta: boostBy(target, KEY_RAPIDITY_STEP) })}>
+          <IconButton
+            label={t.speed.faster}
+            onClick={() => updateSettings({ beta: boostBy(target, KEY_RAPIDITY_STEP) })}
+            entry="steps"
+            explainKey="↑ ↓"
+          >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
           </IconButton>
         </div>

@@ -27,6 +27,34 @@ export const CHUNK_COUNT = 16;
 export const CHUNKS_BEHIND = 3;
 export const VARIANT_COUNT = 6;
 
+/** Distance behind the observer at which the rearmost block centre sits, m. */
+export const MODEL_BEHIND = CHUNKS_BEHIND * CHUNK_LENGTH + CHUNK_LENGTH / 2;
+export const MODEL_LENGTH = CHUNK_COUNT * CHUNK_LENGTH;
+
+/**
+ * Distance ahead of the observer of the centre of block `index` once the observer has travelled
+ * `travel` metres, m (negative behind). The blocks are recycled: each keeps its place in a ring of
+ * MODEL_LENGTH that moves past the observer. The simulation places the blocks so, and the pointers of
+ * the panel "Why does it look like this?" find the objects in them so (src/ui/pointing.ts).
+ */
+export function blockCentreAhead(index: number, travel: number): number {
+  const offset = travel % MODEL_LENGTH;
+  let ahead = (index * CHUNK_LENGTH - offset + MODEL_BEHIND) % MODEL_LENGTH;
+  if (ahead < 0) ahead += MODEL_LENGTH;
+  return ahead - MODEL_BEHIND;
+}
+
+/**
+ * The model is a finite sample of an endless avenue. It dissolves (by ordered
+ * dithering, in rest-frame distance along the avenue) before either end comes into
+ * view: between the two distances of each pair, m.
+ */
+const MODEL_AHEAD = MODEL_LENGTH - MODEL_BEHIND - CHUNK_LENGTH;
+export const FADE_AHEAD_START = MODEL_AHEAD - 55;
+export const FADE_AHEAD_END = MODEL_AHEAD - 6;
+export const FADE_BEHIND_START = MODEL_BEHIND - CHUNK_LENGTH - 26;
+export const FADE_BEHIND_END = MODEL_BEHIND - CHUNK_LENGTH - 4;
+
 /**
  * Spacing of the measuring grid drawn on the ground in the measured view, m of rest length along
  * the avenue. The shader draws it and the panel "Why does it look like this?" names it.
@@ -35,6 +63,9 @@ export const MEASURING_GRID_M = 10;
 
 /** Height of the driving surface, m (the road model's kerb strips rise to 0.20 m). */
 export const ROAD_SURFACE_Y = 0.1;
+
+/** Height of the observer's eye in world coordinates, m. */
+export const OBSERVER_Y = ROAD_SURFACE_Y + SCENARIO.camera.eyeHeight;
 
 /** Half-width of the driving surface (where the kerb strips of the road tile begin) and of the road tile, m. */
 export const CARRIAGEWAY_HALF_WIDTH = 4.8;

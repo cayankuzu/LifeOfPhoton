@@ -141,6 +141,10 @@ export interface Telemetry {
   properTime: number;
   /** Rest-frame distance covered since the last reset, m. */
   distance: number;
+  /** Position of the observer along the avenue, m: where the recycled blocks of the model stand (Simulation.tsx). */
+  travel: number;
+  /** Share of the seen view in the picture: 1 seen, 0 measured, in between while the view switch eases. */
+  optical: number;
   /** Natural log of the current exposure relative to rest. */
   lnExposure: number;
   /** View direction relative to the direction of motion, rad. */
@@ -165,6 +169,8 @@ export const telemetry: Telemetry = {
   earthTime: 0,
   properTime: 0,
   distance: 0,
+  travel: 0,
+  optical: 1,
   lnExposure: 0,
   yaw: 0,
   pitch: 0,

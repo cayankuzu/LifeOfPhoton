@@ -27,7 +27,13 @@ export default function LookAhead() {
 
   return (
     <div ref={chip} hidden className="pointer-events-auto absolute right-0 top-0">
-      <Button onClick={lookAhead} className="border border-hairline bg-panel text-ink" hint="F" aria-label={t.controls.lookAhead}>
+      <Button
+        onClick={lookAhead}
+        className="border border-hairline bg-panel text-ink"
+        entry="lookAhead"
+        explainKey="F"
+        aria-label={t.controls.lookAhead}
+      >
         <LocateFixed className="h-3.5 w-3.5 text-amber" aria-hidden="true" />
         {tier !== 'narrow' && t.controls.lookAhead}
       </Button>

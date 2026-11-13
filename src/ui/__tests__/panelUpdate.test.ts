@@ -41,6 +41,7 @@ interface Evaluation {
   readonly shown: string;
   readonly texts: ReadonlyMap<string, ExplainText>;
   readonly latest: ReadonlyMap<string, ExplainText>;
+  /** The titles a screen reader heard at this evaluation: those of the items that open by themselves. */
   readonly announced: string | null;
 }
 
@@ -54,6 +55,7 @@ function drive(target: (time: number) => number, duration: number, from = 0): Ev
   let rapidity = Math.atanh(from);
   let last = Number.NEGATIVE_INFINITY;
   let ids: readonly string[] = [];
+  let opening = 0;
   let shown = '';
   let texts: ReadonlyMap<string, ExplainText> = new Map();
   const log: Evaluation[] = [];
@@ -65,10 +67,13 @@ function drive(target: (time: number) => number, duration: number, from = 0): Ev
     const beta = Math.tanh(rapidity);
     const result = explain(inputAt(beta), memory);
     memory = result.memory;
-    const list = describeList(result.items.slice(0, MAX_ITEMS), 'en', true);
+    // every item that applies is on show, the first MAX_ITEMS open by themselves
+    const lead = Math.min(MAX_ITEMS, result.items.length);
+    const list = describeList(result.items, 'en', true, lead);
     const step = updatePanel(state, now, list.structure, list.keys);
     if (step.show) {
       ids = list.ids;
+      opening = lead;
       shown = list.structure;
     }
     texts = textsOnShow(ids, list, texts);
@@ -79,7 +84,12 @@ function drive(target: (time: number) => number, duration: number, from = 0): Ev
       shown,
       texts,
       latest: new Map(list.ids.map((id, index) => [id, list.texts[index]])),
-      announced: step.announce ? ids.map((id) => texts.get(id)?.title).join(' | ') : null,
+      announced: step.announce
+        ? ids
+            .slice(0, opening)
+            .map((id) => texts.get(id)?.title)
+            .join(' | ')
+        : null,
     });
   }
   return log;
@@ -161,6 +171,35 @@ describe('the update rule of the panel "Why does it look like this?"', () => {
     expect(faster.filter((entry) => entry.announced !== null)).toHaveLength(0);
     const shapes = (entry: Evaluation): string | undefined => entry.texts.get('shapes')?.body;
     expect(shapes(faster[faster.length - 1])).not.toBe(shapes(faster[0]));
+  });
+
+  it('describes the items under "Also right now" in the structure, and announces only those that open by themselves', () => {
+    const items = explain(inputAt(0.99)).items;
+    expect(items.length).toBeGreaterThan(MAX_ITEMS);
+    const all = describeList(items, 'en', true);
+    const split = describeList(items, 'en', true, MAX_ITEMS);
+    expect(split.ids).toEqual(all.ids);
+    expect(split.texts).toEqual(all.texts);
+    expect(all.structure).toBe(all.ids.join());
+    expect(split.structure).toBe(`${all.ids.slice(0, MAX_ITEMS).join()}|${all.ids.slice(MAX_ITEMS).join()}`);
+    // where the open items end is part of the structure: a fourth item that opens is a new structure
+    expect(describeList(items, 'en', true, MAX_ITEMS + 1).structure).not.toBe(split.structure);
+    expect(split.keys).toBe(
+      items
+        .slice(0, MAX_ITEMS)
+        .map((item) => item.key)
+        .sort()
+        .join()
+    );
+  });
+
+  it('never announces a title that is not open, while the speed rises to 0.99999 c', () => {
+    const log = drive((time) => (time < 500 ? 0 : 0.99999), 12000);
+    expect(log.some((entry) => entry.announced !== null)).toBe(true);
+    for (const entry of log) {
+      if (entry.announced === null) continue;
+      expect(entry.announced.split(' | ').length).toBeLessThanOrEqual(MAX_ITEMS);
+    }
   });
 
   it('lets an item that is about to leave keep its last words until the new list is shown', () => {

@@ -5,6 +5,7 @@ import { BookOpen, Crosshair, Keyboard, Lightbulb, Pause, Play, Telescope, Therm
 import { chooseExplainer, chooseLanguage, chooseSingleKeys } from '@/state/preferences';
 import { LENSES, type Language, type ViewMode, updateSettings, useSettings } from '@/state/simulation';
 import { useMessages } from '../hooks';
+import { entryProps } from '../inventory';
 import { Button, Divider, IconButton, Kbd, Panel, Segmented, Toggle } from '../primitives';
 import { EXPLAINER_ID, EXPLAINER_TOGGLE_ID } from './Explainer';
 import { useHudTier } from './tier';
@@ -121,7 +122,8 @@ export default function TopBar() {
     <header className={`flex items-start gap-2 ${tier === 'narrow' ? 'justify-end' : 'justify-between'}`}>
       {/* the name gives way to the controls where room is short */}
       {tier !== 'narrow' && (
-        <Panel className="pointer-events-none shrink-0 select-none px-3 py-2">
+        // it takes the pointer for its tooltip; the view is dragged anywhere else
+        <Panel className="shrink-0 select-none px-3 py-2" {...entryProps('title')}>
           {/* the name is the h1 of the page; written in capitals by hand, since CSS would make the i of "Life" an İ in Turkish */}
           <p
             aria-hidden="true"
@@ -138,26 +140,32 @@ export default function TopBar() {
           label={t.view.group}
           value={view}
           onChange={(next) => updateSettings({ view: next })}
+          entry="view"
+          explainKey="M"
           options={[
             { value: 'seen', label: t.view.modes.seen.label, hint: t.view.modes.seen.hint },
             { value: 'measured', label: t.view.modes.measured.label, hint: t.view.modes.measured.hint },
           ]}
         />
         <Divider />
-        <Toggle pressed={thermal} onChange={(next) => updateSettings({ thermal: next })} hint={t.controls.thermalHint}>
+        <Toggle pressed={thermal} onChange={(next) => updateSettings({ thermal: next })} entry="thermal" explainKey="T">
           <Thermometer className="h-3.5 w-3.5" aria-hidden="true" />
           {label(t.controls.thermal)}
         </Toggle>
-        <Toggle pressed={guides} onChange={(next) => updateSettings({ guides: next })} hint={t.controls.guidesHint}>
+        <Toggle pressed={guides} onChange={(next) => updateSettings({ guides: next })} entry="guides" explainKey="G">
           <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
           {label(t.controls.guides)}
         </Toggle>
-        <Button onClick={cycleLens} hint={t.controls.lensHint} aria-label={`${t.controls.lens} ${t.controls.lensValue(lens)}`}>
+        <Button onClick={cycleLens} entry="lens" explainKey="L" aria-label={`${t.controls.lens} ${t.controls.lensValue(lens)}`}>
           <Telescope className="h-3.5 w-3.5" aria-hidden="true" />
           <span className="tabular font-mono text-[11.5px]">{t.controls.lensValue(lens)}</span>
         </Button>
         {/* the name says what a press does; an aria-pressed state as well would contradict it */}
-        <IconButton label={paused ? t.controls.resume : t.controls.pause} onClick={() => updateSettings({ paused: !paused })}>
+        <IconButton
+          label={paused ? t.controls.resume : t.controls.pause}
+          onClick={() => updateSettings({ paused: !paused })}
+          entry="pause"
+        >
           {paused ? <Play className="h-3.5 w-3.5" aria-hidden="true" /> : <Pause className="h-3.5 w-3.5" aria-hidden="true" />}
         </IconButton>
         <Divider />
@@ -166,15 +174,17 @@ export default function TopBar() {
           id={EXPLAINER_TOGGLE_ID}
           pressed={explainer}
           onChange={chooseExplainer}
-          hint={t.explain.toggleHint}
           controls={EXPLAINER_ID}
+          entry="why"
+          explainKey="E"
         >
           <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
           {label(t.explain.toggle)}
         </Toggle>
         <Button
           onClick={() => updateSettings({ dossier: dossierOpen ? null : 'abstract' })}
-          hint={t.controls.dossierHint}
+          entry="dossier"
+          explainKey="D"
           aria-expanded={dossierOpen}
           className="text-ink"
         >
@@ -187,15 +197,12 @@ export default function TopBar() {
           aria-expanded={help}
           aria-haspopup="dialog"
           data-help-trigger
+          entry="shortcuts"
           onClick={() => setHelp((open) => !open)}
         >
           <Keyboard className="h-3.5 w-3.5" aria-hidden="true" />
         </IconButton>
-        <Button
-          onClick={() => chooseLanguage(otherLanguage)}
-          hint={t.controls.languageName[otherLanguage]}
-          className="w-9 px-0 font-mono text-[11px]"
-        >
+        <Button onClick={() => chooseLanguage(otherLanguage)} entry="language" className="w-9 px-0 font-mono text-[11px]">
           {/* each part of the name in its own language: "Dil" in Turkish, "English" in English */}
           <span aria-hidden="true">{otherLanguage.toUpperCase()}</span>
           <span className="sr-only">

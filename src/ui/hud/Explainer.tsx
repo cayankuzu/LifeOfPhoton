@@ -1,36 +1,100 @@
 'use client';
 
 /**
- * The panel "Why does it look like this?": two to four short items, in plain words, on why the
- * picture looks the way it does at this moment (src/ui/explain.ts chooses them).
+ * The panel "Why does it look like this?", in two views chosen by tabs (src/ui/panelViews.ts):
  *
- * The choice is evaluated ten times a second from the velocity the simulation is actually at
- * (src/ui/panelUpdate.ts has the rule). The numbers inside the items follow every evaluation: they
- * are written into the items in place, as the instrument dock writes its rows, so that nothing is
- * mounted again and no screen reader is interrupted. The set and the order of the items change once
- * two evaluations in a row agree on them; the first list is shown at once. A screen reader hears the
- * titles of a new list once, and only when the set of items changes, not when a number in a text does.
+ *   Now                       every item that applies at this moment, in plain words, on why the picture
+ *                             looks the way it does (src/ui/explain.ts chooses them). The first ones open
+ *                             by themselves; the others follow under "Also right now" by their titles and
+ *                             open in place, so that nothing on show goes unexplained.
+ *   What is on the screen?    everything the reader can see, by group (src/ui/inventory.ts), one entry
+ *                             open at a time, with a sentence of live numbers for some of them.
+ *
+ * The choice of "Now" is evaluated ten times a second from the velocity the simulation is actually at
+ * (src/ui/panelUpdate.ts has the rule). The numbers inside the items follow every evaluation, those of
+ * the items not yet opened as well: they are written into the items in place, as the instrument dock
+ * writes its rows, so that nothing is mounted again and no screen reader is interrupted. The set and the
+ * order of the items change once two evaluations in a row agree on them; the first list is shown at
+ * once. A screen reader hears the titles of the items that open by themselves, once, and only when
+ * their set changes, not when a number in a text does. The live sentence of an open inventory entry is
+ * written in place in the same way.
  *
  * Two placements, of which one renders at a time: beside the instrument dock on the medium and wide
  * tiers ("row"), and on a phone, where there is no room beside the dock, as one line under the top
  * bar that opens into an accordion ("top"). Either way it is in the flow of the HUD: it never covers
- * the top bar, the dock, the speed rail or the middle of the view.
+ * the top bar, the dock, the speed rail or the middle of the view; a long view scrolls inside it. The
+ * view and the open inventory entry are kept for the visit and shared by the two placements.
+ *
+ * Resting the mouse on an item or an entry, or giving it the focus, marks on the screen what it talks
+ * about (src/ui/pointing.ts, drawn by src/ui/hud/Pointer.tsx); on a touch screen the open one is marked, on
+ * a phone also while the accordion is folded, so that a thing under the open list can be seen. Leaving it,
+ * changing the view or closing the panel takes the mark away.
  */
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import {
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { BookOpen, ChevronDown, Lightbulb, X } from 'lucide-react';
+import type { Language } from '@/state/simulation';
 import type { Messages } from '@/i18n/messages';
 import { chooseExplainer } from '@/state/preferences';
 import { getSettings, telemetry, updateSettings, useSettings } from '@/state/simulation';
-import { EMPTY_MEMORY, type ExplainSection, type ExplainText, explain, MAX_ITEMS, MAX_ITEMS_TALL } from '../explain';
-import { setText, useFrame, useMessages } from '../hooks';
+import {
+  EMPTY_MEMORY,
+  type ExplainKey,
+  type ExplainSection,
+  type ExplainText,
+  explain,
+  MAX_ITEMS,
+  MAX_ITEMS_TALL,
+} from '../explain';
+import { setText, useFrame, useMediaQuery, useMessages } from '../hooks';
+import {
+  DETAILED,
+  entryProps,
+  explainPointing,
+  INVENTORY,
+  INVENTORY_GROUPS,
+  type InventoryId,
+  inventoryDetail,
+  inventoryPointing,
+  LIVE_DETAILS,
+  type Pointing,
+} from '../inventory';
 import { EVALUATE_EVERY_MS, describeList, newPanelUpdate, textsOnShow, updatePanel } from '../panelUpdate';
+import {
+  choosePanel,
+  entryAfterPress,
+  getPanelChoice,
+  INITIAL_CHOICE,
+  keepOnShow,
+  openBesideDock,
+  openInAccordion,
+  PANEL_VIEWS,
+  type PanelView,
+  splitNow,
+  subscribePanelChoice,
+  tabAfterKey,
+  toggleOpened,
+} from '../panelViews';
+import { setPointerTarget } from '../pointing';
 import { IconButton, Panel } from '../primitives';
 import { useHudTier } from './tier';
 
 /** Id of the panel (the target of the top bar's switch) and of that switch (where the focus goes on closing). */
 export const EXPLAINER_ID = 'explainer';
 export const EXPLAINER_TOGGLE_ID = 'explainer-toggle';
+
+/** Ids of a view's tab and of its tabpanel. */
+export const tabId = (view: PanelView): string => `explainer-tab-${view}`;
+export const tabPanelId = (view: PanelView): string => `explainer-view-${view}`;
 
 /** Height of the HUD from which the wide tier shows a fourth item, CSS pixels. */
 const TALL_FROM_PX = 760;
@@ -44,11 +108,92 @@ export function openDossierAt(section: ExplainSection): void {
   else updateSettings({ dossier: section });
 }
 
+/** A text that can mark something on the screen: an item of "Now" by the name of its text, or an entry of the inventory. */
+const nowSource = (id: string): string => `now:${id}`;
+const entrySource = (id: InventoryId): string => `entry:${id}`;
+
+/** What a source points at (the variants of an item point at the same things). */
+function pointingOf(source: string): Pointing {
+  const name = source.slice(source.indexOf(':') + 1);
+  return source.startsWith('entry:')
+    ? inventoryPointing(name as InventoryId)
+    : explainPointing({ key: name.split('/')[0] as ExplainKey });
+}
+
+/** The handlers a row of the panel carries to mark what it talks about. */
+type MarkHandlers = (source: string) => {
+  readonly onPointerEnter: (event: PointerEvent) => void;
+  readonly onPointerLeave: () => void;
+  readonly onFocus: () => void;
+  readonly onBlur: () => void;
+};
+
+/**
+ * Which text marks the screen: the one under the mouse, else the one that has the focus; on a touch screen,
+ * where there is no hover and a tap need not move the focus, the open one (`open`). A change of `view`
+ * drops the others, and so does an item of "Now" leaving the list (`shown`: the names of the items on
+ * show) while the mouse rests on it; unmounting takes the mark away.
+ */
+function useMarks(view: PanelView, shown: readonly string[], open: string | null, touch: boolean): MarkHandlers {
+  const sources = useRef({ view, hover: null as string | null, focus: null as string | null, open: null as string | null });
+  const apply = (): void => {
+    const { hover, focus, open: opened } = sources.current;
+    const source = touch ? opened : (hover ?? focus);
+    setPointerTarget(source === null ? null : { source, pointing: pointingOf(source) });
+  };
+  useEffect(() => {
+    const current = sources.current;
+    if (current.view !== view) {
+      current.view = view;
+      current.hover = null;
+      current.focus = null;
+    }
+    const gone = (source: string | null): boolean =>
+      source !== null && source.startsWith('now:') && !shown.includes(source.slice('now:'.length));
+    if (gone(current.hover)) current.hover = null;
+    if (gone(current.focus)) current.focus = null;
+    current.open = open;
+    apply();
+  });
+  useEffect(() => () => setPointerTarget(null), []);
+  return (source) => ({
+    onPointerEnter: (event) => {
+      if (event.pointerType === 'touch') return;
+      sources.current.hover = source;
+      apply();
+    },
+    onPointerLeave: () => {
+      if (sources.current.hover !== source) return;
+      sources.current.hover = null;
+      apply();
+    },
+    onFocus: () => {
+      sources.current.focus = source;
+      apply();
+    },
+    onBlur: () => {
+      if (sources.current.focus !== source) return;
+      sources.current.focus = null;
+      apply();
+    },
+  });
+}
+
 /** An item on show: the name of its text (key or key/variant) and the section of the dossier it leads to. */
 interface ShownItem {
   readonly id: string;
   readonly section: ExplainSection;
 }
+
+/** The items of "Now" on show, of which the first `lead` open by themselves. */
+interface ShownList {
+  readonly items: readonly ShownItem[];
+  readonly lead: number;
+}
+
+/** Id of the body of an item of "Now" (the target of its title's aria-controls); the name of a text may hold a slash. */
+const itemBodyId = (id: string): string => `explainer-item-${id.replace(/[^A-Za-z0-9-]/g, '-')}`;
+const entryBodyId = (id: InventoryId): string => `inventory-entry-${id}`;
 
 /** Elements whose words come from the texts and are written in place (titles, bodies, names of the dossier links). */
 const PAINTED = '[data-explain-title],[data-explain-body],[data-explain-more]';
@@ -69,10 +214,13 @@ function paintTexts(root: HTMLElement | null, texts: ReadonlyMap<string, Explain
   });
 }
 
-/** The body of an item, its optional extra sentence and the way on to the dossier; the words are written in place. */
-function ItemBody({ item, t }: { readonly item: ShownItem; readonly t: Messages }) {
+/**
+ * The body of an item, its optional extra sentence and the way on to the dossier; the words are written in
+ * place. It is in the page while the item is closed as well, hidden, so that its numbers are current on opening.
+ */
+function ItemBody({ item, open, t }: { readonly item: ShownItem; readonly open: boolean; readonly t: Messages }) {
   return (
-    <>
+    <div id={itemBodyId(item.id)} hidden={!open}>
       <p data-explain-body={item.id} className="tabular m-0 mt-1 text-[12px] leading-[1.45] text-ink-2" />
       <button
         type="button"
@@ -83,6 +231,239 @@ function ItemBody({ item, t }: { readonly item: ShownItem; readonly t: Messages 
         <BookOpen className="h-3 w-3 text-amber" aria-hidden="true" />
         {t.explain.readMore}
       </button>
+    </div>
+  );
+}
+
+/** The chevron of a title that opens in place. */
+function Chevron({ open }: { readonly open: boolean }) {
+  return (
+    <ChevronDown
+      className={`h-3.5 w-3.5 shrink-0 text-ink-3 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+      aria-hidden="true"
+    />
+  );
+}
+
+const DISCLOSURE =
+  'flex min-h-8 w-full items-center gap-2 text-left text-[12.5px] font-semibold leading-snug transition-colors duration-150 [@media(pointer:coarse)]:min-h-10';
+
+/** A title that opens its item in place. */
+function ItemTitle({ item, open, onPress }: { readonly item: ShownItem; readonly open: boolean; readonly onPress: () => void }) {
+  return (
+    <h3 className="m-0">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={itemBodyId(item.id)}
+        onClick={onPress}
+        className={`${DISCLOSURE} ${open ? 'text-ink' : 'text-ink-2 hover:text-ink'}`}
+      >
+        <span data-explain-title={item.id} className="min-w-0 flex-1" />
+        <Chevron open={open} />
+      </button>
+    </h3>
+  );
+}
+
+/** The tabs of the two views: the arrows, Home and End move between them and select (one tab stop). */
+function Tabs({ view, t }: { readonly view: PanelView; readonly t: Messages }) {
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
+    const next = tabAfterKey(event.key, PANEL_VIEWS.indexOf(view), PANEL_VIEWS.length);
+    if (next === null) return;
+    // the arrows must not fall through to the window, where they would turn the view
+    event.preventDefault();
+    choosePanel({ view: PANEL_VIEWS[next] });
+    document.getElementById(tabId(PANEL_VIEWS[next]))?.focus();
+  };
+  return (
+    <div role="tablist" aria-label={t.inventory.tabs.label} className="flex shrink-0 gap-1 border-b border-hairline px-1.5">
+      {PANEL_VIEWS.map((candidate) => {
+        const selected = candidate === view;
+        return (
+          <button
+            key={candidate}
+            type="button"
+            role="tab"
+            id={tabId(candidate)}
+            aria-selected={selected}
+            aria-controls={tabPanelId(candidate)}
+            tabIndex={selected ? 0 : -1}
+            onClick={() => choosePanel({ view: candidate })}
+            onKeyDown={onKeyDown}
+            className={`relative h-8 rounded-[5px] px-2 text-[12px] font-medium leading-none transition-colors duration-150 ease-out [@media(pointer:coarse)]:h-10 ${
+              selected ? 'text-ink' : 'text-ink-3 hover:text-ink-2'
+            }`}
+          >
+            {candidate === 'now' ? t.inventory.tabs.now : t.inventory.tabs.inventory}
+            <span
+              aria-hidden="true"
+              className={`absolute inset-x-2 bottom-0 h-px transition-colors duration-150 ${selected ? 'bg-amber' : 'bg-transparent'}`}
+            />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A tabpanel; the one not chosen stays in the page, hidden, so that its tab always controls an element. */
+function TabPanel({
+  view,
+  chosen,
+  children,
+}: {
+  readonly view: PanelView;
+  readonly chosen: PanelView;
+  readonly children: ReactNode;
+}) {
+  return (
+    <div
+      role="tabpanel"
+      id={tabPanelId(view)}
+      aria-labelledby={tabId(view)}
+      hidden={view !== chosen}
+      className="scroll-thin min-h-0 overflow-y-auto overscroll-contain"
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The view "Now". Beside the dock the first items are open as they always are and the others open by
+ * their titles; on a phone every item is a title of the accordion, one open at a time.
+ */
+function NowView({
+  shown,
+  open,
+  accordion,
+  onPress,
+  marks,
+  t,
+}: {
+  readonly shown: ShownList;
+  readonly open: ReadonlySet<string>;
+  readonly accordion: boolean;
+  readonly onPress: (id: string) => void;
+  readonly marks: MarkHandlers;
+  readonly t: Messages;
+}) {
+  const { lead, also } = splitNow(shown.items, shown.lead);
+  const row = (item: ShownItem) => (
+    <li
+      key={item.id}
+      className="explainer-in border-t border-hairline px-3 py-1.5 first:border-t-0"
+      {...marks(nowSource(item.id))}
+    >
+      {accordion ? (
+        <ItemTitle item={item} open={open.has(item.id)} onPress={() => onPress(item.id)} />
+      ) : (
+        <h3 data-explain-title={item.id} className="m-0 pt-0.5 text-[12.5px] font-semibold leading-snug text-ink" />
+      )}
+      <ItemBody item={item} open={accordion ? open.has(item.id) : true} t={t} />
+    </li>
+  );
+  return (
+    <>
+      <ol data-explain-live className="m-0 list-none p-0">
+        {lead.map(row)}
+      </ol>
+      {also.length > 0 && (
+        <>
+          <p id="explainer-also" className="label m-0 border-t border-hairline px-3 pb-0.5 pt-2">
+            {t.explain.alsoNow}
+          </p>
+          <ol data-explain-live aria-labelledby="explainer-also" className="m-0 list-none p-0">
+            {also.map((item) => (
+              <li key={item.id} className="explainer-in px-3 pb-1" {...marks(nowSource(item.id))}>
+                <ItemTitle item={item} open={open.has(item.id)} onPress={() => onPress(item.id)} />
+                <ItemBody item={item} open={open.has(item.id)} t={t} />
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+    </>
+  );
+}
+
+/** The view "What is on the screen?": the groups and their entries, one open at a time. */
+function InventoryView({
+  entry,
+  active,
+  language,
+  marks,
+  t,
+}: {
+  readonly entry: InventoryId | null;
+  readonly active: boolean;
+  readonly language: Language;
+  readonly marks: MarkHandlers;
+  readonly t: Messages;
+}) {
+  const detail = useRef<HTMLParagraphElement>(null);
+  const paintedAt = useRef(Number.NEGATIVE_INFINITY);
+  const paint = (): void => {
+    if (entry !== null) setText(detail.current, inventoryDetail(entry, t, language, { beta: telemetry.beta }) ?? '');
+  };
+  // the sentence of the open entry is current when it opens, and in the language of the moment
+  useLayoutEffect(paint);
+  // a sentence that changes with the speed is written in place, ten times a second, while it is in sight
+  useFrame(() => {
+    if (!active || entry === null || !LIVE_DETAILS.has(entry)) return;
+    const now = performance.now();
+    if (now - paintedAt.current < EVALUATE_EVERY_MS) return;
+    paintedAt.current = now;
+    paint();
+  });
+  const press = (id: InventoryId): void => {
+    const next = entryAfterPress(entry, id);
+    choosePanel({ entry: next });
+    // the entry that opens comes into sight inside the list, without moving the page
+    if (next !== null)
+      requestAnimationFrame(() =>
+        document.getElementById(entryBodyId(next))?.parentElement?.scrollIntoView({ block: 'nearest' })
+      );
+  };
+  return (
+    <>
+      <p className="m-0 px-3 pb-1 pt-2 text-[12px] leading-[1.45] text-ink-3">{t.inventory.intro}</p>
+      {INVENTORY_GROUPS.map((group) => (
+        <section key={group} aria-labelledby={`inventory-group-${group}`}>
+          <h3 id={`inventory-group-${group}`} className="label m-0 border-t border-hairline px-3 pb-0.5 pt-2">
+            {t.inventory.groups[group]}
+          </h3>
+          <ul className="m-0 list-none p-0">
+            {(INVENTORY[group] as readonly InventoryId[]).map((id) => {
+              const open = id === entry;
+              const text = t.inventory.entries[id];
+              return (
+                <li key={id} className="px-3" {...marks(entrySource(id))}>
+                  <h4 className="m-0">
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      aria-controls={entryBodyId(id)}
+                      onClick={() => press(id)}
+                      className={`${DISCLOSURE} ${open ? 'text-ink' : 'text-ink-2 hover:text-ink'}`}
+                    >
+                      <span className="min-w-0 flex-1">{text.title}</span>
+                      <Chevron open={open} />
+                    </button>
+                  </h4>
+                  {open && (
+                    <div id={entryBodyId(id)} className="pb-2">
+                      <p className="m-0 text-[12px] leading-[1.45] text-ink-2">{text.body}</p>
+                      {DETAILED.has(id) && <p ref={detail} className="tabular m-0 mt-1 text-[12px] leading-[1.45] text-ink-2" />}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
     </>
   );
 }
@@ -98,12 +479,16 @@ export default function Explainer({ placement }: { readonly placement: 'row' | '
 function ExplainerPanel({ compact }: { readonly compact: boolean }) {
   const { language, t } = useMessages();
   const tier = useHudTier();
+  // the view and the open inventory entry, kept for the visit and shared by the two placements
+  const choice = useSyncExternalStore(subscribePanelChoice, getPanelChoice, () => INITIAL_CHOICE);
   // the structure on show; an item that joins it fades in (class explainer-in on a newly mounted item), while the
   // items that stay are not mounted again, so that the focus on one of their buttons is kept
-  const [shown, setShown] = useState<readonly ShownItem[]>([]);
+  const [shown, setShown] = useState<ShownList>({ items: [], lead: 0 });
+  // beside the dock: the items under "Also right now" the reader has opened
+  const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set());
   // the accordion of the phone form: closed to one line at first, then one item open at a time
   const [expanded, setExpanded] = useState(false);
-  const [openIndex, setOpenIndex] = useState(0);
+  const [chosen, setChosen] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const announced = useRef<HTMLParagraphElement>(null);
   const live = useRef({
@@ -113,6 +498,7 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
     memory: EMPTY_MEMORY,
     update: newPanelUpdate(),
     ids: [] as readonly string[],
+    lead: 0,
     texts: new Map<string, ExplainText>() as ReadonlyMap<string, ExplainText>,
   });
 
@@ -142,16 +528,20 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
     );
     // the hysteresis follows every evaluation, whether or not its result is shown
     state.memory = result.memory;
-    const items = result.items.slice(0, count);
-    const list = describeList(items, language, settings.guides);
+    // every item that applies is on show; the first `count` open by themselves
+    const items = result.items;
+    const lead = Math.min(count, items.length);
+    const list = describeList(items, language, settings.guides, lead);
     const step = updatePanel(state.update, now, list.structure, list.keys);
     if (step.show) {
       state.ids = list.ids;
-      setShown(items.map((item, index) => ({ id: list.ids[index], section: item.section })));
+      state.lead = lead;
+      setShown({ items: items.map((item, index) => ({ id: list.ids[index], section: item.section })), lead });
+      setOpened((previous) => keepOnShow(previous, list.ids));
     }
     state.texts = textsOnShow(state.ids, list, state.texts);
     if (step.announce) {
-      const titles = state.ids.map((id) => state.texts.get(id)?.title ?? '');
+      const titles = state.ids.slice(0, state.lead).map((id) => state.texts.get(id)?.title ?? '');
       setText(announced.current, t.explain.announce(titles));
     }
     paintTexts(root.current, state.texts, t);
@@ -164,7 +554,45 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
     chooseExplainer(false);
     document.getElementById(EXPLAINER_TOGGLE_ID)?.focus();
   };
-  const current = Math.min(openIndex, Math.max(0, shown.length - 1));
+  const ids = shown.items.map((item) => item.id);
+  // the item open in the phone's accordion
+  const accordionOpen = compact ? openInAccordion(ids, chosen) : null;
+  const openNow = compact
+    ? new Set([accordionOpen].filter((id): id is string => id !== null))
+    : openBesideDock(ids, shown.lead, opened);
+  // On a touch screen the open text is marked: the open entry, or the item open in the accordion. On a phone the
+  // open list covers the upper part of the view, so what the reader opened stays marked while the accordion is
+  // folded to its line, which then names it; the item the accordion opens by itself is marked only while it shows.
+  const touch = useMediaQuery('(pointer: coarse)');
+  let openSource: string | null = null;
+  if (choice.view === 'inventory' && choice.entry !== null) openSource = entrySource(choice.entry);
+  if (choice.view === 'now' && accordionOpen !== null && (expanded || chosen === accordionOpen))
+    openSource = nowSource(accordionOpen);
+  const marks = useMarks(choice.view, ids, openSource, touch);
+  const views = (
+    <>
+      <Tabs view={choice.view} t={t} />
+      <TabPanel view="now" chosen={choice.view}>
+        <NowView
+          shown={shown}
+          open={openNow}
+          accordion={compact}
+          onPress={compact ? setChosen : (id) => setOpened((previous) => toggleOpened(previous, id))}
+          marks={marks}
+          t={t}
+        />
+      </TabPanel>
+      <TabPanel view="inventory" chosen={choice.view}>
+        <InventoryView
+          entry={choice.entry}
+          active={choice.view === 'inventory' && (!compact || expanded)}
+          language={language}
+          marks={marks}
+          t={t}
+        />
+      </TabPanel>
+    </>
+  );
   const closeButton = (
     <IconButton label={t.controls.close} onClick={close}>
       <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -173,6 +601,9 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
   const liveRegion = <p ref={announced} className="sr-only" aria-live="polite" />;
 
   if (compact) {
+    // folded: the item open in the accordion (the first, unless the reader chose another), or the open entry of the
+    // inventory, else its name; open: the name of the panel, which the views do not repeat
+    const first = accordionOpen;
     return (
       <Panel
         ref={root}
@@ -181,11 +612,13 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
         aria-labelledby="explainer-title"
         lang={language}
         className="flex max-h-[32dvh] min-h-0 w-full shrink-0 flex-col"
+        {...entryProps('explainer')}
       >
         <h2 id="explainer-title" className="sr-only">
           {t.explain.title}
         </h2>
-        <div className="flex h-10 shrink-0 items-center gap-1 pl-1 pr-1">
+        {/* the panel's own tooltip answers here only, not over the views */}
+        <div className="flex h-10 shrink-0 items-center gap-1 pl-1 pr-1" data-explain-handle="">
           <button
             type="button"
             aria-expanded={expanded}
@@ -194,43 +627,33 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
             className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded px-2 text-left"
           >
             <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber" aria-hidden="true" />
-            {/* closed: the first item; open: the name of the panel, which the list below does not repeat */}
-            {!expanded && shown[0] ? (
+            {!expanded && choice.view === 'now' && first !== null ? (
               <span
                 key="first"
-                data-explain-title={shown[0].id}
+                data-explain-title={first}
                 className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink"
               />
             ) : (
               <span key="name" className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink">
-                {t.explain.title}
+                {expanded || choice.view !== 'inventory'
+                  ? t.explain.title
+                  : choice.entry !== null
+                    ? t.inventory.entries[choice.entry].title
+                    : t.inventory.tabs.inventory}
               </span>
             )}
-            <ChevronDown
-              className={`h-3.5 w-3.5 shrink-0 text-ink-3 transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}
-              aria-hidden="true"
-            />
+            <Chevron open={expanded} />
           </button>
           {closeButton}
         </div>
-        {expanded && (
-          <ol id="explainer-list" data-explain-live className="scroll-thin m-0 min-h-0 list-none overflow-y-auto p-0">
-            {shown.map((item, index) => (
-              <li key={item.id} className="explainer-in border-t border-hairline px-3 py-1.5">
-                <h3 className="m-0">
-                  <button
-                    type="button"
-                    aria-expanded={index === current}
-                    onClick={() => setOpenIndex(index)}
-                    data-explain-title={item.id}
-                    className="flex min-h-9 w-full items-center text-left text-[12.5px] font-semibold leading-snug text-ink"
-                  />
-                </h3>
-                {index === current && <ItemBody item={item} t={t} />}
-              </li>
-            ))}
-          </ol>
-        )}
+        {/* in the page while closed as well, so that the views keep their state and their numbers */}
+        <div
+          id="explainer-list"
+          hidden={!expanded}
+          className={expanded ? 'flex min-h-0 flex-col border-t border-hairline' : undefined}
+        >
+          {views}
+        </div>
         {liveRegion}
       </Panel>
     );
@@ -248,21 +671,15 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
       aria-labelledby="explainer-title"
       lang={language}
       className={`flex ${height} min-h-0 w-[19rem] max-w-full flex-col self-end`}
+      {...entryProps('explainer')}
     >
-      <div className="flex items-center justify-between gap-2 py-1 pl-3 pr-1">
+      <div className="flex shrink-0 items-center justify-between gap-2 py-1 pl-3 pr-1" data-explain-handle="">
         <h2 id="explainer-title" className="label m-0">
           {t.explain.title}
         </h2>
         {closeButton}
       </div>
-      <ol data-explain-live className="scroll-thin m-0 min-h-0 list-none overflow-y-auto p-0">
-        {shown.map((item) => (
-          <li key={item.id} className="explainer-in border-t border-hairline px-3 py-2">
-            <h3 data-explain-title={item.id} className="m-0 text-[12.5px] font-semibold leading-snug text-ink" />
-            <ItemBody item={item} t={t} />
-          </li>
-        ))}
-      </ol>
+      {views}
       {liveRegion}
     </Panel>
   );

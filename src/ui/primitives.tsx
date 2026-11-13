@@ -7,6 +7,23 @@
  */
 
 import { type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode, forwardRef } from 'react';
+import { entryProps, type InventoryId } from './inventory';
+
+/**
+ * The attributes of an element that has an entry in the inventory (src/ui/inventory.ts): its name and
+ * its explanation (aria-describedby; a description of its own, if it has one, is read first), and its
+ * key on the keyboard for the tooltip (src/ui/hud/EntryHelp.tsx). Such an element has no native
+ * `title`: the tooltip of the interface explains it, and a second one would cover the first.
+ */
+function entryAttributes(entry: InventoryId | undefined, describedBy?: string, key?: string) {
+  if (!entry) return { 'aria-describedby': describedBy };
+  const props = entryProps(entry);
+  return {
+    'data-explain-entry': props['data-explain-entry'],
+    'aria-describedby': describedBy ? `${describedBy} ${props['aria-describedby']}` : props['aria-describedby'],
+    'data-explain-key': key,
+  };
+}
 
 function join(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ');
@@ -38,12 +55,26 @@ const CONTROL =
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   /** Short description used as tooltip and accessible name when the content is an icon. */
   readonly hint?: string;
+  /** The entry of the inventory the control stands for; it then has the tooltip of the interface instead of `hint`. */
+  readonly entry?: InventoryId;
+  /** Its key on the keyboard, shown in that tooltip. */
+  readonly explainKey?: string;
 };
 
 /** Plain control. */
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ className, hint, children, ...rest }, ref) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { className, hint, entry, explainKey, children, ...rest },
+  ref
+) {
   return (
-    <button ref={ref} type="button" title={hint} className={join(CONTROL, className)} {...rest}>
+    <button
+      ref={ref}
+      type="button"
+      title={entry ? undefined : hint}
+      className={join(CONTROL, className)}
+      {...entryAttributes(entry, undefined, explainKey)}
+      {...rest}
+    >
       {children}
     </button>
   );
@@ -51,7 +82,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 
 /** Square control holding a single icon. */
 export const IconButton = forwardRef<HTMLButtonElement, ButtonProps & { readonly label: string }>(function IconButton(
-  { className, label, hint, children, ...rest },
+  { className, label, hint, entry, explainKey, children, ...rest },
   ref
 ) {
   return (
@@ -59,8 +90,9 @@ export const IconButton = forwardRef<HTMLButtonElement, ButtonProps & { readonly
       ref={ref}
       type="button"
       aria-label={label}
-      title={hint ?? label}
+      title={entry ? undefined : (hint ?? label)}
       className={join(CONTROL, 'w-8 px-0 [@media(pointer:coarse)]:w-10', className)}
+      {...entryAttributes(entry, undefined, explainKey)}
       {...rest}
     >
       {children}
@@ -78,6 +110,8 @@ export function Toggle({
   className,
   id,
   controls,
+  entry,
+  explainKey,
 }: {
   readonly pressed: boolean;
   readonly onChange: (next: boolean) => void;
@@ -89,6 +123,9 @@ export function Toggle({
   readonly id?: string;
   /** Id of the element the switch shows and hides. */
   readonly controls?: string;
+  /** The entry of the inventory the switch stands for, and its key (see ButtonProps). */
+  readonly entry?: InventoryId;
+  readonly explainKey?: string;
 }) {
   return (
     <button
@@ -96,8 +133,8 @@ export function Toggle({
       id={id}
       aria-pressed={pressed}
       aria-controls={controls}
-      aria-describedby={describedBy}
-      title={hint}
+      title={entry ? undefined : hint}
+      {...entryAttributes(entry, describedBy, explainKey)}
       onClick={() => onChange(!pressed)}
       className={join(CONTROL, 'relative', pressed ? 'text-ink' : 'text-ink-3', className)}
     >
@@ -119,16 +156,22 @@ export function Segmented<T extends string>({
   value,
   options,
   onChange,
+  entry,
+  explainKey,
 }: {
   readonly label: string;
   readonly value: T;
   readonly options: ReadonlyArray<{ readonly value: T; readonly label: string; readonly hint?: string }>;
   readonly onChange: (next: T) => void;
+  /** The entry of the inventory the choice stands for, and its key (see ButtonProps); the hints of the options are then lines of its tooltip. */
+  readonly entry?: InventoryId;
+  readonly explainKey?: string;
 }) {
   return (
     <div
       role="radiogroup"
       aria-label={label}
+      {...entryAttributes(entry, undefined, explainKey)}
       className="inline-flex h-8 items-center rounded-[5px] bg-well p-0.5 [@media(pointer:coarse)]:h-10"
     >
       {options.map((option) => {
@@ -139,7 +182,8 @@ export function Segmented<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
-            title={option.hint}
+            title={entry ? undefined : option.hint}
+            data-explain-hint={entry ? option.hint : undefined}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => {

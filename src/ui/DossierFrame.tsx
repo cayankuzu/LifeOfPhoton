@@ -11,6 +11,7 @@ import { Component, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { updateSettings } from '@/state/simulation';
 import { useMessages } from './hooks';
+import { entryProps } from './inventory';
 import { Button, IconButton, Panel } from './primitives';
 
 /**
@@ -28,8 +29,11 @@ const SHEET =
 export function DossierLoading() {
   const { t } = useMessages();
   return (
-    <div className={SHEET} data-dossier>
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline py-2 pl-5 pr-2">
+    <div className={SHEET} data-dossier {...entryProps('dossierSheet')}>
+      <div
+        className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline py-2 pl-5 pr-2"
+        data-explain-handle=""
+      >
         <p className="label m-0">{t.dossier.title}</p>
         <IconButton label={t.controls.close} hint="Esc" onClick={() => updateSettings({ dossier: null })}>
           <X className="h-4 w-4" aria-hidden="true" />

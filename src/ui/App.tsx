@@ -24,11 +24,13 @@ import {
 } from '@/state/simulation';
 import { DossierBoundary, DossierLoading, SHEET_COVERS_QUERY } from './DossierFrame';
 import { useMediaQuery, useMessages } from './hooks';
+import { EntryDescriptions, EntryTooltip } from './hud/EntryHelp';
 import Guides from './hud/Guides';
 import Explainer from './hud/Explainer';
 import InstrumentDock from './hud/InstrumentDock';
 import Loading from './hud/Loading';
 import LookAhead from './hud/LookAhead';
+import Pointer from './hud/Pointer';
 import SpeedRail from './hud/SpeedRail';
 import TopBar from './hud/TopBar';
 import { HudTierProvider } from './hud/tier';
@@ -220,6 +222,8 @@ export default function App() {
       >
         <UrbanScene />
         <Guides />
+        {/* the marks in the picture of what a text of the panel talks about: over the guide layer, under the HUD */}
+        <Pointer view={stage} layer="scene" />
 
         <HudTierProvider target={hud} revision={dossierOpen}>
           <div ref={hud} className="pointer-events-none absolute inset-0 z-10 flex flex-col gap-3 p-3 sm:p-4">
@@ -250,6 +254,11 @@ export default function App() {
       <div ref={startup} inert={sheetCoversAll}>
         <Loading />
       </div>
+      {/* the outlines of the elements of the interface a text of the panel talks about: over the HUD, under the dossier */}
+      <Pointer view={stage} layer="interface" />
+      {/* the explanations of the elements of the interface, and the one tooltip that shows them, over every layer */}
+      <EntryDescriptions />
+      <EntryTooltip view={stage} />
     </main>
   );
 }

@@ -58,6 +58,21 @@ const CALLS = new Map<string, Call>([
   ['explain.items.lens.title', [(m) => m.explain.items.lens.title('10'), ['×10']]],
   ['explain.items.lens.body', [(m) => m.explain.items.lens.body('10'), ['10']]],
   ['explain.items.speedOfLight.body', [(m) => m.explain.items.speedOfLight.body('300 000'), ['300 000 km']]],
+  ['inventory.details.avenue', [(m) => m.inventory.details.avenue('6.2', '47.5'), ['6.2', '47.5']]],
+  ['inventory.details.crossings', [(m) => m.inventory.details.crossings('72'), ['72']]],
+  ['inventory.details.windows', [(m) => m.inventory.details.windows('42', '10 650', '2856'), ['42', '10 650 K', '2856 K']]],
+  ['inventory.details.lamps', [(m) => m.inventory.details.lamps('18', '0.44', '0.35'), ['18', '0.44 c', '0.35 c']]],
+  ['inventory.details.signals', [(m) => m.inventory.details.signals('green', '511.1 nm'), ['green', '511.1 nm']]],
+  ['inventory.details.moon', [(m) => m.inventory.details.moon('6.29°', '27.4°'), ['6.29°', '27.4°']]],
+  ['inventory.details.stars', [(m) => m.inventory.details.stars('1900', '60'), ['1900', '60']]],
+  ['inventory.details.farEnd', [(m) => m.inventory.details.farEnd('410', '90'), ['410', '90']]],
+  ['inventory.details.ring.none', [(m) => m.inventory.details.ring.none('0.35', '0.44'), ['0.35 c', '0.44 c']]],
+  ['inventory.details.ring.disc', [(m) => m.inventory.details.ring.disc('130°'), ['130°']]],
+  ['inventory.details.ring.between', [(m) => m.inventory.details.ring.between('22.9°', '36.5°'), ['22.9°', '36.5°']]],
+  ['inventory.details.heatGlow', [(m) => m.inventory.details.heatGlow('4063', '288', '0.80'), ['4063 K', '288 K', '0.80 c']]],
+  ['inventory.details.grid', [(m) => m.inventory.details.grid('10 m', '1.41 m'), ['10 m', '1.41 m']]],
+  ['inventory.details.transverseCircle', [(m) => m.inventory.details.transverseCircle('8.11°'), ['8.11°']]],
+  ['inventory.details.neutralCircle', [(m) => m.inventory.details.neutralCircle('29.8°'), ['29.8°']]],
 ]);
 
 /**

@@ -25,7 +25,15 @@ import {
   levelOfDetail,
   prepareModel,
 } from './geometry/build';
-import { type ModelPath, CHUNK_COUNT, CHUNK_LENGTH, MODEL_PATHS, VARIANT_COUNT, modelRole } from './geometry/layout';
+import {
+  type ModelPath,
+  CHUNK_COUNT,
+  CHUNK_LENGTH,
+  MODEL_PATHS,
+  VARIANT_COUNT,
+  blockCentreAhead,
+  modelRole,
+} from './geometry/layout';
 import { generateStarField, starLnNormalisation, starPointSize } from './geometry/stars';
 import { adaptResolution, createResolutionState, preferredPixelRatio } from './resolution';
 import { cityFragmentShader, cityVertexShader } from './shaders/city';
@@ -35,8 +43,6 @@ import {
   BASE_LN_EXPOSURE,
   FADE_AHEAD_END,
   FADE_BEHIND_END,
-  MODEL_BEHIND,
-  MODEL_LENGTH,
   OBSERVER_Y,
   createAtlasTexture,
   createSceneUniforms,
@@ -288,13 +294,10 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
       telemetry.earthTime += dt;
       telemetry.properTime += dt / gamma;
     }
-    const offset = s.travel % MODEL_LENGTH;
     for (let i = 0; i < CHUNK_COUNT; i++) {
       const mesh = blockRefs.current[i];
       if (!mesh) continue;
-      let ahead = (i * CHUNK_LENGTH - offset + MODEL_BEHIND) % MODEL_LENGTH;
-      if (ahead < 0) ahead += MODEL_LENGTH;
-      const centre = ahead - MODEL_BEHIND;
+      const centre = blockCentreAhead(i, s.travel);
       mesh.position.z = -centre;
       if (blocks) {
         const nearestAhead = centre - CHUNK_LENGTH / 2;
@@ -339,6 +342,8 @@ export default function Simulation({ pixelRatio, onPixelRatio }: SimulationProps
 
     // --- telemetry (the triangles of the last frame: read before the star pass below starts a new count)
     telemetry.beta = beta;
+    telemetry.travel = s.travel;
+    telemetry.optical = s.optical;
     telemetry.lnExposure = s.lnExposure;
     telemetry.yaw = s.yaw;
     telemetry.pitch = s.pitch;

@@ -17,29 +17,22 @@ import {
   sampleAtlas,
   temperatureCoordinate,
 } from '@/physics/spectralAtlas';
-import { CHUNKS_BEHIND, CHUNK_COUNT, CHUNK_LENGTH, ROAD_SURFACE_Y } from './geometry/layout';
+import {
+  FADE_AHEAD_END,
+  FADE_AHEAD_START,
+  FADE_BEHIND_END,
+  FADE_BEHIND_START,
+  MODEL_BEHIND,
+  MODEL_LENGTH,
+  OBSERVER_Y,
+} from './geometry/layout';
 import { LUMINAIRE_FACE_LUMINANCE } from './geometry/lighting';
-
-/** Height of the observer's eye in world coordinates, m. */
-export const OBSERVER_Y = ROAD_SURFACE_Y + SCENARIO.camera.eyeHeight;
 
 /** Exposure at rest: places a white surface under the reference street lighting just below display white. */
 export const BASE_LN_EXPOSURE = Math.log(1.45);
 
-/** Distance behind the observer at which the rearmost block centre sits, m. */
-export const MODEL_BEHIND = CHUNKS_BEHIND * CHUNK_LENGTH + CHUNK_LENGTH / 2;
-export const MODEL_LENGTH = CHUNK_COUNT * CHUNK_LENGTH;
-
-/**
- * The model is a finite sample of an endless avenue. It dissolves (by ordered
- * dithering, in rest-frame distance along the avenue) before either end comes into
- * view: between the two distances of each pair, m.
- */
-const MODEL_AHEAD = MODEL_LENGTH - MODEL_BEHIND - CHUNK_LENGTH;
-export const FADE_AHEAD_START = MODEL_AHEAD - 55;
-export const FADE_AHEAD_END = MODEL_AHEAD - 6;
-export const FADE_BEHIND_START = MODEL_BEHIND - CHUNK_LENGTH - 26;
-export const FADE_BEHIND_END = MODEL_BEHIND - CHUNK_LENGTH - 4;
+// The observer's eye and the extent of the model are defined beside the layout, which the interface reads as well.
+export { FADE_AHEAD_END, FADE_AHEAD_START, FADE_BEHIND_END, FADE_BEHIND_START, MODEL_BEHIND, MODEL_LENGTH, OBSERVER_Y };
 
 /**
  * Uploads the atlas as a half-float RGBA texture. Half floats are filterable in
