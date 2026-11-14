@@ -73,7 +73,7 @@ export const INVENTORY = {
     'spectrum',
     'spectrumMarkers',
   ],
-  rail: ['beta', 'speed', 'gamma', 'clockRate', 'doppler', 'slider', 'presets', 'steps'],
+  rail: ['coach', 'beta', 'speed', 'gamma', 'clockRate', 'doppler', 'slider', 'presets', 'steps'],
   bar: [
     'title',
     'view',
@@ -83,6 +83,7 @@ export const INVENTORY = {
     'pause',
     'why',
     'explainer',
+    'tour',
     'dossier',
     'dossierSheet',
     'shortcuts',

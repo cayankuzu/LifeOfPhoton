@@ -16,7 +16,9 @@
  * then projected through the camera of the scene (yaw, pitch, the field of view of the lens), as the
  * guide layer projects its circles (src/ui/hud/Guides.tsx). A mark outside the view becomes an arrow at
  * the nearest edge, in the direction to turn. Of the objects of a kind the one marked is the nearest
- * that is in the view, or, when none is, the one closest to it.
+ * that is in the view, or, when none is, the one closest to it. A thing that lies under a panel (the Moon
+ * under the top bar of a phone) is shown by an arrow just outside that panel, pointing at it; an arrow at
+ * the edge of the view that would fall under a panel moves out from under it in the same way.
  *
  * Pure: no React, no three.js. The overlay that draws the shapes is src/ui/hud/Pointer.tsx; the store at
  * the end holds what the panel points at now.
@@ -75,8 +77,8 @@ export interface PointingView {
   readonly height: number;
   /**
    * Boxes of the panels that lie over the stage, in its pixels: of the things of a kind, the nearest one
-   * that is not under a panel is marked (one under a panel only when there is no other in the view), and the
-   * name of a curve stands where no panel covers it.
+   * that is not under a panel is marked (one under a panel only when there is no other in the view, and then by an
+   * arrow beside the panel, as is any other thing under one), and the name of a curve stands where no panel covers it.
    */
   readonly covered?: readonly CoveredBox[];
 }
@@ -210,11 +212,71 @@ function edgeArrow(frame: Frame, v: Vec3): MarkShape {
   return { kind: 'edge', at: [width / 2 + dx * t, height / 2 + dy * t], angle: Math.atan2(dy, dx) };
 }
 
-/** A circle about a drawn position (relative to the eye) whose angular radius is `angle`, or the arrow at the edge. */
+/** Distance of an arrow beside a panel from the panel's edge, px. */
+export const PANEL_ARROW_GAP = 14;
+
+/** The panel over the stage under which a pixel lies, if any. */
+const panelAt = (covered: readonly CoveredBox[], p: ScreenPoint): CoveredBox | undefined =>
+  covered.find((box) => p[0] >= box.left && p[0] <= box.right && p[1] >= box.top && p[1] <= box.bottom);
+
+/**
+ * The nearest place in the open for a pixel under a panel: straight out of the panel across its nearest edge,
+ * on past any panel that adjoins it on that side, `PANEL_ARROW_GAP` beyond the last one; a way that leaves the
+ * stage (with the inset of the edge arrows) is not taken. The pixel itself when it is in the open; null when
+ * every way out is closed.
+ */
+export function outOfPanels(p: ScreenPoint, covered: readonly CoveredBox[], width: number, height: number): ScreenPoint | null {
+  const first = panelAt(covered, p);
+  if (!first) return p;
+  const ways = [
+    { dx: 0, dy: 1, distance: first.bottom - p[1] },
+    { dx: 0, dy: -1, distance: p[1] - first.top },
+    { dx: 1, dy: 0, distance: first.right - p[0] },
+    { dx: -1, dy: 0, distance: p[0] - first.left },
+  ].sort((a, b) => a.distance - b.distance);
+  for (const { dx, dy } of ways) {
+    let at: ScreenPoint = p;
+    for (let box = panelAt(covered, at), step = 0; box && step < covered.length; box = panelAt(covered, at), step++) {
+      at =
+        dx !== 0
+          ? [dx > 0 ? box.right + PANEL_ARROW_GAP : box.left - PANEL_ARROW_GAP, at[1]]
+          : [at[0], dy > 0 ? box.bottom + PANEL_ARROW_GAP : box.top - PANEL_ARROW_GAP];
+    }
+    const open = !panelAt(covered, at);
+    const within = at[0] >= EDGE_INSET && at[0] <= width - EDGE_INSET && at[1] >= EDGE_INSET && at[1] <= height - EDGE_INSET;
+    if (open && within) return at;
+  }
+  return null;
+}
+
+/**
+ * The mark of a thing at the pixel `at` that lies under a panel: an arrow just outside the panel, pointing at
+ * it; null when it is in the open or no way out from under the panels is found (it is then marked where it is).
+ */
+export function arrowToCovered(at: ScreenPoint, covered: readonly CoveredBox[], width: number, height: number): MarkShape | null {
+  if (!panelAt(covered, at)) return null;
+  const place = outOfPanels(at, covered, width, height);
+  return place ? { kind: 'edge', at: place, angle: Math.atan2(at[1] - place[1], at[0] - place[0]) } : null;
+}
+
+/** An arrow at the edge of the view, moved out from under a panel (it keeps its direction); as it is when none is open. */
+function edgeArrowInOpen(frame: Frame, v: Vec3): MarkShape {
+  const arrow = edgeArrow(frame, v);
+  if (arrow.kind !== 'edge') return arrow;
+  const place = outOfPanels(arrow.at, frame.view.covered ?? [], frame.view.width, frame.view.height);
+  return place ? { ...arrow, at: place } : arrow;
+}
+
+/**
+ * A circle about a drawn position (relative to the eye) whose angular radius is `angle`; the arrow beside the panel
+ * when it lies under one; the arrow at the edge when it is outside the view.
+ */
 function spotOrEdge(frame: Frame, position: Vec3, angle: number): MarkShape {
   const v = toCamera(frame, position);
   const at = toScreen(frame, v);
-  if (!inside(frame, at)) return edgeArrow(frame, v);
+  if (!inside(frame, at)) return edgeArrowInOpen(frame, v);
+  const covered = arrowToCovered(at, frame.view.covered ?? [], frame.view.width, frame.view.height);
+  if (covered) return covered;
   const largest = 0.3 * Math.min(frame.view.width, frame.view.height);
   return { kind: 'spot', at, radius: Math.min(largest, Math.max(SPOT_MIN_RADIUS, frame.focal * Math.tan(Math.min(angle, 1.2)))) };
 }
@@ -278,7 +340,7 @@ function curvesOf(frame: Frame, curves: readonly (readonly Vec3[])[]): MarkShape
     if (path.length > 1) paths.push(path);
   }
   if (seen) return { kind: 'curves', paths, anchor };
-  return nearest ? edgeArrow(frame, nearest) : null;
+  return nearest ? edgeArrowInOpen(frame, nearest) : null;
 }
 
 /** The cone of apparent half-angle `angle` about the direction of motion (−z), as drawn in the seen view. */
@@ -450,7 +512,7 @@ export function thingsAround(kind: ObjectMark, travel: number): { readonly rel: 
 
 /**
  * The nearest thing of a kind that is in the view and not under a panel; failing that the nearest one in
- * the view; failing that the arrow towards the one closest to the view.
+ * the view (by an arrow beside the panel over it); failing that the arrow towards the one closest to the view.
  */
 function nearestThing(frame: Frame, kind: ObjectMark): MarkShape | null {
   // [in the open, under a panel]
@@ -475,7 +537,7 @@ function nearestThing(frame: Frame, kind: ObjectMark): MarkShape | null {
     }
   }
   if (best[0] ?? best[1]) return best[0] ?? best[1];
-  return closest ? edgeArrow(frame, closest) : null;
+  return closest ? edgeArrowInOpen(frame, closest) : null;
 }
 
 // ---------------------------------------------------------------------------

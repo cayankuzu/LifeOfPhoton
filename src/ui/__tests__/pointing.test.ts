@@ -25,10 +25,13 @@ import {
 import { EXPLAIN_SECTIONS, type ExplainKey } from '../explain';
 import { EXPLAIN_POINTING, INTERFACE_ENTRIES, INVENTORY_IDS, SCENE_MARKS, type SceneMark, inventoryPointing } from '../inventory';
 import {
+  arrowToCovered,
   DIRECTIONS,
   EDGE_INSET,
   MODEL_CENTRES,
   OBJECT_MARKS,
+  outOfPanels,
+  PANEL_ARROW_GAP,
   PLACES,
   type MarkShape,
   type PointingView,
@@ -297,6 +300,58 @@ describe('a thing under a panel', () => {
       expect(resolveMark(mark, viewOf({ covered: [everywhere] })), mark).toEqual(open);
       expect(underIt, mark).toBe(false);
     }
+  });
+
+  // a phone: the top bar, and the panel "Why?" folded to its line under it
+  const PHONE = { width: 390, height: 760 };
+  const BAR = { left: 12, top: 12, right: 378, bottom: 60 };
+  const LINE = { left: 12, top: 72, right: 378, bottom: 112 };
+  const under = (p: readonly [number, number], box: { left: number; top: number; right: number; bottom: number }): boolean =>
+    p[0] >= box.left && p[0] <= box.right && p[1] >= box.top && p[1] <= box.bottom;
+
+  it('is shown by an arrow just outside the panel, on its nearest side, pointing at it', () => {
+    const at = [200, 50] as const;
+    const arrow = arrowToCovered(at, [BAR], PHONE.width, PHONE.height);
+    expect(arrow).toEqual({ kind: 'edge', at: [200, BAR.bottom + PANEL_ARROW_GAP], angle: -Math.PI / 2 });
+    // a thing in the open has no arrow
+    expect(arrowToCovered([200, 300], [BAR], PHONE.width, PHONE.height)).toBeNull();
+  });
+
+  it('goes on past a panel that adjoins the first, and never leaves the stage', () => {
+    const at = [200, 50] as const;
+    const place = outOfPanels(at, [BAR, LINE], PHONE.width, PHONE.height);
+    expect(place).toEqual([200, LINE.bottom + PANEL_ARROW_GAP]);
+    // near the right end of the bar the way out to the right would leave the stage: it goes down
+    const right = outOfPanels([360, 30], [BAR], PHONE.width, PHONE.height);
+    expect(right).toEqual([360, BAR.bottom + PANEL_ARROW_GAP]);
+    // no way out at all: no arrow, the thing is marked where it is
+    const everywhere = { left: -1, top: -1, right: PHONE.width + 1, bottom: PHONE.height + 1 };
+    expect(outOfPanels(at, [everywhere], PHONE.width, PHONE.height)).toBeNull();
+    expect(arrowToCovered(at, [everywhere], PHONE.width, PHONE.height)).toBeNull();
+  });
+
+  it('marks the Moon at rest under the top bar of a phone by an arrow below the bar, pointing at it', () => {
+    const view = { ...viewOf({}), ...PHONE };
+    const open = resolveMark('moon', view);
+    if (open?.kind !== 'spot') throw new Error('the Moon is not in the view of a phone');
+    const bar = { left: 0, top: 0, right: PHONE.width, bottom: open.at[1] + 30 };
+    const moved = resolveMark('moon', { ...view, covered: [bar] });
+    if (moved?.kind !== 'edge') throw new Error('no arrow');
+    expect(under(moved.at, bar)).toBe(false);
+    expect(moved.at[1]).toBeCloseTo(bar.bottom + PANEL_ARROW_GAP);
+    // it points at the Moon
+    const towards = Math.atan2(open.at[1] - moved.at[1], open.at[0] - moved.at[0]);
+    expect(moved.angle).toBeCloseTo(towards);
+  });
+
+  it('moves an arrow at the edge of the view out from under a panel, keeping its direction', () => {
+    const open = resolveMark('behind', viewOf({}));
+    if (open?.kind !== 'edge') throw new Error('no arrow');
+    const panel = { left: open.at[0] - 60, top: open.at[1] - 20, right: WIDTH, bottom: open.at[1] + 20 };
+    const moved = resolveMark('behind', viewOf({ covered: [panel] }));
+    if (moved?.kind !== 'edge') throw new Error('no arrow');
+    expect(moved.angle).toBe(open.angle);
+    expect(under(moved.at, panel)).toBe(false);
   });
 
   it('keeps the name of a curve out from under a panel', () => {

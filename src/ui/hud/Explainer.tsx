@@ -29,6 +29,11 @@
  * about (src/ui/pointing.ts, drawn by src/ui/hud/Pointer.tsx); on a touch screen the open one is marked, on
  * a phone also while the accordion is folded, so that a thing under the open list can be seen. Leaving it,
  * changing the view or closing the panel takes the mark away.
+ *
+ * "Start the tour" puts a guided tour (src/ui/tour.ts) in place of the views: a card per stop, with Back, Next
+ * and End. Each stop sets a state of the simulation, as a "show in the scene" button of the dossier does, and
+ * marks what its text is about for as long as it is shown; ending the tour (End, Escape, closing the panel)
+ * takes the mark away and leaves the scene where the last stop put it.
  */
 
 import {
@@ -41,7 +46,9 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { BookOpen, ChevronDown, Lightbulb, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Lightbulb, Route, X } from 'lucide-react';
+import { applyScenario } from '@/dossier/scenario';
+import { formatInteger } from '@/i18n/format';
 import type { Language } from '@/state/simulation';
 import type { Messages } from '@/i18n/messages';
 import { chooseExplainer } from '@/state/preferences';
@@ -55,6 +62,7 @@ import {
   MAX_ITEMS,
   MAX_ITEMS_TALL,
 } from '../explain';
+import { drawingOf } from '../drawings';
 import { setText, useFrame, useMediaQuery, useMessages } from '../hooks';
 import {
   DETAILED,
@@ -73,7 +81,6 @@ import {
   choosePanel,
   entryAfterPress,
   getPanelChoice,
-  INITIAL_CHOICE,
   keepOnShow,
   openBesideDock,
   openInAccordion,
@@ -85,7 +92,9 @@ import {
   toggleOpened,
 } from '../panelViews';
 import { setPointerTarget } from '../pointing';
-import { IconButton, Panel } from '../primitives';
+import { Button, IconButton, Panel } from '../primitives';
+import { endTour, firstStop, isFirstStop, isLastStop, nextStop, previousStop, TOUR, tourSource } from '../tour';
+import { DrawingDisclosure } from './Drawings';
 import { useHudTier } from './tier';
 
 /** Id of the panel (the target of the top bar's switch) and of that switch (where the focus goes on closing). */
@@ -132,11 +141,19 @@ type MarkHandlers = (source: string) => {
  * Which text marks the screen: the one under the mouse, else the one that has the focus; on a touch screen,
  * where there is no hover and a tap need not move the focus, the open one (`open`). A change of `view`
  * drops the others, and so does an item of "Now" leaving the list (`shown`: the names of the items on
- * show) while the mouse rests on it; unmounting takes the mark away.
+ * show) while the mouse rests on it; unmounting takes the mark away. While the guided tour runs
+ * (`touring`), its card sets the mark and the texts leave it alone.
  */
-function useMarks(view: PanelView, shown: readonly string[], open: string | null, touch: boolean): MarkHandlers {
+function useMarks(
+  view: PanelView,
+  shown: readonly string[],
+  open: string | null,
+  touch: boolean,
+  touring: boolean
+): MarkHandlers {
   const sources = useRef({ view, hover: null as string | null, focus: null as string | null, open: null as string | null });
   const apply = (): void => {
+    if (touring) return;
     const { hover, focus, open: opened } = sources.current;
     const source = touch ? opened : (hover ?? focus);
     setPointerTarget(source === null ? null : { source, pointing: pointingOf(source) });
@@ -216,12 +233,15 @@ function paintTexts(root: HTMLElement | null, texts: ReadonlyMap<string, Explain
 
 /**
  * The body of an item, its optional extra sentence and the way on to the dossier; the words are written in
- * place. It is in the page while the item is closed as well, hidden, so that its numbers are current on opening.
+ * place. It is in the page while the item is closed as well, hidden, so that its numbers are current on opening. Some
+ * items carry a small drawing behind a disclosure (src/ui/drawings.ts).
  */
 function ItemBody({ item, open, t }: { readonly item: ShownItem; readonly open: boolean; readonly t: Messages }) {
+  const drawing = drawingOf(item.id);
   return (
     <div id={itemBodyId(item.id)} hidden={!open}>
       <p data-explain-body={item.id} className="tabular m-0 mt-1 text-[12px] leading-[1.45] text-ink-2" />
+      {drawing && <DrawingDisclosure drawing={drawing} id={`${itemBodyId(item.id)}-drawing`} t={t} />}
       <button
         type="button"
         data-explain-more={item.id}
@@ -468,6 +488,81 @@ function InventoryView({
   );
 }
 
+/** Ids of the tour's heading (where the focus goes at each stop) and of the button that starts it (where it goes after). */
+export const TOUR_TITLE_ID = 'explainer-tour-title';
+export const TOUR_START_ID = 'explainer-tour-start';
+
+/**
+ * A stop of the guided tour, in place of the views: the step, the title, the text and the way on. Its mark stays on the
+ * screen while it is shown, and goes when the card does. Escape ends the tour, unless something above it (a tooltip, the
+ * sheet of shortcuts) has taken the key, or the focus is in the dossier, where the key is the dossier's; the arrow keys
+ * are not taken and keep changing the speed and the view.
+ */
+function TourCard({
+  position,
+  onGo,
+  onEnd,
+  language,
+  t,
+}: {
+  readonly position: number;
+  readonly onGo: (position: number) => void;
+  readonly onEnd: () => void;
+  readonly language: Language;
+  readonly t: Messages;
+}) {
+  const stop = TOUR[position];
+  const text = t.explain.tour.stops[stop.id];
+  useEffect(() => {
+    setPointerTarget({ source: tourSource(position), pointing: stop.mark });
+  }, [position, stop.mark]);
+  useEffect(() => () => setPointerTarget(null), []);
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent): void => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (event.target instanceof Element && event.target.closest('[data-dossier]')) return;
+      // the key ends the tour and does nothing else (the dossier stays open, and so does the panel)
+      event.preventDefault();
+      onEnd();
+    };
+    // on the document, under the tooltip and the sheet of shortcuts (which listen first, on the window) and before the
+    // shortcuts of the application (on the window, after it)
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onEnd]);
+  const last = isLastStop(position);
+  return (
+    <section aria-label={t.explain.tour.label} className="scroll-thin min-h-0 overflow-y-auto overscroll-contain px-3 pb-2 pt-2">
+      <p className="label tabular m-0">
+        {t.explain.tour.step(formatInteger(position + 1, language), formatInteger(TOUR.length, language))}
+      </p>
+      <h3
+        id={TOUR_TITLE_ID}
+        tabIndex={-1}
+        className="m-0 mt-1 rounded-sm text-[13px] font-semibold leading-snug text-ink outline-none focus-visible:ring-1 focus-visible:ring-amber"
+      >
+        {text.title}
+      </h3>
+      <p className="m-0 mt-1 text-[12px] leading-[1.45] text-ink-2">{text.body}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        <Button onClick={() => onGo(previousStop(position))} disabled={isFirstStop(position)} className="-ml-2.5">
+          <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          {t.explain.tour.back}
+        </Button>
+        {!last && (
+          <Button onClick={() => onGo(nextStop(position))} className="border border-hairline-strong text-ink">
+            {t.explain.tour.next}
+            <ChevronRight className="h-3.5 w-3.5 text-amber" aria-hidden="true" />
+          </Button>
+        )}
+        <Button onClick={onEnd} className={last ? 'border border-hairline-strong text-ink' : 'ml-auto'}>
+          {t.explain.tour.end}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 export default function Explainer({ placement }: { readonly placement: 'row' | 'top' }) {
   const tier = useHudTier();
   const open = useSettings((state) => state.explainer);
@@ -480,7 +575,8 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
   const { language, t } = useMessages();
   const tier = useHudTier();
   // the view and the open inventory entry, kept for the visit and shared by the two placements
-  const choice = useSyncExternalStore(subscribePanelChoice, getPanelChoice, () => INITIAL_CHOICE);
+  // (on the server no choice has been made: the store holds the initial one, which a test may change)
+  const choice = useSyncExternalStore(subscribePanelChoice, getPanelChoice, getPanelChoice);
   // the structure on show; an item that joins it fades in (class explainer-in on a newly mounted item), while the
   // items that stay are not mounted again, so that the focus on one of their buttons is kept
   const [shown, setShown] = useState<ShownList>({ items: [], lead: 0 });
@@ -540,7 +636,8 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
       setOpened((previous) => keepOnShow(previous, list.ids));
     }
     state.texts = textsOnShow(state.ids, list, state.texts);
-    if (step.announce) {
+    // while the tour runs, the announcements are the tour's
+    if (step.announce && getPanelChoice().tour === null) {
       const titles = state.ids.slice(0, state.lead).map((id) => state.texts.get(id)?.title ?? '');
       setText(announced.current, t.explain.announce(titles));
     }
@@ -551,9 +648,31 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
   useLayoutEffect(() => paintTexts(root.current, live.current.texts, t));
 
   const close = (): void => {
+    // closing the panel leaves the tour as well
+    choosePanel({ tour: endTour() });
     chooseExplainer(false);
     document.getElementById(EXPLAINER_TOGGLE_ID)?.focus();
   };
+  // A stop of the tour sets its state, as a "show in the scene" button of the dossier does; the focus goes to its
+  // heading, and its step and title are announced, politely.
+  const goToStop = (position: number): void => {
+    const { scenario } = TOUR[position];
+    if (scenario) applyScenario(scenario);
+    choosePanel({ tour: position });
+    setExpanded(true);
+    const step = t.explain.tour.step(formatInteger(position + 1, language), formatInteger(TOUR.length, language));
+    setText(announced.current, t.explain.tour.announce(step, t.explain.tour.stops[TOUR[position].id].title));
+    requestAnimationFrame(() => document.getElementById(TOUR_TITLE_ID)?.focus());
+  };
+  // Leaving it takes the mark away and leaves the scene where the last stop put it; a focus that was in the panel goes to
+  // the button that starts the tour again.
+  const leaveTour = (): void => {
+    const inside = root.current?.contains(document.activeElement) === true;
+    choosePanel({ tour: endTour() });
+    setText(announced.current, '');
+    if (inside) requestAnimationFrame(() => document.getElementById(TOUR_START_ID)?.focus());
+  };
+  const touring = choice.tour !== null;
   const ids = shown.items.map((item) => item.id);
   // the item open in the phone's accordion
   const accordionOpen = compact ? openInAccordion(ids, chosen) : null;
@@ -568,8 +687,10 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
   if (choice.view === 'inventory' && choice.entry !== null) openSource = entrySource(choice.entry);
   if (choice.view === 'now' && accordionOpen !== null && (expanded || chosen === accordionOpen))
     openSource = nowSource(accordionOpen);
-  const marks = useMarks(choice.view, ids, openSource, touch);
-  const views = (
+  const marks = useMarks(choice.view, ids, openSource, touch, touring);
+  const views = touring ? (
+    <TourCard position={choice.tour ?? firstStop()} onGo={goToStop} onEnd={leaveTour} language={language} t={t} />
+  ) : (
     <>
       <Tabs view={choice.view} t={t} />
       <TabPanel view="now" chosen={choice.view}>
@@ -599,6 +720,7 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
     </IconButton>
   );
   const liveRegion = <p ref={announced} className="sr-only" aria-live="polite" />;
+  const start = (): void => goToStop(firstStop());
 
   if (compact) {
     // folded: the item open in the accordion (the first, unless the reader chose another), or the open entry of the
@@ -627,7 +749,11 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
             className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded px-2 text-left"
           >
             <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber" aria-hidden="true" />
-            {!expanded && choice.view === 'now' && first !== null ? (
+            {!expanded && touring ? (
+              <span key="tour" className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink">
+                {t.explain.tour.stops[TOUR[choice.tour ?? firstStop()].id].title}
+              </span>
+            ) : !expanded && choice.view === 'now' && first !== null ? (
               <span
                 key="first"
                 data-explain-title={first}
@@ -644,6 +770,11 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
             )}
             <Chevron open={expanded} />
           </button>
+          {!touring && (
+            <IconButton id={TOUR_START_ID} label={t.explain.tour.start} entry="tour" onClick={start}>
+              <Route className="h-3.5 w-3.5 text-amber" aria-hidden="true" />
+            </IconButton>
+          )}
           {closeButton}
         </div>
         {/* in the page while closed as well, so that the views keep their state and their numbers */}
@@ -674,10 +805,19 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
       {...entryProps('explainer')}
     >
       <div className="flex shrink-0 items-center justify-between gap-2 py-1 pl-3 pr-1" data-explain-handle="">
-        <h2 id="explainer-title" className="label m-0">
+        <h2 id="explainer-title" className="label m-0 min-w-0">
           {t.explain.title}
         </h2>
-        {closeButton}
+        {/* the buttons keep their width (the heading wraps instead), so that the close button stays inside the panel */}
+        <div className="flex shrink-0 items-center gap-0.5">
+          {!touring && (
+            <Button id={TOUR_START_ID} entry="tour" onClick={start} className="px-2">
+              <Route className="h-3.5 w-3.5 text-amber" aria-hidden="true" />
+              {t.explain.tour.start}
+            </Button>
+          )}
+          {closeButton}
+        </div>
       </div>
       {views}
       {liveRegion}

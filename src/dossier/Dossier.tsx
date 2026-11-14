@@ -11,15 +11,15 @@
 import { type ReactNode, createContext, memo, useContext, useEffect, useMemo, useRef } from 'react';
 import { ArrowUpRight, Play, X } from 'lucide-react';
 import { MESSAGES } from '@/i18n/messages';
-import { type Language, type Settings, look, lookAhead, updateSettings, useSettings } from '@/state/simulation';
-import { SHEET_COVERS_QUERY } from '@/ui/DossierFrame';
+import { type Language, updateSettings, useSettings } from '@/state/simulation';
 import { entryProps } from '@/ui/inventory';
 import { IconButton } from '@/ui/primitives';
 import { DOSSIER } from './content';
 import { FIGURES } from './figures';
 import { type InlineContext, citationsIn, describeReference, renderInline, renderMath } from './inline';
 import { REFERENCES, REFERENCE_BY_KEY } from './references';
-import { type Block, type DossierContent, type FigureId, type Scenario, type Section, localize } from './types';
+import { applyScenario, prefersReducedMotion } from './scenario';
+import { type Block, type DossierContent, type FigureId, type Section, localize } from './types';
 
 /** All inline strings of a block, for collecting citations in reading order. */
 function stringsOf(block: Block): string[] {
@@ -75,44 +75,7 @@ export function numberFloats(content: DossierContent): Numbering {
   return { figure, table };
 }
 
-/** Whether the reader has asked the system for less motion. */
-function prefersReducedMotion(): boolean {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-/**
- * What a "show in the scene" button sets. Every button is self-contained: whatever its
- * scenario does not name goes back to the state its text assumes (the seen view, the
- * thermal emission on, no lens), so that the button pressed before cannot make the label
- * false. The motion is restarted only for readers who have not asked for less of it.
- */
-export function scenarioSettings(scenario: Scenario, reduceMotion: boolean): Partial<Settings> {
-  return {
-    beta: scenario.beta,
-    view: scenario.view ?? 'seen',
-    thermal: scenario.thermal ?? true,
-    lens: scenario.lens ?? 1,
-    ...(reduceMotion ? {} : { paused: false }),
-  };
-}
-
-export function applyScenario(scenario: Scenario): void {
-  updateSettings(scenarioSettings(scenario, prefersReducedMotion()));
-  if (scenario.look === 'left') {
-    look.yaw = Math.PI / 2;
-    look.pitch = 0;
-  } else if (scenario.look === 'behind') {
-    look.yaw = Math.PI;
-    look.pitch = 0;
-  } else if (scenario.look === 'up') {
-    look.yaw = 0;
-    look.pitch = Math.PI / 3;
-  } else {
-    lookAhead();
-  }
-  // where the sheet covers the scene, step aside to show it
-  if (window.matchMedia(SHEET_COVERS_QUERY).matches) updateSettings({ dossier: null });
-}
+export { applyScenario, scenarioSettings } from './scenario';
 
 const TONE = {
   note: 'border-hairline-strong',

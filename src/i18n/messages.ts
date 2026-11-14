@@ -9,6 +9,7 @@
 import type { BandId } from '@/physics/bands';
 import type { Language, Lens, ViewMode } from '@/state/simulation';
 import type { InventoryGroup, InventoryId, SceneMark } from '@/ui/inventory';
+import type { TourStopId } from '@/ui/tour';
 
 export interface Messages {
   readonly app: {
@@ -261,6 +262,34 @@ export interface ExplainMessages {
     readonly ringGuide: string;
     readonly crowdingGuide: string;
     readonly crowdingLens: string;
+  };
+  /**
+   * The two drawings inside some items (src/ui/drawings.ts): the name of the disclosure, and for each drawing its
+   * accessible name, its caption and the words written in it.
+   */
+  readonly drawings: {
+    readonly show: string;
+    readonly rain: { readonly name: string; readonly caption: string; readonly still: string; readonly running: string };
+    readonly delay: {
+      readonly name: string;
+      readonly caption: string;
+      readonly earlier: string;
+      readonly later: string;
+      readonly eye: string;
+    };
+  };
+  /** The guided tour (src/ui/tour.ts): its buttons, and for each stop a title and two or three short sentences. */
+  readonly tour: {
+    readonly start: string;
+    /** Name of the card that shows a stop. */
+    readonly label: string;
+    readonly step: (n: string, count: string) => string;
+    /** Polite announcement of a stop: its step and its title. */
+    readonly announce: (step: string, title: string) => string;
+    readonly back: string;
+    readonly next: string;
+    readonly end: string;
+    readonly stops: Record<TourStopId, { readonly title: string; readonly body: string }>;
   };
 }
 
@@ -572,6 +601,71 @@ const tr: Messages = {
       crowdingGuide: 'Kılavuzdaki θ = 90° çemberi, yanındaki şeylerin göründüğü yeri gösterir.',
       crowdingLens: 'Merceği ×10 yap, daireyi büyüt.',
     },
+    drawings: {
+      show: 'Çizimle göster',
+      rain: {
+        name: 'Yağmurda duran bir çocuk ve koşan bir çocuk',
+        caption:
+          'Dururken yağmur tepeden yağar. Koşarken damlalar önden geliyormuş gibi olur; şemsiyeni öne eğersin. Işık da aynısını yapar: yandan gelen ışık önden geliyormuş gibi görünür.',
+        still: 'duruyor',
+        running: 'koşuyor',
+      },
+      delay: {
+        name: 'Bir arabanın iki ucundan göze giden iki ışık',
+        caption:
+          'Uzak uçtan gelen ışık daha önce, araba daha uzaktayken yola çıktı; yakın uçtan gelen sonra. İkisi gözüne birlikte varır. Bu gecikme kısalmayı saklar.',
+        earlier: 'önce',
+        later: 'sonra',
+        eye: 'göz',
+      },
+    },
+    tour: {
+      start: 'Turu başlat',
+      label: 'Rehberli tur',
+      step: (n, count) => `Adım ${n} / ${count}`,
+      announce: (step, title) => `${step}: ${title}`,
+      back: 'Geri',
+      next: 'İleri',
+      end: 'Turu bitir',
+      stops: {
+        rest: {
+          title: 'Gece caddesi',
+          body: 'Şu an duruyorsun. Beyaz sokak lambaları, kırmızı trafik ışıkları ve ışıklı pencereler her gece olduğu gibi görünüyor. Ekranın ortası, gideceğin yön: adım adım hızlanıp neyin değiştiğine bakalım.',
+        },
+        colours: {
+          title: 'Kırmızı ışık yeşile döndü',
+          body: 'Şimdi ışık hızının beşte biriyle gidiyorsun. Işığın dalgalarına doğru gittiğin için dalgalar sana daha sık ulaşıyor; bu yüzden öndeki kırmızı trafik ışığı yeşil görünüyor. Işık yavaşlamadı, yalnızca rengi kaydı.',
+        },
+        gather: {
+          title: 'Her şey öne toplanıyor',
+          body: 'Işık hızının yarısındasın. Tam yanındaki şeyler bile artık biraz önünde görünüyor; öndeki arabalar da küçüldü, sanki daha uzaktalar. Tam önündeki lambaların ışığı ise morötesine kaydı: gözün onu göremez.',
+        },
+        clocks: {
+          title: 'İki saat',
+          body: 'Şimdi γ = 2. Yanından geçtiğin cadde saatleri 2 saniye ilerlerken seninki yalnızca 1 saniye ilerliyor; ölçerlerdeki iki saat bunu gösteriyor. Önde cadde de kendi ısısının ışığıyla kırmızı parlamaya başladı.',
+        },
+        ring: {
+          title: 'Gökkuşağı halkası',
+          body: 'Işık hızının %99’undasın. Önündeki yarım dünyanın tamamı, ortadaki yarıçapı yaklaşık 8° olan küçük dairede toplandı. Lambaları artık yalnızca bu renkli halkada görebilirsin: içinde ışıkları morötesine, dışında kızılötesine kaydı.',
+        },
+        behind: {
+          title: 'Arkana bak',
+          body: 'Şimdi arkana bakıyorsun. Arkadan gelen ışığın dalgalarından uzaklaştığın için dalgalar sana çok seyrek ulaşıyor; lambaların ışığı kızılötesine kaydı. Gözün onu göremez: arkası karanlık, ama ışıksız değil.',
+        },
+        measured: {
+          title: 'Ölçülen dünya',
+          body: 'Bu, gözünün gördüğü değil; her yeri senin saatinle aynı anda ölçünce bulduğun dünya. Gittiğin yönde her şey yarı uzunlukta: 100 metrelik yol 50 metre çıkıyor. Bu kısalma ölçülür, görülmez.',
+        },
+        limit: {
+          title: 'Sınıra çok yakın',
+          body: 'Işık hızının %99,999’uyla gidiyorsun; mercek ortayı 10 kat büyütüyor. Işık sana yine aynı hızla ulaşıyor. Ama ışık hızına hiç ulaşamazsın: bu, bir fotonun değil, ışık hızına yaklaşmış bir yolcunun gördüğü.',
+        },
+        end: {
+          title: 'Şimdi sıra sende',
+          body: 'Turun sonu. Hız çubuğuyla istediğin hıza çık ve etrafına bak. Bu panel, ekranda ne görürsen nedenini anlatmayı sürdürecek.',
+        },
+      },
+    },
   },
   inventory: {
     tabs: { label: 'Panelin görünümleri', now: 'Şimdi', inventory: 'Ekranda neler var?' },
@@ -823,6 +917,14 @@ const tr: Messages = {
       lookAhead: {
         title: 'İleri bak',
         body: 'Yalnızca başka bir yöne bakarken görünür. Basınca bakışın yeniden gittiğin yöne döner.',
+      },
+      tour: {
+        title: 'Turu başlat',
+        body: 'Rehberli turu başlatır: adım adım hızı ve bakışı senin yerine ayarlar, her adımda neye bakacağını gösterir. İstediğin an bitirebilirsin.',
+      },
+      coach: {
+        title: 'Başlangıç ipucu',
+        body: 'İlk açılışta hız çubuğunun üstünde beliren kısa yönerge: nasıl hızlanacağını ve nasıl etrafa bakacağını söyler. İlk kez tekerleği çevirdiğinde, ekrana tıkladığında ya da dokunduğunda, ya da bir tuşa bastığında kaybolur.',
       },
     },
     details: {
@@ -1206,6 +1308,71 @@ const en: Messages = {
       crowdingGuide: 'The θ = 90° guide circle shows where things beside you appear.',
       crowdingLens: 'Switch the lens to ×10 to enlarge the circle.',
     },
+    drawings: {
+      show: 'Show a drawing',
+      rain: {
+        name: 'A child standing in the rain and a child running in it',
+        caption:
+          'Standing still, the rain falls straight down. Running, the drops seem to come from ahead, so you tilt your umbrella forward. Light does the same: light from the side seems to come from ahead.',
+        still: 'standing',
+        running: 'running',
+      },
+      delay: {
+        name: 'Two rays of light from the two ends of a car to the eye',
+        caption:
+          'Light from the far end set out earlier, when the car was farther away; light from the near end set out later. Both reach your eye together. The delay hides the shortening.',
+        earlier: 'earlier',
+        later: 'later',
+        eye: 'eye',
+      },
+    },
+    tour: {
+      start: 'Start the tour',
+      label: 'Guided tour',
+      step: (n, count) => `Step ${n} of ${count}`,
+      announce: (step, title) => `${step}: ${title}`,
+      back: 'Back',
+      next: 'Next',
+      end: 'End the tour',
+      stops: {
+        rest: {
+          title: 'The night avenue',
+          body: 'You are standing still. The white street lamps, the red traffic lights and the lit windows look as they do every night. The middle of the screen is the way you will go: let us speed up step by step and see what changes.',
+        },
+        colours: {
+          title: 'The red light turns green',
+          body: 'Now you are going at a fifth of the speed of light. As you move towards the waves of light, they reach you more often, so the red traffic light ahead looks green. The light has not slowed down; only its colour has shifted.',
+        },
+        gather: {
+          title: 'Everything gathers ahead',
+          body: 'You are at half the speed of light. Even things right beside you now look a little ahead of you, and the cars ahead have shrunk, as if further away. The lamp light from straight ahead has gone ultraviolet: your eyes cannot see it.',
+        },
+        clocks: {
+          title: 'Two clocks',
+          body: 'Now γ = 2. While the street clocks you pass move on 2 seconds, yours moves on only 1; the two clocks on the instruments show it. Ahead, the street has begun to glow red with the light of its own warmth.',
+        },
+        ring: {
+          title: 'The rainbow ring',
+          body: 'You are at 99% of light speed. All of the world in front of you fits in the small circle in the middle, about 8° in radius. You see the lamps only in this coloured ring: inside it their light has gone ultraviolet, outside infrared.',
+        },
+        behind: {
+          title: 'Look behind you',
+          body: 'Now you are looking back. As you move away from the waves of light behind you, they reach you very seldom, and the lamps’ light has gone infrared. Your eyes cannot see it: it is dark back there, but not without light.',
+        },
+        measured: {
+          title: 'The measured world',
+          body: 'This is not what your eyes see, but what you measure, everywhere at the same moment of your clock. Along your way everything is half as long: 100 m of road measures 50 m. This shortening is measured, not seen.',
+        },
+        limit: {
+          title: 'Very close to the limit',
+          body: 'You are going at 99.999% of the speed of light; the lens magnifies the middle 10 times. Light still reaches you at the same speed. But you can never reach that speed: this is the view of a traveller near it, not of a photon.',
+        },
+        end: {
+          title: 'Now it is your turn',
+          body: 'This is the end of the tour. Choose any speed with the speed rail and look around. This panel will go on explaining whatever you see on the screen.',
+        },
+      },
+    },
   },
   inventory: {
     tabs: { label: 'Views of the panel', now: 'Now', inventory: 'What is on the screen?' },
@@ -1457,6 +1624,14 @@ const en: Messages = {
       lookAhead: {
         title: 'Look ahead',
         body: 'Appears only while you are looking elsewhere. Press it to turn your view back to where you are heading.',
+      },
+      tour: {
+        title: 'Start the tour',
+        body: 'Starts the guided tour: step by step it sets the speed and the view for you and shows what to look at in each step. You can end it at any time.',
+      },
+      coach: {
+        title: 'Start-up hint',
+        body: 'A short line above the speed rail on your first visit: it tells you how to speed up and how to look around. It goes the first time you roll the wheel, click or touch the screen, or press a key.',
       },
     },
     details: {

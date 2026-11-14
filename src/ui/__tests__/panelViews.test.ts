@@ -78,17 +78,22 @@ describe('the choice of the reader', () => {
   afterEach(() => choosePanel(INITIAL_CHOICE));
 
   it('starts at "Now" with nothing open, is shared, and tells its readers only of a change', () => {
-    expect(getPanelChoice()).toEqual({ view: 'now', entry: null });
+    expect(getPanelChoice()).toEqual({ view: 'now', entry: null, tour: null });
     const listener = vi.fn();
     const unsubscribe = subscribePanelChoice(listener);
     choosePanel({ view: 'inventory' });
     choosePanel({ entry: 'moon' });
-    expect(getPanelChoice()).toEqual({ view: 'inventory', entry: 'moon' });
+    expect(getPanelChoice()).toEqual({ view: 'inventory', entry: 'moon', tour: null });
     expect(listener).toHaveBeenCalledTimes(2);
     choosePanel({ view: 'inventory' });
     expect(listener).toHaveBeenCalledTimes(2);
+    // the stop of the guided tour is a choice as well
+    choosePanel({ tour: 2 });
+    expect(getPanelChoice().tour).toBe(2);
+    choosePanel({ tour: null });
+    expect(listener).toHaveBeenCalledTimes(4);
     unsubscribe();
     choosePanel({ view: 'now' });
-    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenCalledTimes(4);
   });
 });

@@ -3,10 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '@/i18n/messages';
 import { DEFAULT_SETTINGS, getSettings, type Language, updateSettings } from '@/state/simulation';
 import App from '../App';
-import { openDossierAt, tabId, tabPanelId } from '../hud/Explainer';
+import { openDossierAt, TOUR_START_ID, TOUR_TITLE_ID, tabId, tabPanelId } from '../hud/Explainer';
 import { describedById, INTERFACE_ENTRIES, INVENTORY_GROUPS, INVENTORY_IDS, type InventoryId } from '../inventory';
 import { TOOLTIP_ID } from '../hud/EntryHelp';
-import { PANEL_VIEWS } from '../panelViews';
+import { choosePanel, PANEL_VIEWS } from '../panelViews';
+import { TOUR } from '../tour';
 import type { HudTier } from '../hud/tier';
 
 // the tier is measured in the browser; here a test sets it
@@ -86,7 +87,7 @@ describe('the panel “Why does it look like this?”', () => {
     expect(region).toContain('role="region"');
     expect(region).toContain('aria-labelledby="explainer-title"');
     expect(region).toContain('lang="tr"');
-    expect(html).toContain(`<h2 id="explainer-title" class="label m-0">${MESSAGES.tr.explain.title}</h2>`);
+    expect(html).toContain(`<h2 id="explainer-title" class="label m-0 min-w-0">${MESSAGES.tr.explain.title}</h2>`);
     // in the row of the dock, after it: not over the view
     expect(html.indexOf('id="explainer"')).toBeGreaterThan(html.indexOf('aria-labelledby="dock-title"'));
     expect(html.match(/id="explainer"/g)).toHaveLength(1);
@@ -166,6 +167,42 @@ describe('the panel “Why does it look like this?”', () => {
     expect(html.indexOf('role="tablist"')).toBeGreaterThan(html.indexOf('id="explainer-list"'));
   });
 
+  it.each(['wide', 'narrow'] as const)(
+    'offers the guided tour on the %s tier, and shows its card in place of the views',
+    (at) => {
+      tier.value = at;
+      const before = renderToStaticMarkup(<App />);
+      const start = before.match(new RegExp(`<button [^>]*id="${TOUR_START_ID}"[^>]*>`))?.[0] ?? '';
+      // a name in either placement: the words beside the dock, the label of the icon on a phone
+      if (at === 'narrow') expect(start).toContain(`aria-label="${MESSAGES.tr.explain.tour.start}"`);
+      else expect(before).toContain(`${MESSAGES.tr.explain.tour.start}</button>`);
+      expect(before).not.toContain(`id="${TOUR_TITLE_ID}"`);
+      try {
+        choosePanel({ tour: 4 });
+        const html = renderToStaticMarkup(<App />);
+        const panel = html.slice(html.indexOf('id="explainer"'));
+        const { tour } = MESSAGES.tr.explain;
+        const stop = tour.stops[TOUR[4].id];
+        expect(panel).toContain(`aria-label="${tour.label}"`);
+        expect(panel).toContain(`>${tour.step('5', String(TOUR.length))}</p>`);
+        expect(panel).toContain(`<h3 id="${TOUR_TITLE_ID}" tabindex="-1"`);
+        expect(panel).toContain(`>${stop.title}</h3>`);
+        expect(panel).toContain(stop.body);
+        for (const label of [tour.back, tour.next, tour.end]) expect(panel).toContain(label);
+        // the card replaces the views, and the button that would start the tour again
+        expect(panel).not.toContain('role="tablist"');
+        expect(html).not.toContain(`id="${TOUR_START_ID}"`);
+        // at the last stop there is no way on, only back and out
+        choosePanel({ tour: TOUR.length - 1 });
+        const last = renderToStaticMarkup(<App />);
+        expect(last).not.toContain(`>${tour.next}<`);
+        expect(last).toContain(tour.end);
+      } finally {
+        choosePanel({ tour: null });
+      }
+    }
+  );
+
   it('opens the dossier at the section of an item, and scrolls there when it is already open at it', () => {
     const scrollIntoView = vi.fn();
     const getElementById = vi.fn(() => ({ scrollIntoView }));
@@ -208,12 +245,14 @@ describe('the explanation of every element of the interface', () => {
 
   /** Entries whose element a phone has no room for: the name of the application, the speed in km/s and D₀. */
   const NOT_ON_A_PHONE: readonly InventoryId[] = ['title', 'speed', 'doppler'];
+  /** Entries the server never sends: the start-up hint appears in the browser, on a first visit only. */
+  const IN_THE_BROWSER: readonly InventoryId[] = ['coach'];
 
   it.each(['wide', 'narrow'] as const)('is on every element of the %s tier, as an entry and a description', (at) => {
     // the default state, and the dossier open (its sheet is an element too)
     const pages = [page(at), page(at, { dossier: 'abstract' })];
     const absent = INTERFACE_ENTRIES.filter((id) => pages.every((html) => entryTags(html, id).length === 0));
-    expect([...absent].sort()).toEqual(at === 'narrow' ? [...NOT_ON_A_PHONE].sort() : []);
+    expect([...absent].sort()).toEqual([...IN_THE_BROWSER, ...(at === 'narrow' ? NOT_ON_A_PHONE : [])].sort());
     for (const html of pages) {
       for (const id of INTERFACE_ENTRIES) {
         for (const tag of entryTags(html, id)) {

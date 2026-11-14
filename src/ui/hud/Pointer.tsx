@@ -19,7 +19,7 @@
 import { type RefObject, useRef, useSyncExternalStore } from 'react';
 import { getSettings, telemetry } from '@/state/simulation';
 import { useFrame, useMessages } from '../hooks';
-import type { InventoryId } from '../inventory';
+import { INVENTORY, type InventoryId } from '../inventory';
 import { type CoveredBox, type MarkShape, getPointerTarget, resolveMark, subscribePointerTarget } from '../pointing';
 
 /** Outlines drawn at most: an entry can be on screen in more than one place. */
@@ -28,6 +28,8 @@ const MAX_OUTLINES = 6;
 const OUTLINE_GAP = 3;
 /** Room a label needs beside a mark before it moves to the other side, px. */
 const LABEL_ROOM = 150;
+/** Least distance between a label and the edge of the stage, px. */
+const LABEL_MARGIN = 4;
 
 const fixed = (value: number): string => value.toFixed(1);
 
@@ -60,16 +62,34 @@ function show(element: Element | null, visible: boolean): void {
     element.style.display = visible ? '' : 'none';
 }
 
-/** Draws the outlines of the elements of the interface that carry these entries into the groups `outlines`. */
+/** The entries that are rows of the instruments panel, out of the page while the panel is folded (on a phone, at first). */
+const DOCK_ROWS: ReadonlySet<InventoryId> = new Set(
+  INVENTORY.instruments.filter((id) => id !== 'dock' && id !== 'collapse' && id !== 'sentence')
+);
+/** The button that unfolds the instruments panel. */
+const DOCK_UNFOLD = '[data-explain-entry="dock"] [data-explain-entry="collapse"]';
+
+/**
+ * Draws the outlines of the elements of the interface that carry these entries into the groups `outlines`. A row of the
+ * instruments that is out of the page because the panel is folded is shown by the button that unfolds it, so that a
+ * text that speaks of the row ("the two clocks on the instruments") still points at where to find it.
+ */
 function drawOutlines(elements: readonly InventoryId[], outlines: ReadonlyArray<SVGGElement | null>): void {
-  const boxes: DOMRect[] = [];
+  const found = new Set<Element>();
   for (const id of elements) {
+    let any = false;
     document.querySelectorAll(`[data-explain-entry="${id}"]`).forEach((element) => {
       const rect = element.getBoundingClientRect();
       // an element that is hidden (or not laid out on this screen) has no box
-      if (rect.width > 0 && rect.height > 0) boxes.push(rect);
+      if (rect.width > 0 && rect.height > 0) {
+        found.add(element);
+        any = true;
+      }
     });
+    const unfold = !any && DOCK_ROWS.has(id) ? document.querySelector(DOCK_UNFOLD) : null;
+    if (unfold && unfold.getBoundingClientRect().width > 0) found.add(unfold);
   }
+  const boxes = Array.from(found, (element) => element.getBoundingClientRect());
   outlines.forEach((outline, index) => {
     const rect = boxes[index];
     show(outline, rect !== undefined);
@@ -177,8 +197,13 @@ export default function Pointer({
         }
         show(text, place !== null);
         if (place) {
-          text.setAttribute('x', fixed(place.x));
-          text.setAttribute('y', fixed(place.y));
+          // the whole name inside the stage: an arrow at its left or right edge would otherwise push half of it out
+          const width = text.getComputedTextLength();
+          const lead = place.anchor === 'start' ? 0 : place.anchor === 'middle' ? width / 2 : width;
+          const x = Math.min(box.width - LABEL_MARGIN - (width - lead), Math.max(LABEL_MARGIN + lead, place.x));
+          const y = Math.min(box.height - 6, Math.max(14, place.y));
+          text.setAttribute('x', fixed(x));
+          text.setAttribute('y', fixed(y));
           text.setAttribute('text-anchor', place.anchor);
         }
       }

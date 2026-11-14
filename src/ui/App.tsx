@@ -34,6 +34,7 @@ import Pointer from './hud/Pointer';
 import SpeedRail from './hud/SpeedRail';
 import TopBar from './hud/TopBar';
 import { HudTierProvider } from './hud/tier';
+import { entryProps } from './inventory';
 import { runShortcut } from './shortcuts';
 
 const UrbanScene = dynamic(() => import('@/scene/UrbanScene'), { ssr: false });
@@ -156,15 +157,16 @@ export default function App() {
     document.documentElement.lang = language;
   }, [language]);
 
-  // --- the first deliberate input dismisses the coach line for good
+  // --- the first deliberate input dismisses the coach line for good; a press counts when it is released, since the line
+  // going moves the panels above it, and on the press a click (on "Start the tour", say) would land beside its button
   useEffect(() => {
     if (coached) return;
     window.addEventListener('wheel', dismissCoach, { once: true, passive: true });
-    window.addEventListener('pointerdown', dismissCoach, { once: true });
+    window.addEventListener('pointerup', dismissCoach, { once: true });
     window.addEventListener('keydown', dismissCoach, { once: true });
     return () => {
       window.removeEventListener('wheel', dismissCoach);
-      window.removeEventListener('pointerdown', dismissCoach);
+      window.removeEventListener('pointerup', dismissCoach);
       window.removeEventListener('keydown', dismissCoach);
     };
   }, [coached]);
@@ -238,7 +240,10 @@ export default function App() {
             </div>
 
             {!coached && (
-              <p className="pointer-events-none mx-auto -mb-1 max-w-full rounded-full border border-hairline bg-panel px-3 py-1.5 text-center text-[12px] text-ink-2">
+              <p
+                {...entryProps('coach')}
+                className="pointer-events-none mx-auto -mb-1 max-w-full rounded-full border border-hairline bg-panel px-3 py-1.5 text-center text-[12px] text-ink-2"
+              >
                 {touch ? t.help.coachTouch : t.help.coach}
               </p>
             )}

@@ -72,9 +72,11 @@ export interface PanelChoice {
   readonly view: PanelView;
   /** The inventory entry that is open, if any. */
   readonly entry: InventoryId | null;
+  /** The stop of the guided tour on show (src/ui/tour.ts), or null outside the tour. */
+  readonly tour: number | null;
 }
 
-export const INITIAL_CHOICE: PanelChoice = { view: 'now', entry: null };
+export const INITIAL_CHOICE: PanelChoice = { view: 'now', entry: null, tour: null };
 
 let choice: PanelChoice = INITIAL_CHOICE;
 const listeners = new Set<() => void>();
@@ -90,7 +92,7 @@ export function subscribePanelChoice(listener: () => void): () => void {
 
 export function choosePanel(change: Partial<PanelChoice>): void {
   const next = { ...choice, ...change };
-  if (next.view === choice.view && next.entry === choice.entry) return;
+  if (next.view === choice.view && next.entry === choice.entry && next.tour === choice.tour) return;
   choice = next;
   listeners.forEach((listener) => listener());
 }
