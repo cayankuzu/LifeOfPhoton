@@ -34,6 +34,11 @@
  * and End. Each stop sets a state of the simulation, as a "show in the scene" button of the dossier does, and
  * marks what its text is about for as long as it is shown; ending the tour (End, Escape, closing the panel)
  * takes the mark away and leaves the scene where the last stop put it.
+ *
+ * Whatever closes the panel (its button, the switch in the top bar, the E key, a setting changed elsewhere), a focus
+ * that was inside it goes to the switch in the top bar; whatever ends the tour, a focus that was on its card goes to
+ * the button that starts it; and a focus inside the phone's accordion goes to the accordion's line when it folds
+ * (src/ui/focusHandOver.ts). A focus that was elsewhere stays where it is.
  */
 
 import {
@@ -63,6 +68,7 @@ import {
   MAX_ITEMS_TALL,
 } from '../explain';
 import { drawingOf } from '../drawings';
+import { useFocusHandOver } from '../focusHandOver';
 import { setText, useFrame, useMediaQuery, useMessages } from '../hooks';
 import {
   DETAILED,
@@ -100,6 +106,9 @@ import { useHudTier } from './tier';
 /** Id of the panel (the target of the top bar's switch) and of that switch (where the focus goes on closing). */
 export const EXPLAINER_ID = 'explainer';
 export const EXPLAINER_TOGGLE_ID = 'explainer-toggle';
+/** Ids of the phone's accordion: its line (where the focus goes when it folds) and the part it shows and hides. */
+export const ACCORDION_HANDLE_ID = 'explainer-handle';
+export const ACCORDION_LIST_ID = 'explainer-list';
 
 /** Ids of a view's tab and of its tabpanel. */
 export const tabId = (view: PanelView): string => `explainer-tab-${view}`;
@@ -464,7 +473,8 @@ function InventoryView({
                     <button
                       type="button"
                       aria-expanded={open}
-                      aria-controls={entryBodyId(id)}
+                      // the body is in the page only while the entry is open: a reference to it would otherwise point nowhere
+                      aria-controls={open ? entryBodyId(id) : undefined}
                       onClick={() => press(id)}
                       className={`${DISCLOSURE} ${open ? 'text-ink' : 'text-ink-2 hover:text-ink'}`}
                     >
@@ -513,6 +523,9 @@ function TourCard({
 }) {
   const stop = TOUR[position];
   const text = t.explain.tour.stops[stop.id];
+  const card = useRef<HTMLElement>(null);
+  // however the tour ends (End, Escape, a choice made elsewhere), a focus on the card goes to the button that starts it
+  useFocusHandOver(card, true, TOUR_START_ID);
   useEffect(() => {
     setPointerTarget({ source: tourSource(position), pointing: stop.mark });
   }, [position, stop.mark]);
@@ -532,7 +545,11 @@ function TourCard({
   }, [onEnd]);
   const last = isLastStop(position);
   return (
-    <section aria-label={t.explain.tour.label} className="scroll-thin min-h-0 overflow-y-auto overscroll-contain px-3 pb-2 pt-2">
+    <section
+      ref={card}
+      aria-label={t.explain.tour.label}
+      className="scroll-thin min-h-0 overflow-y-auto overscroll-contain px-3 pb-2 pt-2"
+    >
       <p className="label tabular m-0">
         {t.explain.tour.step(formatInteger(position + 1, language), formatInteger(TOUR.length, language))}
       </p>
@@ -586,6 +603,12 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [chosen, setChosen] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  // Whatever closes the panel, a focus inside it goes to the switch in the top bar; whatever folds the phone's accordion,
+  // a focus in the part that is hidden goes to its line. In this order: when the panel goes with the accordion open,
+  // the panel hands the focus over first, and the accordion then finds it no longer lost.
+  useFocusHandOver(root, true, EXPLAINER_TOGGLE_ID);
+  useFocusHandOver(list, compact && expanded, ACCORDION_HANDLE_ID);
   const announced = useRef<HTMLParagraphElement>(null);
   const live = useRef({
     at: Number.NEGATIVE_INFINITY,
@@ -650,8 +673,8 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
   const close = (): void => {
     // closing the panel leaves the tour as well
     choosePanel({ tour: endTour() });
+    // the focus, which is on this button, goes to the switch in the top bar (useFocusHandOver above)
     chooseExplainer(false);
-    document.getElementById(EXPLAINER_TOGGLE_ID)?.focus();
   };
   // A stop of the tour sets its state, as a "show in the scene" button of the dossier does; the focus goes to its
   // heading, and its step and title are announced, politely.
@@ -664,13 +687,11 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
     setText(announced.current, t.explain.tour.announce(step, t.explain.tour.stops[TOUR[position].id].title));
     requestAnimationFrame(() => document.getElementById(TOUR_TITLE_ID)?.focus());
   };
-  // Leaving it takes the mark away and leaves the scene where the last stop put it; a focus that was in the panel goes to
-  // the button that starts the tour again.
+  // Leaving it takes the mark away and leaves the scene where the last stop put it; a focus that was on the card goes to
+  // the button that starts the tour again (useFocusHandOver in TourCard).
   const leaveTour = (): void => {
-    const inside = root.current?.contains(document.activeElement) === true;
     choosePanel({ tour: endTour() });
     setText(announced.current, '');
-    if (inside) requestAnimationFrame(() => document.getElementById(TOUR_START_ID)?.focus());
   };
   const touring = choice.tour !== null;
   const ids = shown.items.map((item) => item.id);
@@ -743,8 +764,9 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
         <div className="flex h-10 shrink-0 items-center gap-1 pl-1 pr-1" data-explain-handle="">
           <button
             type="button"
+            id={ACCORDION_HANDLE_ID}
             aria-expanded={expanded}
-            aria-controls="explainer-list"
+            aria-controls={ACCORDION_LIST_ID}
             onClick={() => setExpanded((value) => !value)}
             className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded px-2 text-left"
           >
@@ -779,7 +801,8 @@ function ExplainerPanel({ compact }: { readonly compact: boolean }) {
         </div>
         {/* in the page while closed as well, so that the views keep their state and their numbers */}
         <div
-          id="explainer-list"
+          ref={list}
+          id={ACCORDION_LIST_ID}
           hidden={!expanded}
           className={expanded ? 'flex min-h-0 flex-col border-t border-hairline' : undefined}
         >

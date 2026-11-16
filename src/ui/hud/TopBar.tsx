@@ -174,7 +174,8 @@ export default function TopBar() {
           id={EXPLAINER_TOGGLE_ID}
           pressed={explainer}
           onChange={chooseExplainer}
-          controls={EXPLAINER_ID}
+          // the panel is in the page only while it is open: a reference to it would otherwise point nowhere
+          controls={explainer ? EXPLAINER_ID : undefined}
           entry="why"
           explainKey="E"
         >

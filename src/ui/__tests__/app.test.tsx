@@ -6,7 +6,7 @@ import App from '../App';
 import { openDossierAt, TOUR_START_ID, TOUR_TITLE_ID, tabId, tabPanelId } from '../hud/Explainer';
 import { describedById, INTERFACE_ENTRIES, INVENTORY_GROUPS, INVENTORY_IDS, type InventoryId } from '../inventory';
 import { TOOLTIP_ID } from '../hud/EntryHelp';
-import { choosePanel, PANEL_VIEWS } from '../panelViews';
+import { choosePanel, INITIAL_CHOICE, PANEL_VIEWS, type PanelChoice } from '../panelViews';
 import { TOUR } from '../tour';
 import type { HudTier } from '../hud/tier';
 
@@ -104,7 +104,10 @@ describe('the panel “Why does it look like this?”', () => {
     expect(toggle).toContain(`>${MESSAGES.tr.explain.toggle}</span>`);
     // beside the dossier's button: the two explanations together
     expect(html.indexOf('id="explainer-toggle"')).toBeLessThan(html.indexOf('data-explain-entry="dossier"'));
-    // (the server renders the default settings; closing is covered by the tests of the preference and of the E key)
+    // closed, the panel is not in the page, and the switch names no element it controls
+    const closed = page('wide', { explainer: false }).match(/<button [^>]*id="explainer-toggle"[^>]*>/)?.[0] ?? '';
+    expect(closed).toContain('aria-pressed="false"');
+    expect(closed).not.toContain('aria-controls=');
   });
 
   it('is one line under the top bar on a phone, opening into the list', () => {
@@ -146,9 +149,13 @@ describe('the panel “Why does it look like this?”', () => {
     const inventory = panel.slice(panel.indexOf(`id="${tabPanelId('inventory')}"`));
     expect(inventory).toContain(MESSAGES.tr.inventory.intro);
     for (const group of INVENTORY_GROUPS) expect(inventory).toContain(`>${MESSAGES.tr.inventory.groups[group]}</h3>`);
-    const titles = inventory.match(/<button [^>]*aria-controls="inventory-entry-[^"]*"[^>]*>/g) ?? [];
+    const titles = inventory.match(/<h4 class="m-0"><button [^>]*>/g) ?? [];
     expect(titles).toHaveLength(INVENTORY_IDS.length);
-    for (const title of titles) expect(title).toContain('aria-expanded="false"');
+    for (const title of titles) {
+      expect(title).toContain('aria-expanded="false"');
+      // a closed entry's body is not in the page, so its title names no element it controls
+      expect(title).not.toContain('aria-controls=');
+    }
   }
 
   it('has the views "Now" and "What is on the screen?" as tabs beside the dock', () => {
@@ -312,5 +319,53 @@ describe('the explanation of every element of the interface', () => {
     expect(entryTags(html, 'slider')[0]).toContain(`data-explain-hint="${escaped(MESSAGES.tr.speed.hint)}"`);
     // the key of a switch, for its tooltip
     expect(entryTags(html, 'thermal')[0]).toContain('data-explain-key="T"');
+  });
+});
+
+describe('the references from one element to another', () => {
+  afterEach(() => {
+    tier.value = 'wide';
+    updateSettings(DEFAULT_SETTINGS);
+    choosePanel(INITIAL_CHOICE);
+  });
+
+  /** Attributes whose value is a list of ids. */
+  const REFERENCES = [
+    'aria-controls',
+    'aria-describedby',
+    'aria-labelledby',
+    'aria-activedescendant',
+    'aria-owns',
+    'aria-flowto',
+  ];
+
+  /** The ids an attribute names that no element of the markup carries. */
+  function dangling(html: string): string[] {
+    const ids = new Set([...html.matchAll(/ id="([^"]+)"/g)].map((match) => match[1]));
+    const missing: string[] = [];
+    for (const attribute of REFERENCES)
+      for (const match of html.matchAll(new RegExp(` ${attribute}="([^"]*)"`, 'g')))
+        for (const id of match[1].split(/\s+/).filter(Boolean)) if (!ids.has(id)) missing.push(`${attribute} -> ${id}`);
+    return missing;
+  }
+
+  // the states in which an element comes or goes: the panel open or closed, each view, an entry open, the tour running,
+  // on each tier (the phone's accordion is folded in this markup), with the dossier's button pressed as well
+  const CHOICES: readonly Partial<PanelChoice>[] = [
+    {},
+    { view: 'inventory' },
+    { view: 'inventory', entry: 'beta' },
+    { view: 'inventory', entry: 'slider' },
+    { tour: 0 },
+    { tour: TOUR.length - 1 },
+  ];
+  it.each(['wide', 'medium', 'narrow'] as const)('point at an element in the page in every state of the %s tier', (at) => {
+    for (const explainer of [true, false])
+      for (const dossier of [null, 'abstract'] as const)
+        for (const choice of CHOICES) {
+          choosePanel({ ...INITIAL_CHOICE, ...choice });
+          const html = page(at, { explainer, dossier });
+          expect(dangling(html), JSON.stringify({ explainer, dossier, choice })).toEqual([]);
+        }
   });
 });
