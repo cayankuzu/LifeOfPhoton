@@ -425,7 +425,7 @@ const tr: Messages = {
       ['R', 'Saatleri sıfırla'],
       ['D', 'Bilimsel analiz'],
       ['E', '“Neden böyle görünüyor?” paneli'],
-      ['Esc', 'Bu listeyi, o kapalıysa analizi kapat'],
+      ['Esc', 'Açık olanların ilkini kapat: ipucu, bu liste, tur, analiz'],
     ],
     pointer: [
       ['Sürükle', 'Çevreye bak'],
@@ -1133,7 +1133,7 @@ const en: Messages = {
       ['R', 'Reset clocks'],
       ['D', 'Scientific dossier'],
       ['E', '“Why does it look like this?” panel'],
-      ['Esc', 'Close this sheet, or else the dossier'],
+      ['Esc', 'Close the first that is open: a tooltip, this sheet, the tour, the dossier'],
     ],
     pointer: [
       ['Drag', 'Look around'],

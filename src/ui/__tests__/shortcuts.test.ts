@@ -18,7 +18,7 @@ function after(key: string, scope: KeyScope = FREE, from: Partial<Settings> = {}
 }
 
 /** One key of every kind the simulation answers to. */
-const LETTERS_DIGITS_SPACE = ['w', 's', 'a', ' ', 'm', 't', 'g', 'l', 'f', 'r', 'd', 'e', '0', '3', '5'];
+const LETTERS_DIGITS_SPACE = [' ', 'm', 't', 'g', 'l', 'f', 'r', 'd', 'e', '0', '3', '5'];
 const NAMED = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home'];
 
 describe('keyboard shortcuts', () => {
@@ -41,8 +41,7 @@ describe('keyboard shortcuts', () => {
     expect(after('d').dossier).toBe('abstract');
     expect(after('d', FREE, { dossier: 'method' }).dossier).toBeNull();
     expect(after('ArrowUp').beta).toBe(boostBy(0, RAPIDITY_STEP));
-    expect(after('w', FREE, { beta: 0.5 }).beta).toBe(boostBy(0.5, RAPIDITY_STEP));
-    expect(after('s', FREE, { beta: 0.5 }).beta).toBe(boostBy(0.5, -RAPIDITY_STEP));
+    expect(after('ArrowDown', FREE, { beta: 0.5 }).beta).toBe(boostBy(0.5, -RAPIDITY_STEP));
     PRESETS.forEach((beta, digit) => expect(after(String(digit)).beta).toBe(beta));
     // a digit without a preset is not a shortcut, and keeps its default action
     expect(press('6')).toBe(false);
@@ -70,6 +69,16 @@ describe('keyboard shortcuts', () => {
       expect(getSettings().explainer).toBe(true);
     } finally {
       vi.unstubAllGlobals();
+    }
+  });
+
+  it('leave W, S and A alone: the arrows are the only keys for speed and view, and D opens the dossier', () => {
+    for (const key of ['w', 's', 'a', 'W', 'S', 'A']) {
+      updateSettings({ ...DEFAULT_SETTINGS, beta: 0.5 });
+      look.yaw = 0;
+      expect(press(key), key).toBe(false);
+      expect(getSettings(), key).toEqual({ ...DEFAULT_SETTINGS, beta: 0.5 });
+      expect(look.yaw, key).toBe(0);
     }
   });
 

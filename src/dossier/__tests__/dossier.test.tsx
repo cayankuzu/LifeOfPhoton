@@ -6,7 +6,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '@/i18n/messages';
 import { BETA_MAX } from '@/physics/kinematics';
+import { SPEED_OF_LIGHT } from '@/physics/constants';
 import { SCENARIO } from '@/physics/scenario';
+import { CHUNK_COUNT, CHUNK_LENGTH, MODEL_LENGTH } from '@/scene/geometry/layout';
 import { DEFAULT_SETTINGS, LENSES, type Language, getSettings, look, updateSettings } from '@/state/simulation';
 import { SHEET_COVERS_QUERY } from '@/ui/DossierFrame';
 import { DOSSIER } from '../content';
@@ -381,6 +383,30 @@ describe('claims that rest on other tests', () => {
     expect(en).toContain(`${share} % of those`);
     expect(tr).toContain('[@hoffleitwarren1991]');
     expect(en).toContain('[@hoffleitwarren1991]');
+  });
+
+  it('the dossier and the README give the length of the avenue that the layout builds', () => {
+    expect(MODEL_LENGTH).toBe(CHUNK_COUNT * CHUNK_LENGTH);
+    // "less than two microseconds" for light to cross it (Section 2)
+    expect(MODEL_LENGTH / SPEED_OF_LIGHT).toBeLessThan(2e-6);
+    const quoting = (language: Language, pattern: RegExp): string[] =>
+      texts(localize(DOSSIER, language))
+        .map((entry) => entry.text)
+        .filter((text) => pattern.test(text));
+    const tr = quoting('tr', /modellenen [0-9]+ m’lik caddeyi|sonsuz bir sokağın [0-9]+ m’lik/);
+    const en = quoting('en', /the [0-9]+ m of the modelled avenue|is a [0-9]+ m sample of an endless street/);
+    expect(tr).toHaveLength(2);
+    expect(en).toHaveLength(2);
+    for (const text of tr) expect(text).toContain(`${MODEL_LENGTH} m’lik`);
+    for (const text of en) expect(text).toContain(`${MODEL_LENGTH} m`);
+    const readme = source('../../../README.md');
+    const english = readme.indexOf('<a name="en"></a>');
+    expect(english).toBeGreaterThan(0);
+    const lengths = (text: string, pattern: RegExp): string[] => [...text.matchAll(pattern)].map((match) => match[1]);
+    expect(lengths(readme.slice(0, english), /sonsuz bir sokağın ([0-9,.]+) m’lik bir örneğidir/g)).toEqual([
+      String(MODEL_LENGTH),
+    ]);
+    expect(lengths(readme.slice(english), /is a ([0-9,.]+) m sample of an endless street/g)).toEqual([String(MODEL_LENGTH)]);
   });
 });
 

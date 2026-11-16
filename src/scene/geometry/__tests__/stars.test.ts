@@ -4,6 +4,7 @@ import { REFERENCE_LUMINANCE_CD_M2, SCENARIO } from '@/physics/scenario';
 import { ATLAS_ROW, sampleAtlas, sharedAtlas, temperatureCoordinate } from '@/physics/spectralAtlas';
 import {
   COUNT_SLOPE,
+  SPECTRAL_CLASSES,
   STAR_PSF_AREA,
   STAR_PSF_CUTOFF,
   STAR_PSF_STEEPNESS,
@@ -49,16 +50,48 @@ const CATALOGUE_AT_MOST: ReadonlyArray<readonly [number, number]> = [
  * Entries with V ≤ 5.8 per spectral class, the class being the first capital letter of the
  * catalogue's spectral type (so "gG9" is G), with the temperature range the generator gives the
  * class, K. Eleven entries have no class O–M (carbon stars C and N, S stars, the Wolf-Rayet star γ² Vel).
+ * The boundaries are derived from the calibrations below (see CALIBRATION).
  */
 const CATALOGUE_CLASSES: ReadonlyArray<readonly [string, number, number, number]> = [
-  ['O', 31, 30_000, 40_000],
-  ['B', 896, 10_000, 30_000],
-  ['A', 798, 7_500, 10_000],
-  ['F', 536, 6_000, 7_500],
-  ['G', 554, 5_200, 6_000],
-  ['K', 1000, 3_700, 5_200],
-  ['M', 277, 2_600, 3_700],
+  ['O', 31, 31_700, 40_000],
+  ['B', 896, 10_000, 31_700],
+  ['A', 798, 7_300, 10_000],
+  ['F', 536, 6_000, 7_300],
+  ['G', 554, 4_700, 6_000],
+  ['K', 1000, 3_900, 4_700],
+  ['M', 277, 3_100, 3_900],
 ];
+/*
+ * Effective temperature against MK spectral type, K, read from the sources on 2026-11-16:
+ *   – dwarfs: Pecaut & Mamajek (2013), table 5 as published in VizieR J/ApJS/208/9 (O9V–M9V);
+ *   – giants: van Belle et al. (2021), table 8, linear fits T = a·S + b with the spectral index S
+ *     (G0 = 50, K0 = 60, M0 = 66): a = −52.74, b = 7856 over S = 51–61; a = −85.98, b = 9491 over
+ *     S = 64–71.5; a constant 3134 K over S = 72–74 (M6–M8);
+ *   – O stars: Martins, Schaerer & Hillier (2005), observational scale, tables 4–6 (O5V, O5III, O5I).
+ * Most B, A and F entries of the catalogue with a luminosity class are dwarfs or subgiants, most G and
+ * K entries and all M entries giants or supergiants; the boundaries take the scale accordingly.
+ */
+const giantFit = (index: number): number => (index <= 61 ? 7856 - 52.74 * index : index <= 71.5 ? 9491 - 85.98 * index : 3134);
+const CALIBRATION = {
+  O9_5V: 32_000,
+  B0V: 31_500,
+  B9_5V: 10_400,
+  A0V: 9_700,
+  A9V: 7_440,
+  F0V: 7_200,
+  F9V: 6_040,
+  G0V: 5_920,
+  K9V: 3_880,
+  M0V: 3_850,
+  G9III: giantFit(59),
+  K0III: giantFit(60),
+  K5III: giantFit(65),
+  M0III: giantFit(66),
+  M8III: giantFit(74),
+  O5: [40_862, 40_307, 38_612],
+} as const;
+/** Boundary between two adjacent subtypes: their geometric mean, rounded to 100 K. */
+const boundary = (hotter: number, cooler: number): number => 100 * Math.round(Math.sqrt(hotter * cooler) / 100);
 const CATALOGUE_UNCLASSIFIED = 11;
 
 /** Entries with V ≤ m in the catalogue. */
@@ -215,10 +248,53 @@ describe('the star field', () => {
       const tolerance = 3 * Math.sqrt((expected * (1 - expected)) / count);
       expect(Math.abs(between(coolest, hottest) - expected), `class ${name}`).toBeLessThan(tolerance);
     }
-    expect(between(2_600, 40_000 + 1)).toBeCloseTo(1, 12);
+    expect(between(3_100, 40_000 + 1)).toBeCloseTo(1, 12);
     // hot and cool stars are both well represented: this is what makes the boosted sky change colour
-    expect(between(7_500, 40_001)).toBeGreaterThan(0.35);
-    expect(between(2_600, 5_200)).toBeGreaterThan(0.25);
+    // (O, B and A are 42 % of the classified entries, K and M 31 %)
+    expect(between(7_300, 40_001)).toBeGreaterThan(0.35);
+    expect(between(3_100, 4_700)).toBeGreaterThan(0.25);
+  });
+
+  it('gives each class the temperatures of the published calibrations, rounded to 100 K', () => {
+    // the generator uses the pinned table
+    expect(SPECTRAL_CLASSES.map(({ name, entries, coolest, hottest }) => [name, entries, coolest, hottest])).toEqual(
+      CATALOGUE_CLASSES.map((row) => [...row])
+    );
+    const edges = CATALOGUE_CLASSES.map(([, , coolest]) => coolest);
+    // dwarfs: O9.5V/B0V, B9.5V/A0V, A9V/F0V, F9V/G0V
+    expect(edges[0]).toBe(boundary(CALIBRATION.O9_5V, CALIBRATION.B0V));
+    expect(edges[1]).toBe(boundary(CALIBRATION.B9_5V, CALIBRATION.A0V));
+    expect(edges[2]).toBe(boundary(CALIBRATION.A9V, CALIBRATION.F0V));
+    expect(edges[3]).toBe(boundary(CALIBRATION.F9V, CALIBRATION.G0V));
+    // giants: G9III/K0III (4744 and 4692 K) and K5III/M0III (3902 and 3816 K); the dwarfs agree at K/M
+    expect(CALIBRATION.G9III).toBeCloseTo(4744.3, 1);
+    expect(CALIBRATION.K0III).toBeCloseTo(4691.6, 1);
+    expect(edges[4]).toBe(boundary(CALIBRATION.G9III, CALIBRATION.K0III));
+    expect(edges[5]).toBe(boundary(CALIBRATION.K5III, CALIBRATION.M0III));
+    expect(edges[5]).toBe(boundary(CALIBRATION.K9V, CALIBRATION.M0V));
+    // the coolest M stars of the catalogue are giants of M6–M8 (3134 K); the hottest O stars are O5
+    expect(edges[6]).toBe(100 * Math.round(CALIBRATION.M8III / 100));
+    const hottest = CATALOGUE_CLASSES[0][3];
+    expect(hottest).toBeGreaterThanOrEqual(Math.min(...CALIBRATION.O5));
+    expect(hottest).toBeLessThanOrEqual(Math.max(...CALIBRATION.O5));
+    // the giants' G/K boundary lies some 600 K below the dwarfs' (K0V 5280 K, G9V 5340 K)
+    expect(boundary(5_340, 5_280) - edges[4]).toBe(600);
+  });
+
+  it('tiles the range of temperatures with the classes, without gaps or overlaps', () => {
+    for (const [name, , coolest, hottest] of CATALOGUE_CLASSES) expect(coolest, `class ${name}`).toBeLessThan(hottest);
+    for (let k = 1; k < CATALOGUE_CLASSES.length; k++) {
+      // ordered from hot to cool, each class beginning where the hotter one ends
+      expect(CATALOGUE_CLASSES[k][3], CATALOGUE_CLASSES[k][0]).toBe(CATALOGUE_CLASSES[k - 1][2]);
+    }
+    // every star generated lies in the range of a class (float32 storage)
+    for (let i = 0; i < count; i++) {
+      const temperature = field.temperatures[i];
+      const inClass = CATALOGUE_CLASSES.some(
+        ([, , coolest, hottest]) => temperature >= coolest * (1 - 1e-6) && temperature <= hottest * (1 + 1e-6)
+      );
+      expect(inClass, `star ${i}: ${temperature} K`).toBe(true);
+    }
   });
 
   it('stores for each star what the shader needs: flux, temperature and the atlas luminance at rest', () => {

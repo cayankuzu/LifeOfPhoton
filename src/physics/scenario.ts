@@ -12,9 +12,10 @@ import { ILLUMINANT_A_TEMPERATURE_K, STANDARD_ATMOSPHERE_TEMPERATURE_K } from '.
 
 export const SCENARIO = {
   /**
-   * Scale of the scene. Covering 720 m of avenue at 0.99c takes 2.4 µs, so the
-   * playback is slowed down: light crosses the scene at `visualLightSpeed` metres
-   * per displayed second. Equivalently the display runs c / visualLightSpeed ≈
+   * Scale of the scene. Light crosses the 576 m of modelled avenue (MODEL_LENGTH =
+   * CHUNK_COUNT × CHUNK_LENGTH in src/scene/geometry/layout.ts) in 1.92 µs, so the
+   * playback is slowed down: light covers `visualLightSpeed` metres per displayed
+   * second. Equivalently the display runs c / visualLightSpeed ≈
    * 6.2 × 10⁶ times slower than reality (the device of Gamow's "Mr Tompkins",
    * 1939, and of the MIT Game Lab's "A Slower Speed of Light", 2012). All dimensionless
    * quantities — β, γ, D, every angle and every colour — are unaffected.
@@ -218,8 +219,10 @@ export const REFERENCE_LUMINANCE_CD_M2 = SCENARIO.street.illuminanceLux / Math.P
 /**
  * Luminance of the lunar disc, cd/m². Not an assumption of its own: a uniform disc of
  * angular radius R that delivers the illuminance E on a surface facing it has the
- * luminance E / (π sin²R) — about 3100 cd/m² for the values above, at the upper end
- * of what is quoted for a high full Moon.
+ * luminance E / (π sin²R) — about 3100 cd/m² for the values above. It is proportional
+ * to E, which sits at the upper end of the 0.05–0.2 lx that Kyba, Mohar & Posch (2017,
+ * Astron. Geophys. 58, 1.31) give for most full Moons (≈ 0.3 lx at most), so it sits at
+ * the upper end of the luminances that their range implies.
  */
 export const MOON_DISC_LUMINANCE_CD_M2 =
   SCENARIO.moon.illuminanceLux / (Math.PI * Math.sin((SCENARIO.moon.angularRadiusDeg * Math.PI) / 180) ** 2);

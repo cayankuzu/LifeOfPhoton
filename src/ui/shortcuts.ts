@@ -14,7 +14,7 @@ export const PRESETS = [0, 0.5, Math.sqrt(3) / 2, 0.99, 0.9999, BETA_MAX] as con
 const LOOK_STEP = (15 * Math.PI) / 180;
 
 /** Keys that act for as long as they are held. Everything else is a switch and acts once per press. */
-const CONTINUOUS_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 's', 'a']);
+const CONTINUOUS_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 
 export interface KeyPress {
   readonly key: string;
@@ -54,15 +54,12 @@ export function runShortcut(press: KeyPress, settings: Settings, scope: KeyScope
 
   switch (key) {
     case 'ArrowUp':
-    case 'w':
       updateSettings({ beta: boostBy(settings.beta, RAPIDITY_STEP) });
       return true;
     case 'ArrowDown':
-    case 's':
       updateSettings({ beta: boostBy(settings.beta, -RAPIDITY_STEP) });
       return true;
     case 'ArrowLeft':
-    case 'a':
       turnBy(LOOK_STEP, 0);
       return true;
     case 'ArrowRight':

@@ -17,7 +17,8 @@
  *     count, not an interpolation: half of the 4103 entries with V ≤ 5.8 are above
  *     the horizon and 93.0 % of those more than 4° above it, 1908, so
  *     SCENARIO.stars.count = 1900;
- *   – temperatures: the spectral classes of those 4103 entries (SPECTRAL_CLASSES).
+ *   – temperatures: the spectral classes of those 4103 entries, each given the range
+ *     of temperatures a published calibration assigns to it (SPECTRAL_CLASSES).
  * Caveats of the catalogue: some components of multiple stars are listed as
  * separate entries (α Cen A and B, HR 5459 and 5460), and it covers the stars
  * brighter than about magnitude 6.5 (its ReadMe), comfortably fainter than the
@@ -40,15 +41,49 @@ import { type SpectralAtlas, ATLAS_ROW, sampleAtlas, temperatureCoordinate } fro
  * shares below are taken of the remaining 4092: O 0.8 %, B 21.9 %, A 19.5 %,
  * F 13.1 %, G 13.5 %, K 24.4 %, M 6.8 %. The bright sky is dominated by hot B and A
  * stars and by cool K giants.
+ *
+ * The temperature ranges follow published calibrations of effective temperature
+ * against MK spectral type, read from the sources on 2026-11-16. A boundary between
+ * two classes is the geometric mean of the temperatures of the last subtype of the
+ * hotter class and the first of the cooler one (the mean that suits a log-uniform
+ * draw), rounded to 100 K; the hot end of O and the cool end of M are the hottest
+ * and coolest subtypes the catalogue lists at V ≤ 5.8 (O5 and M8). Which scale
+ * applies depends on the luminosity class: of the entries counted here that give
+ * one, most B, A and F stars are dwarfs or subgiants (V or IV: 72 %, 85 %, 72 %),
+ * while 80 % of the G stars, 96 % of the K stars and all 243 M stars are giants or
+ * supergiants (no M dwarf is brighter than 5.8). So:
+ *   – O/B, B/A, A/F and F/G follow the dwarf scale of Pecaut & Mamajek (2013,
+ *     table 5 as published in VizieR J/ApJS/208/9): O9.5V 32 000 K and B0V 31 500 K
+ *     give 31 700 (the old value, 30 000, lay below B0V); B9.5V 10 400 and A0V 9 700
+ *     give 10 000; A9V 7 440 and F0V 7 200 give 7 300 (the old 7 500 was A8V);
+ *     F9V 6 040 and G0V 5 920 give 6 000;
+ *   – G/K, K/M and the cool end of M follow the giant scale of van Belle et al.
+ *     (2021, the linear fits of their table 8): G9III 4 744 K and K0III 4 692 K give
+ *     4 700 (the old 5 200 is the dwarfs' K1V, 5 170, and some 500 K too hot for the
+ *     giants that make up the G and K classes); K5III 3 902 and M0III
+ *     3 816 give 3 900, as do K9V 3 880 and M0V 3 850 on the dwarf scale (the old
+ *     3 700 was M1V); M6III–M8III 3 134 K gives 3 100 (the old 2 600 was a late M
+ *     dwarf, of which the naked-eye sky has none);
+ *   – the hot end of O, 40 000 K, lies within the O5 stars of Martins et al. (2005,
+ *     observational scale, tables 4–6): O5V 40 862, O5III 40 307, O5I 38 612 K.
+ * What the model leaves out: the G class runs from the giants' G/K boundary to the
+ * dwarfs' F/G boundary so that the classes tile the range, and covers both G giants
+ * (G1III–G9III 5 166–4 744 K) and G dwarfs (G0V–G9V 5 920–5 340 K), but the
+ * log-uniform draw puts only 41 % of its stars below 5 200 K while the catalogue's G
+ * stars are mostly giants; giants of a class are cooler than its dwarfs by some
+ * hundreds of kelvin (O9.5: 31 884 K for V, 30 463 K for I in Martins et al.), and
+ * the dwarf scale is used for all O–F stars whatever their luminosity class; within
+ * a class the temperature is drawn log-uniformly, not with the catalogue's mix of
+ * subtypes.
  */
-const SPECTRAL_CLASSES: ReadonlyArray<{ entries: number; coolest: number; hottest: number }> = [
-  { entries: 31, coolest: 30_000, hottest: 40_000 }, // O
-  { entries: 896, coolest: 10_000, hottest: 30_000 }, // B
-  { entries: 798, coolest: 7_500, hottest: 10_000 }, // A
-  { entries: 536, coolest: 6_000, hottest: 7_500 }, // F
-  { entries: 554, coolest: 5_200, hottest: 6_000 }, // G
-  { entries: 1000, coolest: 3_700, hottest: 5_200 }, // K
-  { entries: 277, coolest: 2_600, hottest: 3_700 }, // M
+export const SPECTRAL_CLASSES: ReadonlyArray<{ name: string; entries: number; coolest: number; hottest: number }> = [
+  { name: 'O', entries: 31, coolest: 31_700, hottest: 40_000 },
+  { name: 'B', entries: 896, coolest: 10_000, hottest: 31_700 },
+  { name: 'A', entries: 798, coolest: 7_300, hottest: 10_000 },
+  { name: 'F', entries: 536, coolest: 6_000, hottest: 7_300 },
+  { name: 'G', entries: 554, coolest: 4_700, hottest: 6_000 },
+  { name: 'K', entries: 1000, coolest: 3_900, hottest: 4_700 },
+  { name: 'M', entries: 277, coolest: 3_100, hottest: 3_900 },
 ];
 const CLASSIFIED_ENTRIES = SPECTRAL_CLASSES.reduce((sum, spectral) => sum + spectral.entries, 0);
 

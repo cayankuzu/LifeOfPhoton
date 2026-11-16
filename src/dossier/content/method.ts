@@ -13,6 +13,9 @@ import { SPEED_OF_LIGHT } from '@/physics/constants';
 import { MOON_DISC_LUMINANCE_CD_M2, REFERENCE_LUMINANCE_CD_M2, SCENARIO, slowMotionFactor } from '@/physics/scenario';
 import { LUMINAIRE_FACE_AREA, LUMINAIRE_SPACING, LUMINAIRE_Y, ROAD_SURFACE_Y } from '@/scene/geometry/layout';
 import { LUMINAIRE_FACE_LUMINANCE, LUMINAIRE_INTENSITY, carriagewayIlluminance } from '@/scene/geometry/lighting';
+import { SPECTRAL_CLASSES } from '@/scene/geometry/stars';
+import { formatInteger } from '@/i18n/format';
+import type { Language } from '@/state/simulation';
 import { type Bilingual, L, type SourceSection, type Text } from '../types';
 import { num, r, sig } from './helpers';
 
@@ -43,6 +46,12 @@ const pixelsOf = (angle: number, zoom: number): number =>
  * out, and a hand-written one would go wrong as soon as a constant changes.
  */
 const percent = (fraction: number, digits = 0): Bilingual => num(100 * fraction, digits);
+
+/** Temperature range of each spectral class of the star field, e.g. "O 31 700–40 000 K, …, M 3100–3900 K". */
+const spectralRanges = (language: Language): string =>
+  SPECTRAL_CLASSES.map(
+    ({ name, coolest, hottest }) => `${name} ${formatInteger(coolest, language)}–${formatInteger(hottest, language)} K`
+  ).join(', ');
 
 /**
  * Luminance of the sky glow at the zenith and at the horizon, in reference units. The shader draws
@@ -138,8 +147,8 @@ const ASSUMPTION_ROWS: ReadonlyArray<readonly Text[]> = [
       `pump line at ${street.led.pumpPeakNm} nm (full width at half maximum ${street.led.pumpFwhmNm} nm) + phosphor band peaking at ${street.led.phosphorPeakNm} nm (σ = ${street.led.phosphorSigmaBelowNm} nm on the short-wave side, ${street.led.phosphorSigmaAboveNm} nm on the long-wave side); pump peak ${num(street.led.pumpToPhosphorRatio, 2).en} times the phosphor peak; ≈ 4000 K`
     ),
     L(
-      'fosfor dönüşümlü LED’in iki loblu modeli (krş. [@ohno2005]); genişlikler ve oran varsayım; renk sıcaklığı McCamy formülüyle [@mccamy1992]',
-      'two-lobe model of a phosphor-converted LED (cf. [@ohno2005]); widths and ratio assumed; colour temperature by McCamy’s formula [@mccamy1992]'
+      'fosfor dönüşümlü LED’in iki loblu modeli (krş. [@ohno2005]); tepeler böyle bir LED için tipik değerlerdir; tepeler, genişlikler ve oran varsayım; renk sıcaklığı McCamy formülüyle [@mccamy1992]',
+      'two-lobe model of a phosphor-converted LED (cf. [@ohno2005]); the peaks are typical of such an LED; peaks, widths and ratio assumed; colour temperature by McCamy’s formula [@mccamy1992]'
     ),
   ],
   [
@@ -168,8 +177,8 @@ const ASSUMPTION_ROWS: ReadonlyArray<readonly Text[]> = [
       `lines at ${signals.redNm}, ${signals.amberNm} and ${signals.greenNm} nm, observed width σ = ${signals.lineSigmaNm} nm; luminance of a lit lens ${signals.luminanceCdM2} cd m⁻²; every signal shows ${SIGNAL_ASPECT.en}, and an unlit lens shows only the light its tinted glass reflects`
     ),
     L(
-      'LED sinyal modüllerinin baskın dalga boyları; genişlik, parıltı ve camların yansıtması varsayım',
-      'dominant wavelengths of LED signal modules; width, luminance and reflectance of the glass assumed'
+      'LED sinyal modüllerinin tipik baskın dalga boyları, varsayım; genişlik, parıltı ve camların yansıtması da varsayım',
+      'typical dominant wavelengths of LED signal modules, assumed; width, luminance and reflectance of the glass assumed too'
     ),
   ],
   [
@@ -210,8 +219,8 @@ const ASSUMPTION_ROWS: ReadonlyArray<readonly Text[]> = [
       `${stars.count} black bodies; magnitude ≤ ${num(stars.limitingMagnitude, 1).en}; flux × ${stars.visibilityGain}`
     ),
     L(
-      'istatistiksel olarak üretilmiş gökyüzü: yıldız sayısı, kadir dağılımı ve tayf sınıflarının payları Parlak Yıldız Kataloğu’ndan alınmıştır [@hoffleitwarren1991]; katalog bütün gökte 5,8 kadire kadar 4103 kayıt listeler; bunların yarısı ufkun üstünde, onların da %93’ü 4° yüksekliğin üzerindedir; katalog çoklu yıldızların bazı bileşenlerini ayrı kayıtlar olarak verir ve yaklaşık 6,5 kadire kadar olan yıldızları kapsar; konumlar gök küresine düzgün dağıtılmıştır, yıldızların Samanyolu’na doğru yığılması hesaba katılmamıştır; akı, yıldızlar görünebilsin diye artırılmıştır (10. bölüm)',
-      'statistically generated sky: the number of stars, their distribution in magnitude and the shares of the spectral classes are taken from the Bright Star Catalogue [@hoffleitwarren1991], which lists 4103 entries down to magnitude 5.8 over the whole sky; half of them are above the horizon, and 93 % of those more than 4° above it; the catalogue gives some components of multiple stars as separate entries and covers the stars to about magnitude 6.5; positions are uniform on the sky, and the crowding of stars towards the Milky Way is not modelled; the flux is raised so that the stars show at all (Section 10)'
+      `istatistiksel olarak üretilmiş gökyüzü: yıldız sayısı, kadir dağılımı ve tayf sınıflarının payları Parlak Yıldız Kataloğu’ndan alınmıştır [@hoffleitwarren1991]; katalog bütün gökte 5,8 kadire kadar 4103 kayıt listeler; bunların yarısı ufkun üstünde, onların da %93’ü 4° yüksekliğin üzerindedir; katalog çoklu yıldızların bazı bileşenlerini ayrı kayıtlar olarak verir ve yaklaşık 6,5 kadire kadar olan yıldızları kapsar; her yıldıza, sınıfın katalogdaki payı olasılığıyla bir tayf sınıfı verilir ve sıcaklığı o sınıfın aralığından logaritmik olarak düzgün dağılımla çekilir: ${spectralRanges('tr')}; O’dan G’ye kadarki sınırlar cüce yıldızların sıcaklık ölçeğine [@pecautmamajek2013], G ile K ve K ile M arasındaki sınırlar ve M sınıfının soğuk ucu ise dev yıldızlarınkine [@vanbelle2021] göredir, çünkü katalogdaki G ve K yıldızlarının çoğu, M yıldızlarının ise hepsi dev ya da süperdevdir; O sınıfının sıcak ucu O5 yıldızlarınınkidir [@martins2005]; bir sınıfın devleri cücelerinden birkaç yüz kelvin daha soğuktur, model bu farkı yalnızca sınırları seçerken gözetir; konumlar gök küresine düzgün dağıtılmıştır, yıldızların Samanyolu’na doğru yığılması hesaba katılmamıştır; akı, yıldızlar görünebilsin diye artırılmıştır (10. bölüm)`,
+      `statistically generated sky: the number of stars, their distribution in magnitude and the shares of the spectral classes are taken from the Bright Star Catalogue [@hoffleitwarren1991], which lists 4103 entries down to magnitude 5.8 over the whole sky; half of them are above the horizon, and 93 % of those more than 4° above it; the catalogue gives some components of multiple stars as separate entries and covers the stars to about magnitude 6.5; each star is given a spectral class with the probability of the class’s share of the catalogue, and its temperature is drawn log-uniformly within the range of that class: ${spectralRanges('en')}; the boundaries from O to G follow the temperature scale of dwarfs [@pecautmamajek2013], those between G and K and between K and M and the cool end of M that of giants [@vanbelle2021], since most of the catalogue’s G and K stars and all of its M stars are giants or supergiants; the hot end of O is that of the O5 stars [@martins2005]; the giants of a class are cooler than its dwarfs by some hundreds of kelvin, a difference the model heeds only in choosing the boundaries; positions are uniform on the sky, and the crowding of stars towards the Milky Way is not modelled; the flux is raised so that the stars show at all (Section 10)`
     ),
   ],
   [

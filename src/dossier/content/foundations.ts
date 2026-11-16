@@ -7,6 +7,7 @@
 
 import { BETA_MAX, kinematicState } from '@/physics/kinematics';
 import { aberrate, neutralConeAngle, transversePlaneApparentAngle } from '@/physics/optics';
+import { MODEL_LENGTH } from '@/scene/geometry/layout';
 import { L, type SourceSection, type Text } from '../types';
 import { deg, num, r, sig } from './helpers';
 
@@ -219,8 +220,8 @@ export const FOUNDATIONS: readonly SourceSection[] = [
         tone: 'note',
         title: L('Ekranın izlediği saat', 'Which clock the display follows'),
         text: L(
-          r`Işık, modellenen 576 m’lik caddeyi iki mikrosaniyeden kısa sürede geçer; bu nedenle gösterim $6{,}2 \times 10^{6}$ kat yavaşlatılmıştır: ışık, gösterilen her saniyede 48 m yol alır. Ekran cadde zamanı $t$’ye kilitlidir; gözlemcinin öz zamanı $\tau$ bu yüzden gösterim hızının $1/\gamma$ katıyla akar. Ölçer panelindeki iki saat bunu gösterir.`,
-          r`Light crosses the 576 m of the modelled avenue in less than two microseconds, so the playback is slowed by a factor of $6.2 \times 10^{6}$: light covers 48 m per displayed second. The display is locked to street time $t$; the observer’s proper time $\tau$ therefore runs at $1/\gamma$ of the displayed rate, which is what the two clocks of the instrument panel show.`
+          r`Işık, modellenen ${MODEL_LENGTH} m’lik caddeyi iki mikrosaniyeden kısa sürede geçer; bu nedenle gösterim $6{,}2 \times 10^{6}$ kat yavaşlatılmıştır: ışık, gösterilen her saniyede 48 m yol alır. Ekran cadde zamanı $t$’ye kilitlidir; gözlemcinin öz zamanı $\tau$ bu yüzden gösterim hızının $1/\gamma$ katıyla akar. Ölçer panelindeki iki saat bunu gösterir.`,
+          r`Light crosses the ${MODEL_LENGTH} m of the modelled avenue in less than two microseconds, so the playback is slowed by a factor of $6.2 \times 10^{6}$: light covers 48 m per displayed second. The display is locked to street time $t$; the observer’s proper time $\tau$ therefore runs at $1/\gamma$ of the displayed rate, which is what the two clocks of the instrument panel show.`
         ),
       },
     ],

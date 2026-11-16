@@ -365,6 +365,17 @@ export const REFERENCES: readonly Reference[] = [
     checked: 'secondary',
   },
   {
+    key: 'martins2005',
+    authors: 'Martins, F.; Schaerer, D.; Hillier, D. J.',
+    year: '2005',
+    title: 'A new calibration of stellar parameters of Galactic O stars',
+    venue: 'Astronomy & Astrophysics 436 (3), 1049–1065',
+    doi: '10.1051/0004-6361:20042386',
+    // read in the accepted manuscript (arXiv:astro-ph/0503346) on 2026-11-16: the observational temperature scale
+    // of tables 4–6 (O5V 40 862 K, O5III 40 307 K, O5I 38 612 K), quoted in src/scene/geometry/stars.ts
+    checked: 'primary',
+  },
+  {
     key: 'mccamy1992',
     authors: 'McCamy, C. S.',
     year: '1992',
@@ -489,6 +500,17 @@ export const REFERENCES: readonly Reference[] = [
     title: 'Review of Particle Physics',
     venue: 'Physical Review D 110, 030001',
     doi: '10.1103/PhysRevD.110.030001',
+    checked: 'primary',
+  },
+  {
+    key: 'pecautmamajek2013',
+    authors: 'Pecaut, M. J.; Mamajek, E. E.',
+    year: '2013',
+    title: 'Intrinsic Colors, Temperatures, and Bolometric Corrections of Pre-main-sequence Stars',
+    venue: 'The Astrophysical Journal Supplement Series 208 (1), 9',
+    doi: '10.1088/0067-0049/208/1/9',
+    // read on 2026-11-16 in the electronic table 5 as published in VizieR (J/ApJS/208/9/table5): the effective
+    // temperatures of the dwarfs O9V–M9V quoted in src/scene/geometry/stars.ts and its tests
     checked: 'primary',
   },
   {
@@ -650,6 +672,20 @@ export const REFERENCES: readonly Reference[] = [
     title: 'Invisibility of the Lorentz Contraction',
     venue: 'Physical Review 116 (4), 1041–1045',
     doi: '10.1103/PhysRev.116.1041',
+    checked: 'primary',
+  },
+  {
+    key: 'vanbelle2021',
+    authors:
+      'van Belle, G. T.; von Braun, K.; Ciardi, D. R.; Pilyavsky, G.; Buckingham, R. S.; Boden, A. F.; Clark, C. A.; Hartman, Z.; van Belle, G.; Bucknew, W.; Cole, G.',
+    year: '2021',
+    title:
+      'Direct Measurements of Giant Star Effective Temperatures and Linear Radii: Calibration against Spectral Types and V − K Color',
+    venue: 'The Astrophysical Journal 922 (2), 163',
+    doi: '10.3847/1538-4357/ac1687',
+    // read in the accepted manuscript (arXiv:2107.09205v1) on 2026-11-16: the linear fits of effective temperature
+    // against spectral type for giants (table 8) quoted in src/scene/geometry/stars.ts; the journal's typeset table
+    // was not compared
     checked: 'primary',
   },
   {
